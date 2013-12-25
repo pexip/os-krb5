@@ -8,12 +8,14 @@ Build-Depends: debhelper (>= 8.1.3), byacc | bison,
  libverto-dev, pkg-config, texinfo
 Build-Depends-Indep: texinfo
 Standards-Version: 3.9.1
-Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Maintainer: Pexip AS <packaging@pexip.com>
+XSBC-Pexip-Original-Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 XSBC-Original-Maintainer: Sam Hartman <hartmans@debian.org>
-Uploaders: Russ Allbery <rra@debian.org>
+XSBC-Pexip-Original-Uploaders: Russ Allbery <rra@debian.org>
 Homepage: http://web.mit.edu/kerberos/
 VCS-Git: git://git.debian.org/git/pkg-k5-afs/debian-krb5.git
 VCS-Browser: http://git.debian.org/?p=pkg-k5-afs/debian-krb5.git
+XS-Pexip-Upstream: http://archive.ubuntu.com/ubuntu/ precise
 
 Package: krb5-user
 Architecture: any
