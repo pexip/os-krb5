@@ -1,3 +1,50 @@
+krb5 (1.10+dfsg~beta1-2ubuntu0.5pexip1) pexip; urgency=low
+
+  * New upstream release.
+
+ -- John-Mark Bell <jmb@pexip.com>  Wed, 20 Aug 2014 18:48:24 +0100
+
+krb5 (1.10+dfsg~beta1-2ubuntu0.5) precise-security; urgency=medium
+
+  * SECURITY UPDATE: denial of service via crafted Draft 9 request
+    - debian/patches/CVE-2012-1016.patch: don't check for an agility KDF
+      identifier in src/plugins/preauth/pkinit/pkinit_srv.c.
+    - CVE-2012-1016
+  * SECURITY UPDATE: denial of service via malformed KRB5_PADATA_PK_AS_REQ
+    AS-REQ request
+    - debian/patches/CVE-2013-1415.patch: don't dereference null pointer
+      in src/plugins/preauth/pkinit/pkinit_crypto_openssl.c.
+    - CVE-2013-1415
+  * SECURITY UPDATE: denial of service via crafted TGS-REQ request
+    - debian/patches/CVE-2013-1416.patch: don't pass null pointer to
+      strlcpy() in src/kdc/do_tgs_req.c.
+    - CVE-2013-1416
+  * SECURITY UPDATE: multi-realm denial of service via crafted request
+    - debian/patches/CVE-2013-1418.patch: don't dereference a null
+      pointer in src/kdc/main.c.
+    - CVE-2013-1418
+    - CVE-2013-6800
+  * SECURITY UPDATE: denial of service via invalid tokens
+    - debian/patches/CVE-2014-4341-4342.patch: handle invalid tokens in
+      src/lib/gssapi/krb5/k5unseal.c, src/lib/gssapi/krb5/k5unsealiov.c.
+    - CVE-2014-4341
+    - CVE-2014-4342
+  * SECURITY UPDATE: denial of service via double-free in SPNEGO
+    - debian/patches/CVE-2014-4343.patch: fix double-free in
+      src/lib/gssapi/spnego/spnego_mech.c.
+    - CVE-2014-4343
+  * SECURITY UPDATE: denial of service via null deref in SPNEGO acceptor
+    - debian/patches/CVE-2014-4344.patch: validate REMAIN in
+      src/lib/gssapi/spnego/spnego_mech.c.
+    - CVE-2014-4344
+  * SECURITY UPDATE: denial of service and possible code execution in
+    kadmind with LDAP backend
+    - debian/patches/CVE-2014-4345.patch: fix off-by-one in
+      src/plugins/kdb/ldap/libkdb_ldap/ldap_principal2.c
+    - CVE-2014-4345
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Fri, 08 Aug 2014 15:02:11 -0400
+
 krb5 (1.10+dfsg~beta1-2ubuntu0.3pexip1) pexip; urgency=low
 
   * Prepare Pexip packaging

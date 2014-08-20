@@ -14,3 +14,11 @@ preauth-context.patch
 krb5-CVE-2012-1012.patch
 krb5-CVE-2012-1013.patch
 MITKRB5-SA-2012-001.patch
+CVE-2012-1016.patch
+CVE-2013-1415.patch
+CVE-2013-1416.patch
+CVE-2013-1418.patch
+CVE-2014-4341-4342.patch
+CVE-2014-4343.patch
+CVE-2014-4344.patch
+CVE-2014-4345.patch
