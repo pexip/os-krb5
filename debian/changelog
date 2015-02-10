@@ -1,3 +1,58 @@
+krb5 (1.10+dfsg~beta1-2ubuntu0.6pexip1) pexip; urgency=low
+
+  * New upstream release.
+
+ -- John-Mark Bell <jmb@pexip.com>  Tue, 10 Feb 2015 20:24:12 +0000
+
+krb5 (1.10+dfsg~beta1-2ubuntu0.6) precise-security; urgency=medium
+
+  * SECURITY UPDATE: ticket forging via old keys
+    - debian/patches/CVE-2014-5321.patch: return only new keys in
+      src/lib/kadm5/srv/svr_principal.c.
+    - CVE-2014-5321
+  * SECURITY UPDATE: use-after-free and double-free memory access
+    violations
+    - debian/patches/CVE-2014-5352.patch: properly handle context deletion
+      in src/lib/gssapi/krb5/context_time.c,
+      src/lib/gssapi/krb5/export_sec_context.c,
+      src/lib/gssapi/krb5/gssapiP_krb5.h,
+      src/lib/gssapi/krb5/gssapi_krb5.c,
+      src/lib/gssapi/krb5/inq_context.c,
+      src/lib/gssapi/krb5/k5seal.c,
+      src/lib/gssapi/krb5/k5sealiov.c,
+      src/lib/gssapi/krb5/k5unseal.c,
+      src/lib/gssapi/krb5/k5unsealiov.c,
+      src/lib/gssapi/krb5/lucid_context.c,
+      src/lib/gssapi/krb5/prf.c,
+      src/lib/gssapi/krb5/process_context_token.c,
+      src/lib/gssapi/krb5/wrap_size_limit.c.
+    - CVE-2014-5352
+  * SECURITY UPDATE: denial of service via LDAP query with no results
+    - debian/patches/CVE-2014-5353.patch: properly handle policy name in
+      src/plugins/kdb/ldap/libkdb_ldap/ldap_pwd_policy.c.
+    - CVE-2014-5353
+  * SECURITY UPDATE: denial of service via database entry for a keyless
+    principal
+    - debian/patches/CVE-2014-5354.patch: support keyless principals in
+      src/plugins/kdb/ldap/libkdb_ldap/ldap_principal2.c.
+    - CVE-2014-5354
+  * SECURITY UPDATE: denial of service or code execution in kadmind XDR
+    data processing
+    - debian/patches/CVE-2014-9421.patch: fix double free in
+      src/lib/kadm5/kadm_rpc_xdr.c, src/lib/rpc/auth_gssapi_misc.c.
+    - CVE-2014-9421
+  * SECURITY UPDATE: impersonation attack via two-component server
+    principals
+    - debian/patches/CVE-2014-9422.patch: fix kadmind server validation in
+      src/kadmin/server/kadm_rpc_svc.c.
+    - CVE-2014-9422
+  * SECURITY UPDATE: gssrpc data leakage
+    - debian/patches/CVE-2014-9423.patch: fix leakage in
+      src/lib/rpc/svc_auth_gss.c.
+    - CVE-2014-9423
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Fri, 06 Feb 2015 15:37:18 -0500
+
 krb5 (1.10+dfsg~beta1-2ubuntu0.5pexip1) pexip; urgency=low
 
   * New upstream release.
