@@ -29,3 +29,11 @@ CVE-2014-5354.patch
 CVE-2014-9421.patch
 CVE-2014-9422.patch
 CVE-2014-9423.patch
+CVE-2002-2443.patch
+0031-Fix-SPNEGO-context-aliasing-bugs-CVE-2015-2695.patch
+0032-Fix-IAKERB-context-aliasing-bugs-CVE-2015-2696.patch
+0033-Fix-two-IAKERB-comments.patch
+0034-Fix-IAKERB-context-export-import-CVE-2015-2698.patch
+0035-Fix-SPNEGO-context-import.patch
+0030-Fix-krb5_read_message-handling-CVE-2014-5355.patch
+0033-Fix-build_principal-memory-bug-CVE-2015-2697.patch

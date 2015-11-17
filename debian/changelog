@@ -1,3 +1,48 @@
+krb5 (1.10+dfsg~beta1-2ubuntu0.7pexip1) pexip; urgency=low
+
+  * New upstream release.
+
+ -- John-Mark Bell <jmb@pexip.com>  Tue, 17 Nov 2015 02:20:53 +0000
+
+krb5 (1.10+dfsg~beta1-2ubuntu0.7) precise-security; urgency=medium
+
+  * SECURITY UPDATE: denial of service via udp ping-pong
+    - debian/patches/CVE-2002-2443.patch: don't respond to improper packets
+      in src/kadmin/server/schpw.c.
+    - CVE-2002-2443
+  * SECURITY UPDATE: denial of service via incorrect null bytes
+    - d/p/0030-Fix-krb5_read_message-handling-CVE-2014-5355.patch:
+      properly handle null bytes in src/appl/user_user/server.c,
+      src/lib/krb5/krb/recvauth.c.
+    - CVE-2015-5355
+  * SECURITY UPDATE: SPNEGO context aliasing bugs
+    - d/p/0031-Fix-SPNEGO-context-aliasing-bugs-CVE-2015-2695.patch:
+      improve logic in src/lib/gssapi/spnego/gssapiP_spnego.h,
+      src/lib/gssapi/spnego/spnego_mech.c.
+    - d/p/0035-Fix-SPNEGO-context-import.patch: fix SPNEGO context import
+      in src/lib/gssapi/spnego/spnego_mech.c.
+    - CVE-2015-2695
+  * SECURITY UPDATE: IAKERB context aliasing bugs
+    - d/p/0032-Fix-IAKERB-context-aliasing-bugs-CVE-2015-2696.patch:
+      improve logic in src/lib/gssapi/krb5/gssapiP_krb5.h,
+      src/lib/gssapi/krb5/gssapi_krb5.c, src/lib/gssapi/krb5/iakerb.c.
+    - d/p/0033-Fix-two-IAKERB-comments.patch: fix comments in
+      src/lib/gssapi/krb5/iakerb.c.
+    - CVE-2015-2696
+  * SECURITY UPDATE: KDC crash via invalid string processing
+    - d/p/0033-Fix-build_principal-memory-bug-CVE-2015-2697.patch:
+      use k5memdup0() instead of strdup() in src/lib/krb5/krb/bld_princ.c.
+    - CVE-2015-2697
+  * SECURITY UPDATE: memory corruption in IAKERB context export/import
+    - d/p/0034-Fix-IAKERB-context-export-import-CVE-2015-2698.patch:
+      dereferencing the context_handle pointer before casting it in
+      and implement implement an IAKERB gss_import_sec_context() function
+      in src/lib/gssapi/krb5/gssapiP_krb5.h,
+      src/lib/gssapi/krb5/gssapi_krb5.c, src/lib/gssapi/krb5/iakerb.c.
+    - CVE-2015-2698
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Wed, 11 Nov 2015 09:16:52 -0500
+
 krb5 (1.10+dfsg~beta1-2ubuntu0.6pexip1) pexip; urgency=low
 
   * New upstream release.
