@@ -552,9 +552,7 @@ static inline int fai_add_entry (struct addrinfo **result, void *addr,
     if (n == 0)
         return EAI_MEMORY;
     if (template->ai_family != AF_INET
-#ifdef KRB5_USE_INET6
         && template->ai_family != AF_INET6
-#endif
     )
         return EAI_FAMILY;
     *n = *template;
@@ -572,7 +570,6 @@ static inline int fai_add_entry (struct addrinfo **result, void *addr,
         sin4->sin_len = sizeof (struct sockaddr_in);
 #endif
     }
-#ifdef KRB5_USE_INET6
     if (template->ai_family == AF_INET6) {
         struct sockaddr_in6 *sin6;
         sin6 = malloc (sizeof (struct sockaddr_in6));
@@ -587,7 +584,6 @@ static inline int fai_add_entry (struct addrinfo **result, void *addr,
         sin6->sin6_len = sizeof (struct sockaddr_in6);
 #endif
     }
-#endif
     n->ai_next = *result;
     *result = n;
     return 0;
@@ -1246,19 +1242,19 @@ getaddrinfo (const char *name, const char *serv, const struct addrinfo *hint,
                 ai->ai_canonname = 0;
             name2 = ai->ai_canonname ? ai->ai_canonname : name;
         } else {
-            /* Sometimes gethostbyname will be directed to /etc/hosts
-               first, and sometimes that file will have entries with
-               the unqualified name first.  So take the first entry
-               that looks like it could be a FQDN.  */
-            for (i = 0; hp->h_aliases[i]; i++) {
-                if (strchr(hp->h_aliases[i], '.') != 0) {
-                    name2 = hp->h_aliases[i];
+            /*
+             * Sometimes gethostbyname will be directed to /etc/hosts
+             * first, and sometimes that file will have entries with
+             * the unqualified name first.  So take the first entry
+             * that looks like it could be a FQDN. Starting with h_name
+             * and then all the aliases.
+             */
+            for (i = 0, name2 = hp->h_name; name2; i++) {
+                if (strchr(name2, '.') != 0)
                     break;
-                }
+                name2 = hp->h_aliases[i];
             }
-            /* Give up, just use the first name (h_name ==
-               h_aliases[0] on all systems I've seen).  */
-            if (hp->h_aliases[i] == 0)
+            if (name2 == 0)
                 name2 = hp->h_name;
         }
 
@@ -1355,15 +1351,8 @@ static int krb5int_unlock_fac (void)
 }
 #endif
 
-#if defined(KRB5_USE_INET6)
 /* Some systems don't define in6addr_any.  */
 const struct in6_addr krb5int_in6addr_any = IN6ADDR_ANY_INIT;
-#else
-/* Are any of the systems without IPv6 support among those where
-   we cross-check the actual exported symbols against the export
-   list?  Not sure, play it safe.  */
-const char krb5int_in6addr_any = 0;
-#endif
 
 int krb5int_getaddrinfo (const char *node, const char *service,
                          const struct addrinfo *hints,

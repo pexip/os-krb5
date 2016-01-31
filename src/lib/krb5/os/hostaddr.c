@@ -25,12 +25,13 @@
  */
 
 #include "k5-int.h"
+#include "os-proto.h"
 
 #include "fake-addrinfo.h"
 
 krb5_error_code
-krb5_os_hostaddr(krb5_context context, const char *name,
-                 krb5_address ***ret_addrs)
+k5_os_hostaddr(krb5_context context, const char *name,
+               krb5_address ***ret_addrs)
 {
     krb5_error_code     retval;
     krb5_address        **addrs;
@@ -59,9 +60,7 @@ krb5_os_hostaddr(krb5_context context, const char *name,
     for (i = 0, aip = ai; aip; aip = aip->ai_next) {
         switch (aip->ai_addr->sa_family) {
         case AF_INET:
-#ifdef KRB5_USE_INET6
         case AF_INET6:
-#endif
             i++;
         default:
             /* Ignore addresses of unknown families.  */
@@ -87,13 +86,11 @@ krb5_os_hostaddr(krb5_context context, const char *name,
             ptr = &((struct sockaddr_in *)aip->ai_addr)->sin_addr;
             atype = ADDRTYPE_INET;
             break;
-#ifdef KRB5_USE_INET6
         case AF_INET6:
             addrlen = sizeof (struct in6_addr);
             ptr = &((struct sockaddr_in6 *)aip->ai_addr)->sin6_addr;
             atype = ADDRTYPE_INET6;
             break;
-#endif
         default:
             continue;
         }
@@ -105,12 +102,9 @@ krb5_os_hostaddr(krb5_context context, const char *name,
         addrs[i]->magic = KV5M_ADDRESS;
         addrs[i]->addrtype = atype;
         addrs[i]->length = addrlen;
-        addrs[i]->contents = malloc(addrs[i]->length);
-        if (!addrs[i]->contents) {
-            retval = ENOMEM;
+        addrs[i]->contents = k5memdup(ptr, addrlen, &retval);
+        if (addrs[i]->contents == NULL)
             goto errout;
-        }
-        memcpy (addrs[i]->contents, ptr, addrs[i]->length);
         i++;
     }
 

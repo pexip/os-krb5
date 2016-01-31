@@ -2,6 +2,8 @@
 #include "k5-int.h"
 #include "com_err.h"
 #include "init_creds_ctx.h"
+#include "int-proto.h"
+#include "os-proto.h"
 
 krb5_error_code
 krb5_get_as_key_password(krb5_context context,
@@ -12,17 +14,28 @@ krb5_get_as_key_password(krb5_context context,
                          krb5_data *salt,
                          krb5_data *params,
                          krb5_keyblock *as_key,
-                         void *gak_data)
+                         void *gak_data,
+                         k5_response_items *ritems)
 {
-    krb5_data *password;
+    struct gak_password *gp = gak_data;
     krb5_error_code ret;
     krb5_data defsalt;
     char *clientstr;
-    char promptstr[1024];
+    char promptstr[1024], pwbuf[1024];
+    krb5_data pw;
     krb5_prompt prompt;
     krb5_prompt_type prompt_type;
+    const char *rpass;
 
-    password = (krb5_data *) gak_data;
+    /* If we need to get the AS key via the responder, ask for it. */
+    if (as_key == NULL) {
+        if (gp->password != NULL)
+            return 0;
+
+        return k5_response_items_ask_question(ritems,
+                                              KRB5_RESPONDER_QUESTION_PASSWORD,
+                                              "");
+    }
 
     /* If there's already a key of the correct etype, we're done.
        If the etype is wrong, free the existing key, and make
@@ -39,7 +52,20 @@ krb5_get_as_key_password(krb5_context context,
         }
     }
 
-    if (password->length == 0 || password->data[0] == '\0') {
+    if (gp->password == NULL) {
+        /* Check the responder for the password. */
+        rpass = k5_response_items_get_answer(ritems,
+                                             KRB5_RESPONDER_QUESTION_PASSWORD);
+        if (rpass != NULL) {
+            ret = alloc_data(&gp->storage, strlen(rpass));
+            if (ret)
+                return ret;
+            memcpy(gp->storage.data, rpass, strlen(rpass));
+            gp->password = &gp->storage;
+        }
+    }
+
+    if (gp->password == NULL) {
         if (prompter == NULL)
             return(EIO);
 
@@ -50,20 +76,27 @@ krb5_get_as_key_password(krb5_context context,
                  clientstr);
         free(clientstr);
 
+        pw = make_data(pwbuf, sizeof(pwbuf));
         prompt.prompt = promptstr;
         prompt.hidden = 1;
-        prompt.reply = password;
+        prompt.reply = &pw;
         prompt_type = KRB5_PROMPT_TYPE_PASSWORD;
 
         /* PROMPTER_INVOCATION */
-        krb5int_set_prompt_types(context, &prompt_type);
+        k5_set_prompt_types(context, &prompt_type);
         ret = (*prompter)(context, prompter_data, NULL, NULL, 1, &prompt);
-        krb5int_set_prompt_types(context, 0);
+        k5_set_prompt_types(context, 0);
         if (ret)
             return(ret);
+
+        ret = krb5int_copy_data_contents(context, &pw, &gp->storage);
+        zap(pw.data, pw.length);
+        if (ret)
+            return ret;
+        gp->password = &gp->storage;
     }
 
-    if (salt->length == SALT_TYPE_AFS_LENGTH && salt->data == NULL) {
+    if (salt == NULL) {
         if ((ret = krb5_principal2salt(context, client, &defsalt)))
             return(ret);
 
@@ -72,7 +105,7 @@ krb5_get_as_key_password(krb5_context context,
         defsalt.length = 0;
     }
 
-    ret = krb5_c_string_to_key_with_params(context, etype, password, salt,
+    ret = krb5_c_string_to_key_with_params(context, etype, gp->password, salt,
                                            params->data?params:NULL, as_key);
 
     if (defsalt.length)
@@ -92,16 +125,11 @@ krb5_init_creds_set_password(krb5_context context,
     if (s == NULL)
         return ENOMEM;
 
-    if (ctx->password.data != NULL) {
-        zap(ctx->password.data, ctx->password.length);
-        krb5_free_data_contents(context, &ctx->password);
-    }
-
-    ctx->password.data = s;
-    ctx->password.length = strlen(s);
+    zapfree(ctx->gakpw.storage.data, ctx->gakpw.storage.length);
+    ctx->gakpw.storage = string2data(s);
+    ctx->gakpw.password = &ctx->gakpw.storage;
     ctx->gak_fct = krb5_get_as_key_password;
-    ctx->gak_data = &ctx->password;
-
+    ctx->gak_data = &ctx->gakpw;
     return 0;
 }
 
@@ -158,7 +186,7 @@ warn_pw_expiry(krb5_context context, krb5_get_init_creds_opt *options,
 
     get_expiry_times(as_reply->enc_part2, &pw_exp, &acct_exp, &is_last_req);
 
-    ret = krb5int_gic_opt_to_opte(context, options, &opte, 0, "");
+    ret = k5_gic_opt_to_opte(context, options, &opte, 0, "");
     if (ret == 0 && opte->opt_private->expire_cb != NULL) {
         krb5_expire_callback_func cb = opte->opt_private->expire_cb;
         void *cb_data = opte->opt_private->expire_data;
@@ -167,6 +195,10 @@ warn_pw_expiry(krb5_context context, krb5_get_init_creds_opt *options,
         (*cb)(context, cb_data, pw_exp, acct_exp, is_last_req);
         return;
     }
+
+    /* Don't warn if no password expiry value was sent. */
+    if (pw_exp == 0)
+        return;
 
     /* Don't warn if the password is being changed. */
     if (in_tkt_service && strcmp(in_tkt_service, "kadmin/changepw") == 0)
@@ -214,51 +246,42 @@ krb5_error_code KRB5_CALLCONV
 krb5_get_init_creds_password(krb5_context context,
                              krb5_creds *creds,
                              krb5_principal client,
-                             char *password,
+                             const char *password,
                              krb5_prompter_fct prompter,
                              void *data,
                              krb5_deltat start_time,
-                             char *in_tkt_service,
+                             const char *in_tkt_service,
                              krb5_get_init_creds_opt *options)
 {
-    krb5_error_code ret, ret2;
+    krb5_error_code ret;
     int use_master;
     krb5_kdc_rep *as_reply;
     int tries;
     krb5_creds chpw_creds;
     krb5_get_init_creds_opt *chpw_opts = NULL;
+    struct gak_password gakpw;
     krb5_data pw0, pw1;
     char banner[1024], pw0array[1024], pw1array[1024];
     krb5_prompt prompt[2];
     krb5_prompt_type prompt_types[sizeof(prompt)/sizeof(prompt[0])];
+    struct errinfo errsave = EMPTY_ERRINFO;
+    char *message;
 
     use_master = 0;
     as_reply = NULL;
     memset(&chpw_creds, 0, sizeof(chpw_creds));
+    memset(&gakpw, 0, sizeof(gakpw));
 
-    pw0.data = pw0array;
-
-    if (password && password[0]) {
-        if (strlcpy(pw0.data, password, sizeof(pw0array)) >= sizeof(pw0array)) {
-            ret = EINVAL;
-            goto cleanup;
-        }
-        pw0.length = strlen(password);
-    } else {
-        pw0.data[0] = '\0';
-        pw0.length = sizeof(pw0array);
+    if (password != NULL) {
+        pw0 = string2data((char *)password);
+        gakpw.password = &pw0;
     }
-
-    pw1.data = pw1array;
-    pw1.data[0] = '\0';
-    pw1.length = sizeof(pw1array);
 
     /* first try: get the requested tkt from any kdc */
 
-    ret = krb5int_get_init_creds(context, creds, client, prompter, data,
-                                 start_time, in_tkt_service, options,
-                                 krb5_get_as_key_password, (void *) &pw0,
-                                 &use_master, &as_reply);
+    ret = k5_get_init_creds(context, creds, client, prompter, data, start_time,
+                            in_tkt_service, options, krb5_get_as_key_password,
+                            &gakpw, &use_master, &as_reply);
 
     /* check for success */
 
@@ -280,35 +303,27 @@ krb5_get_init_creds_password(krb5_context context,
         TRACE_GIC_PWD_MASTER(context);
         use_master = 1;
 
+        k5_save_ctx_error(context, ret, &errsave);
         if (as_reply) {
             krb5_free_kdc_rep( context, as_reply);
             as_reply = NULL;
         }
-        ret2 = krb5int_get_init_creds(context, creds, client, prompter, data,
-                                      start_time, in_tkt_service, options,
-                                      krb5_get_as_key_password, (void *) &pw0,
-                                      &use_master, &as_reply);
+        ret = k5_get_init_creds(context, creds, client, prompter, data,
+                                start_time, in_tkt_service, options,
+                                krb5_get_as_key_password, &gakpw, &use_master,
+                                &as_reply);
 
-        if (ret2 == 0) {
-            ret = 0;
+        if (ret == 0)
             goto cleanup;
-        }
 
-        /* if the master is unreachable, return the error from the
-           slave we were able to contact or reset the use_master flag */
-
-        if ((ret2 != KRB5_KDC_UNREACH) &&
-            (ret2 != KRB5_REALM_CANT_RESOLVE) &&
-            (ret2 != KRB5_REALM_UNKNOWN))
-            ret = ret2;
-        else
+        /* If the master is unreachable, return the error from the slave we
+         * were able to contact and reset the use_master flag. */
+        if (ret == KRB5_KDC_UNREACH || ret == KRB5_REALM_CANT_RESOLVE ||
+            ret == KRB5_REALM_UNKNOWN) {
+            ret = k5_restore_ctx_error(context, &errsave);
             use_master = 0;
+        }
     }
-
-#ifdef USE_KIM
-    if (ret == KRB5KDC_ERR_KEY_EXP)
-        goto cleanup;   /* Login library will deal appropriately with this error */
-#endif
 
     /* at this point, we have an error from the master.  if the error
        is not password expired, or if it is but there's no prompter,
@@ -340,18 +355,24 @@ krb5_get_init_creds_password(krb5_context context,
     krb5_get_init_creds_opt_set_forwardable(chpw_opts, 0);
     krb5_get_init_creds_opt_set_proxiable(chpw_opts, 0);
 
-    if ((ret = krb5int_get_init_creds(context, &chpw_creds, client,
-                                      prompter, data,
-                                      start_time, "kadmin/changepw", chpw_opts,
-                                      krb5_get_as_key_password, (void *) &pw0,
-                                      &use_master, NULL)))
+    ret = k5_get_init_creds(context, &chpw_creds, client, prompter, data,
+                            start_time, "kadmin/changepw", chpw_opts,
+                            krb5_get_as_key_password, &gakpw, &use_master,
+                            NULL);
+    if (ret)
         goto cleanup;
 
+    pw0.data = pw0array;
+    pw0.data[0] = '\0';
+    pw0.length = sizeof(pw0array);
     prompt[0].prompt = _("Enter new password");
     prompt[0].hidden = 1;
     prompt[0].reply = &pw0;
     prompt_types[0] = KRB5_PROMPT_TYPE_NEW_PASSWORD;
 
+    pw1.data = pw1array;
+    pw1.data[0] = '\0';
+    pw1.length = sizeof(pw1array);
     prompt[1].prompt = _("Enter it again");
     prompt[1].hidden = 1;
     prompt[1].reply = &pw1;
@@ -366,10 +387,10 @@ krb5_get_init_creds_password(krb5_context context,
         pw1.length = sizeof(pw1array);
 
         /* PROMPTER_INVOCATION */
-        krb5int_set_prompt_types(context, prompt_types);
+        k5_set_prompt_types(context, prompt_types);
         ret = (*prompter)(context, data, 0, banner,
                           sizeof(prompt)/sizeof(prompt[0]), prompt);
-        krb5int_set_prompt_types(context, 0);
+        k5_set_prompt_types(context, 0);
         if (ret)
             goto cleanup;
 
@@ -409,19 +430,21 @@ krb5_get_init_creds_password(krb5_context context,
 
             /* the error was soft, so try again */
 
+            if (krb5_chpw_message(context, &result_string, &message) != 0)
+                message = NULL;
+
             /* 100 is I happen to know that no code_string will be longer
                than 100 chars */
 
-            if (result_string.length > (sizeof(banner)-100))
-                result_string.length = sizeof(banner)-100;
+            if (message != NULL && strlen(message) > (sizeof(banner) - 100))
+                message[sizeof(banner) - 100] = '\0';
 
             snprintf(banner, sizeof(banner),
-                     _("%.*s%s%.*s.  Please try again.\n"),
+                     _("%.*s%s%s.  Please try again.\n"),
                      (int) code_string.length, code_string.data,
-                     result_string.length ? ": " : "",
-                     (int) result_string.length,
-                     result_string.data ? result_string.data : "");
+                     message ? ": " : "", message ? message : "");
 
+            free(message);
             free(code_string.data);
             free(result_string.data);
         }
@@ -435,10 +458,11 @@ krb5_get_init_creds_password(krb5_context context,
        is final.  */
 
     TRACE_GIC_PWD_CHANGED(context);
-    ret = krb5int_get_init_creds(context, creds, client, prompter, data,
-                                 start_time, in_tkt_service, options,
-                                 krb5_get_as_key_password, (void *) &pw0,
-                                 &use_master, &as_reply);
+    gakpw.password = &pw0;
+    ret = k5_get_init_creds(context, creds, client, prompter, data,
+                            start_time, in_tkt_service, options,
+                            krb5_get_as_key_password, &gakpw, &use_master,
+                            &as_reply);
     if (ret)
         goto cleanup;
 
@@ -449,11 +473,13 @@ cleanup:
 
     if (chpw_opts)
         krb5_get_init_creds_opt_free(context, chpw_opts);
+    zapfree(gakpw.storage.data, gakpw.storage.length);
     memset(pw0array, 0, sizeof(pw0array));
     memset(pw1array, 0, sizeof(pw1array));
     krb5_free_cred_contents(context, &chpw_creds);
     if (as_reply)
         krb5_free_kdc_rep(context, as_reply);
+    k5_clear_error(&errsave);
 
     return(ret);
 }
@@ -486,25 +512,20 @@ krb5_get_in_tkt_with_password(krb5_context context, krb5_flags options,
                               krb5_creds *creds, krb5_kdc_rep **ret_as_reply)
 {
     krb5_error_code retval;
-    krb5_data pw0;
-    char pw0array[1024];
+    struct gak_password gakpw;
+    krb5_data pw;
     char * server;
     krb5_principal server_princ, client_princ;
     int use_master = 0;
     krb5_get_init_creds_opt *opts = NULL;
 
-    pw0.data = pw0array;
-    if (password && password[0]) {
-        if (strlcpy(pw0.data, password, sizeof(pw0array)) >= sizeof(pw0array))
-            return EINVAL;
-        pw0.length = strlen(password);
-    } else {
-        pw0.data[0] = '\0';
-        pw0.length = sizeof(pw0array);
+    memset(&gakpw, 0, sizeof(gakpw));
+    if (password != NULL) {
+        pw = string2data((char *)password);
+        gakpw.password = &pw;
     }
-    retval = krb5int_populate_gic_opt(context, &opts,
-                                      options, addrs, ktypes,
-                                      pre_auth_types, creds);
+    retval = k5_populate_gic_opt(context, &opts, options, addrs, ktypes,
+                                 pre_auth_types, creds);
     if (retval)
         return (retval);
     retval = krb5_unparse_name( context, creds->server, &server);
@@ -514,13 +535,13 @@ krb5_get_in_tkt_with_password(krb5_context context, krb5_flags options,
     }
     server_princ = creds->server;
     client_princ = creds->client;
-    retval = krb5int_get_init_creds(context, creds, creds->client,
-                                    krb5_prompter_posix, NULL,
-                                    0, server, opts,
-                                    krb5_get_as_key_password, &pw0,
-                                    &use_master, ret_as_reply);
+    retval = k5_get_init_creds(context, creds, creds->client,
+                               krb5_prompter_posix, NULL, 0, server, opts,
+                               krb5_get_as_key_password, &gakpw, &use_master,
+                               ret_as_reply);
     krb5_free_unparsed_name( context, server);
     krb5_get_init_creds_opt_free(context, opts);
+    zapfree(gakpw.storage.data, gakpw.storage.length);
     if (retval) {
         return (retval);
     }

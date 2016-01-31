@@ -2,9 +2,6 @@ mydir=tests$(S)mkeystash_compat
 BUILDTOP=$(REL)..$(S)..
 
 RUN_SETUP = @KRB5_RUN_ENV@ KRB5_KDC_PROFILE=kdc.conf KRB5_CONFIG=krb5.conf
-KRB5_RUN_ENV= @KRB5_RUN_ENV@
-PROG_LIBPATH=-L$(TOPLIBD)
-PROG_RPATH=$(KRB5_LIBDIR)
 
 OBJS = bigendian.o
 SRCS = $(srcdir)/bigendian.c
@@ -32,7 +29,7 @@ kdc.conf: Makefile
 krb5.conf: Makefile
 	cat $(top_srcdir)/config-files/krb5.conf > krb5.new
 	echo "[dbmodules]" >> krb5.new
-	echo " db_module_dir = $(BUILDTOP)/util/fakedest$(KRB5_DB_MODULE_DIR)" >> krb5.new
+	echo " db_module_dir = $(BUILDTOP)/plugins/kdb" >> krb5.new
 	mv krb5.new krb5.conf
 
 # Verify that the mkey stash code is backward compat with old/non-keytab stashfile format

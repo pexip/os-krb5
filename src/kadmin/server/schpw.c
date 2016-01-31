@@ -52,7 +52,7 @@ process_chpw_request(krb5_context context, void *server_handle, char *realm,
         ret = KRB5KRB_AP_ERR_MODIFIED;
         numresult = KRB5_KPASSWD_MALFORMED;
         strlcpy(strresult, "Request was truncated", sizeof(strresult));
-        goto chpwfail;
+        goto bailout;
     }
 
     ptr = req->data;
@@ -67,7 +67,7 @@ process_chpw_request(krb5_context context, void *server_handle, char *realm,
         numresult = KRB5_KPASSWD_MALFORMED;
         strlcpy(strresult, "Request length was inconsistent",
                 sizeof(strresult));
-        goto chpwfail;
+        goto bailout;
     }
 
     /* verify version number */
@@ -80,7 +80,7 @@ process_chpw_request(krb5_context context, void *server_handle, char *realm,
         numresult = KRB5_KPASSWD_BAD_VERSION;
         snprintf(strresult, sizeof(strresult),
                  "Request contained unknown protocol version number %d", vno);
-        goto chpwfail;
+        goto bailout;
     }
 
     /* read, check ap-req length */
@@ -93,7 +93,7 @@ process_chpw_request(krb5_context context, void *server_handle, char *realm,
         numresult = KRB5_KPASSWD_MALFORMED;
         strlcpy(strresult, "Request was truncated in AP-REQ",
                 sizeof(strresult));
-        goto chpwfail;
+        goto bailout;
     }
 
     /* verify ap_req */
@@ -216,10 +216,7 @@ process_chpw_request(krb5_context context, void *server_handle, char *realm,
 
     /* change the password */
 
-    ptr = (char *) malloc(clear.length+1);
-    memcpy(ptr, clear.data, clear.length);
-    ptr[clear.length] = '\0';
-
+    ptr = k5memdup0(clear.data, clear.length, &ret);
     ret = schpw_util_wrapper(server_handle, client, target,
                              (ticket->enc_part2->flags & TKT_FLG_INITIAL) != 0,
                              ptr, NULL, strresult, sizeof(strresult));
@@ -244,7 +241,6 @@ process_chpw_request(krb5_context context, void *server_handle, char *realm,
         salen = sizeof(*sin);
         break;
     }
-#ifdef KRB5_USE_INET6
     case ADDRTYPE_INET6: {
         struct sockaddr_in6 *sin6 = ss2sin6(&ss);
 
@@ -254,7 +250,6 @@ process_chpw_request(krb5_context context, void *server_handle, char *realm,
         salen = sizeof(*sin6);
         break;
     }
-#endif
     default: {
         struct sockaddr *sa = ss2sa(&ss);
 
@@ -370,7 +365,7 @@ chpwfail:
            to mk_error do. */
         krberror.error = ret;
         krberror.error -= ERROR_TABLE_BASE_krb5;
-        if (krberror.error < 0 || krberror.error > 128)
+        if (krberror.error < 0 || krberror.error > KRB_ERR_MAX)
             krberror.error = KRB_ERR_GENERIC;
 
         krberror.client = NULL;

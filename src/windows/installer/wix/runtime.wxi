@@ -1,8 +1,17 @@
 ﻿<?xml version="1.0"?> 
 <Include>
     <?ifdef CL1600 ?>
-      <MergeRef Id="MSVCRT100MEM"/>
-      <MergeRef Id="MSVCRT100MFC"/>
-      <MergeRef Id="MSVCRT100MFL"/>
+      <?if $(var.Platform) = "x64" ?>
+        <MergeRef Id="MSVCRT$(var.VCVer)MEM64"/>
+        <MergeRef Id="MSVCRT$(var.VCVer)MFC64"/>
+        <MergeRef Id="MSVCRT$(var.VCVer)MFL64"/>
+        <MergeRef Id="MSVCRT$(var.VCVer)MEM86"/>
+        <MergeRef Id="MSVCRT$(var.VCVer)MFC86"/>
+        <MergeRef Id="MSVCRT$(var.VCVer)MFL86"/>
+      <?else?>
+        <MergeRef Id="MSVCRT$(var.VCVer)MEM86"/>
+        <MergeRef Id="MSVCRT$(var.VCVer)MFC86"/>
+        <MergeRef Id="MSVCRT$(var.VCVer)MFL86"/>
+      <?endif?>
     <?endif?>
 </Include>

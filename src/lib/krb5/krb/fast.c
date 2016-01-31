@@ -25,6 +25,7 @@
  */
 
 #include <k5-int.h>
+#include "int-proto.h"
 
 /*
  * It is possible to support sending a request that includes both a FAST and
@@ -107,6 +108,40 @@ fast_armor_ap_request(krb5_context context,
 }
 
 krb5_error_code
+krb5int_fast_tgs_armor(krb5_context context,
+                       struct krb5int_fast_request_state *state,
+                       krb5_keyblock *subkey, krb5_keyblock *session_key,
+                       krb5_ccache ccache, krb5_data *target_realm)
+{
+    krb5_principal target_principal = NULL;
+    krb5_keyblock *existing_armor = NULL;
+    krb5_error_code retval = 0;
+
+    if (ccache) {
+        retval = krb5int_tgtname(context, target_realm, target_realm,
+                                 &target_principal);
+        if (retval == 0)
+            retval = fast_armor_ap_request(context, state, ccache,
+                                           target_principal);
+        if (retval == 0) {
+            existing_armor = state->armor_key;
+            state->armor_key = NULL;
+            retval = krb5_c_fx_cf2_simple(context, existing_armor,
+                                          "explicitarmor", subkey,
+                                          "tgsarmor", &state->armor_key);
+        }
+    } else {
+        retval = krb5_c_fx_cf2_simple(context, subkey, "subkeyarmor",
+                                      session_key, "ticketarmor",
+                                      &state->armor_key);
+    }
+    if (target_principal)
+        krb5_free_principal(context, target_principal);
+    krb5_free_keyblock(context, existing_armor);
+    return retval;
+}
+
+krb5_error_code
 krb5int_fast_prep_req_body(krb5_context context,
                            struct krb5int_fast_request_state *state,
                            krb5_kdc_req *request,
@@ -145,7 +180,7 @@ krb5int_fast_as_armor(krb5_context context,
     krb5_data *target_realm;
 
     krb5_clear_error_message(context);
-    target_realm = krb5_princ_realm(context, request->server);
+    target_realm = &request->server->realm;
     if (opte->opt_private->fast_ccache_name) {
         TRACE_FAST_ARMOR_CCACHE(context, opte->opt_private->fast_ccache_name);
         state->fast_state_flags |= KRB5INT_FAST_ARMOR_AVAIL;
@@ -159,7 +194,7 @@ krb5int_fast_as_armor(krb5_context context,
             krb5_data config_data;
             config_data.data = NULL;
             retval = krb5_cc_get_config(context, ccache, target_principal,
-                                        KRB5_CONF_FAST_AVAIL, &config_data);
+                                        KRB5_CC_CONF_FAST_AVAIL, &config_data);
             if ((retval == 0) && config_data.data) {
                 TRACE_FAST_CCACHE_CONFIG(context);
                 state->fast_state_flags |= KRB5INT_FAST_DO_FAST;
@@ -190,6 +225,32 @@ krb5int_fast_as_armor(krb5_context context,
     return retval;
 }
 
+/*
+ * Construct a list of outer request padata for a TGS request.  Since we do
+ * FAST TGS even when we don't have reason to believe the KDC supports FAST,
+ * the outer padata has to contain duplicates of the inner padata (such as
+ * S4U2Self padata) as well as the PA-TGS-REQ and PA-FX-FAST padata.  The
+ * caller must free *out_padata with free() as it is not a deep copy.
+ */
+static krb5_error_code
+make_tgs_outer_padata(krb5_pa_data *tgs, krb5_pa_data *fast,
+                      krb5_pa_data **other, krb5_pa_data ***out_padata)
+{
+    krb5_pa_data **pa_list;
+    size_t i;
+
+    *out_padata = NULL;
+    for (i = 0; other[i] != NULL; i++);
+    pa_list = calloc(i + 3, sizeof(*pa_list));
+    if (pa_list == NULL)
+        return ENOMEM;
+    pa_list[0] = tgs;
+    pa_list[1] = fast;
+    for (i = 0; other[i] != NULL; i++)
+        pa_list[i + 2] = other[i];
+    *out_padata = pa_list;
+    return 0;
+}
 
 krb5_error_code
 krb5int_fast_prep_req(krb5_context context,
@@ -200,30 +261,44 @@ krb5int_fast_prep_req(krb5_context context,
                       krb5_data **encoded_request)
 {
     krb5_error_code retval = 0;
-    krb5_pa_data *pa_array[2];
+    krb5_pa_data *pa_array[2], **pa_tgs_array = NULL;
     krb5_pa_data pa[2];
     krb5_fast_req fast_req;
+    krb5_pa_data *tgs = NULL;
     krb5_fast_armored_req *armored_req = NULL;
     krb5_data *encoded_fast_req = NULL;
     krb5_data *encoded_armored_req = NULL;
     krb5_data *local_encoded_result = NULL;
+    int i, j;
 
     assert(state != NULL);
     assert(state->fast_outer_request.padata == NULL);
-    memset(pa_array, 0, sizeof pa_array);
+    memset(pa_array, 0, sizeof(pa_array));
     if (state->armor_key == NULL) {
         return encoder(request, encoded_request);
     }
 
     TRACE_FAST_ENCODE(context);
     state->nonce = request->nonce;
-    fast_req.req_body =  request;
+    fast_req.req_body = request;
     if (fast_req.req_body->padata == NULL) {
         fast_req.req_body->padata = calloc(1, sizeof(krb5_pa_data *));
         if (fast_req.req_body->padata == NULL)
             retval = ENOMEM;
     }
     fast_req.fast_options = state->fast_options;
+    if (retval == 0
+        && (tgs = krb5int_find_pa_data(context, fast_req.req_body->padata,
+                                       KRB5_PADATA_AP_REQ)) != NULL) {
+        krb5_pa_data **paptr = &fast_req.req_body->padata[0];
+        for (i = 0, j = 0; paptr[j] != NULL; j++) {
+            if (paptr[j]->pa_type == KRB5_PADATA_AP_REQ)
+                paptr[j] = NULL;
+            else
+                paptr[i++] = paptr[j];
+        }
+        paptr[i] = NULL;
+    }
     if (retval == 0)
         retval = encode_krb5_fast_req(&fast_req, &encoded_fast_req);
     if (retval == 0) {
@@ -245,14 +320,20 @@ krb5int_fast_prep_req(krb5_context context,
     if (retval == 0)
         retval = encode_krb5_pa_fx_fast_request(armored_req,
                                                 &encoded_armored_req);
-    if (retval==0) {
+    if (retval == 0) {
         pa[0].pa_type = KRB5_PADATA_FX_FAST;
         pa[0].contents = (unsigned char *) encoded_armored_req->data;
         pa[0].length = encoded_armored_req->length;
-        pa_array[0] = &pa[0];
+        if (tgs) {
+            retval = make_tgs_outer_padata(tgs, pa, request->padata,
+                                           &pa_tgs_array);
+            state->fast_outer_request.padata = pa_tgs_array;
+        } else {
+            pa_array[0] = &pa[0];
+            state->fast_outer_request.padata = pa_array;
+        }
     }
-    state->fast_outer_request.padata = pa_array;
-    if(retval == 0)
+    if (retval == 0)
         retval = encoder(&state->fast_outer_request, &local_encoded_result);
     if (retval == 0) {
         *encoded_request = local_encoded_result;
@@ -268,7 +349,12 @@ krb5int_fast_prep_req(krb5_context context,
         krb5_free_data(context, encoded_fast_req);
     if (local_encoded_result)
         krb5_free_data(context, local_encoded_result);
+    if (tgs) {
+        free(tgs->contents);
+        free(tgs);
+    }
     state->fast_outer_request.padata = NULL;
+    free(pa_tgs_array);
     return retval;
 }
 
@@ -353,16 +439,18 @@ krb5int_fast_process_error(krb5_context context,
 {
     krb5_error_code retval = 0;
     krb5_error *err_reply = *err_replyptr;
+    krb5_pa_data *fx_error_pa;
+    krb5_pa_data **result = NULL;
+    krb5_data scratch = empty_data();
+    krb5_error *fx_error = NULL;
+    krb5_fast_response *fast_response = NULL;
 
-    *out_padata = NULL;
-    *retry = 0;
+    if (out_padata)
+        *out_padata = NULL;
+    if (retry)
+        *retry = 0;
+
     if (state->armor_key) {
-        krb5_pa_data *fx_error_pa;
-        krb5_pa_data **result = NULL;
-        krb5_data scratch;
-        krb5_error *fx_error = NULL;
-        krb5_fast_response *fast_response = NULL;
-
         retval = decode_krb5_padata_sequence(&err_reply->e_data, &result);
         if (retval == 0)
             retval = decrypt_fast_reply(context, state, result,
@@ -373,12 +461,11 @@ krb5int_fast_process_error(krb5_context context,
              * expect that, but treating it as the fatal error indicated by the
              * KDC seems reasonable.
              */
-            *retry = 0;
+            if (retry != NULL)
+                *retry = 0;
             krb5_free_pa_data(context, result);
             return 0;
         }
-        krb5_free_pa_data(context, result);
-        result = NULL;
         if (retval == 0) {
             fx_error_pa = krb5int_find_pa_data(context, fast_response->padata,
                                                KRB5_PADATA_FX_ERROR);
@@ -390,41 +477,46 @@ krb5int_fast_process_error(krb5_context context,
             }
         }
         if (retval == 0) {
-            scratch.data = (char *) fx_error_pa->contents;
-            scratch.length = fx_error_pa->length;
+            scratch = make_data(fx_error_pa->contents, fx_error_pa->length);
             retval = decode_krb5_error(&scratch, &fx_error);
         }
         if (retval == 0) {
             krb5_free_error(context, err_reply);
             *err_replyptr = fx_error;
             fx_error = NULL;
-            *out_padata = fast_response->padata;
-            fast_response->padata = NULL;
+            if (out_padata) {
+                *out_padata = fast_response->padata;
+                fast_response->padata = NULL;
+            }
             /*
              * If there is more than the fx_error padata, then we want
              * to retry the error if a cookie is present
              */
-            *retry = (*out_padata)[1] != NULL;
-            if (krb5int_find_pa_data(context, *out_padata,
-                                     KRB5_PADATA_FX_COOKIE) == NULL)
-                *retry = 0;
+            if (retry != NULL) {
+                *retry = (*out_padata)[1] != NULL;
+                if (krb5int_find_pa_data(context, *out_padata,
+                                         KRB5_PADATA_FX_COOKIE) == NULL)
+                    *retry = 0;
+            }
         }
-        if (fx_error)
-            krb5_free_error(context, fx_error);
-        krb5_free_fast_response(context, fast_response);
     } else { /*not FAST*/
         /* Possibly retry if there's any e_data to process. */
-        *retry = (err_reply->e_data.length > 0);
+        if (retry)
+            *retry = (err_reply->e_data.length > 0);
         /* Try to decode e_data as pa-data or typed-data for out_padata. */
-        retval = decode_krb5_padata_sequence(&err_reply->e_data, out_padata);
-        if (retval != 0) {
-            krb5_typed_data **tdata;
-            /* krb5_typed data and krb5_pa_data are compatible structures. */
-            if (decode_krb5_typed_data(&err_reply->e_data, &tdata) == 0)
-                *out_padata = (krb5_pa_data **)tdata;
-            retval = 0;
+        if (out_padata) {
+            retval = decode_krb5_padata_sequence(&err_reply->e_data,
+                                                 out_padata);
+            if (retval != 0) {
+                (void)decode_krb5_typed_data(&err_reply->e_data, out_padata);
+                retval = 0;
+            }
         }
     }
+    krb5_free_pa_data(context, result);
+    krb5_free_fast_response(context, fast_response);
+    if (fx_error)
+        krb5_free_error(context, fx_error);
     return retval;
 }
 
@@ -486,16 +578,17 @@ krb5int_fast_process_response(krb5_context context,
 
 krb5_error_code
 krb5int_fast_reply_key(krb5_context context,
-                       krb5_keyblock *strengthen_key,
-                       krb5_keyblock *existing_key,
+                       const krb5_keyblock *strengthen_key,
+                       const krb5_keyblock *existing_key,
                        krb5_keyblock *out_key)
 {
     krb5_keyblock *key = NULL;
     krb5_error_code retval = 0;
     krb5_free_keyblock_contents(context, out_key);
     if (strengthen_key) {
-        retval = krb5_c_fx_cf2_simple(context, strengthen_key,
-                                      "strengthenkey", existing_key,
+        retval = krb5_c_fx_cf2_simple(context, (krb5_keyblock *)strengthen_key,
+                                      "strengthenkey",
+                                      (krb5_keyblock *)existing_key,
                                       "replykey", &key);
         if (retval == 0) {
             TRACE_FAST_REPLY_KEY(context, key);

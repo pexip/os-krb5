@@ -58,6 +58,13 @@
 #include <errno.h>
 #include <ctype.h>
 
+/*
+ * The functions for allocating and releasing individual OIDs use malloc and
+ * free instead of the gssalloc wrappers, because the mechglue currently mixes
+ * generic_gss_copy_oid() with hand-freeing of OIDs.  We do not need to free
+ * free OIDs allocated by mechanisms, so this should not be a problem.
+ */
+
 OM_uint32
 generic_gss_release_oid(OM_uint32 *minor_status, gss_OID *oid)
 {
@@ -90,6 +97,7 @@ generic_gss_release_oid(OM_uint32 *minor_status, gss_OID *oid)
         (*oid != GSS_C_NT_HOSTBASED_SERVICE) &&
         (*oid != GSS_C_NT_ANONYMOUS) &&
         (*oid != GSS_C_NT_EXPORT_NAME) &&
+        (*oid != GSS_C_NT_COMPOSITE_EXPORT) &&
         (*oid != gss_nt_service_name)) {
         free((*oid)->elements);
         free(*oid);
@@ -220,18 +228,15 @@ generic_gss_test_oid_set_member(OM_uint32 *minor_status,
     return(GSS_S_COMPLETE);
 }
 
-/*
- * OID<->string routines.  These are uuuuugly.
- */
 OM_uint32
 generic_gss_oid_to_str(OM_uint32 *minor_status,
                        const gss_OID_desc * const oid,
                        gss_buffer_t oid_str)
 {
-    OM_uint32           number;
-    OM_uint32 i;
+    unsigned long       number, n;
+    OM_uint32           i;
+    int                 first;
     unsigned char       *cp;
-    char                *bp;
     struct k5buf        buf;
 
     if (minor_status != NULL)
@@ -252,161 +257,158 @@ generic_gss_oid_to_str(OM_uint32 *minor_status,
 
     cp = (unsigned char *) oid->elements;
     number = (unsigned long) cp[0];
-    krb5int_buf_init_dynamic(&buf);
-    krb5int_buf_add_fmt(&buf, "{ %lu %lu ", (unsigned long)number/40,
-                        (unsigned long)number%40);
+    k5_buf_init_dynamic(&buf);
+    k5_buf_add(&buf, "{ ");
     number = 0;
     cp = (unsigned char *) oid->elements;
-    for (i=1; i<oid->length; i++) {
+    first = 1;
+    for (i = 0; i < oid->length; i++) {
         number = (number << 7) | (cp[i] & 0x7f);
         if ((cp[i] & 0x80) == 0) {
-            krb5int_buf_add_fmt(&buf, "%lu ", (unsigned long)number);
+            if (first) {
+                n = (number < 40) ? 0 : (number < 80) ? 1 : 2;
+                k5_buf_add_fmt(&buf, "%lu %lu ", n, number - (n * 40));
+                first = 0;
+            } else {
+                k5_buf_add_fmt(&buf, "%lu ", number);
+            }
             number = 0;
         }
     }
-    krb5int_buf_add(&buf, "}");
-    bp = krb5int_buf_data(&buf);
-    if (bp == NULL) {
+    k5_buf_add_len(&buf, "}\0", 2);
+    if (k5_buf_data(&buf) == NULL) {
         *minor_status = ENOMEM;
         return(GSS_S_FAILURE);
     }
     return k5buf_to_gss(minor_status, &buf, oid_str);
 }
 
+/* Return the length of a DER OID subidentifier encoding. */
+static size_t
+arc_encoded_length(unsigned long arc)
+{
+    size_t len = 1;
+
+    for (arc >>= 7; arc; arc >>= 7)
+        len++;
+    return len;
+}
+
+/* Encode a subidentifier into *bufp and advance it to the encoding's end. */
+static void
+arc_encode(unsigned long arc, unsigned char **bufp)
+{
+    unsigned char *p;
+
+    /* Advance to the end and encode backwards. */
+    p = *bufp = *bufp + arc_encoded_length(arc);
+    *--p = arc & 0x7f;
+    for (arc >>= 7; arc; arc >>= 7)
+        *--p = (arc & 0x7f) | 0x80;
+}
+
+/* Fetch an arc value from *bufp and advance past it and any following spaces
+ * or periods.  Return 1 on success, 0 if *bufp is not at a valid arc value. */
+static int
+get_arc(const unsigned char **bufp, const unsigned char *end,
+        unsigned long *arc_out)
+{
+    const unsigned char *p = *bufp;
+    unsigned long arc = 0, newval;
+
+    if (p == end || !isdigit(*p))
+        return 0;
+    for (; p < end && isdigit(*p); p++) {
+        newval = arc * 10 + (*p - '0');
+        if (newval < arc)
+            return 0;
+        arc = newval;
+    }
+    while (p < end && (isspace(*p) || *p == '.'))
+        p++;
+    *bufp = p;
+    *arc_out = arc;
+    return 1;
+}
+
+/*
+ * Convert a sequence of two or more decimal arc values into a DER-encoded OID.
+ * The values may be separated by any combination of whitespace and period
+ * characters, and may be optionally surrounded with braces.  Leading
+ * whitespace and trailing garbage is allowed.  The first arc value must be 0,
+ * 1, or 2, and the second value must be less than 40 if the first value is not
+ * 2.
+ */
 OM_uint32
 generic_gss_str_to_oid(OM_uint32 *minor_status,
                        gss_buffer_t oid_str,
-                       gss_OID * oid)
+                       gss_OID *oid_out)
 {
-    unsigned char       *cp, *bp, *startp;
-    int         brace;
-    long        numbuf;
-    long        onumbuf;
-    OM_uint32   nbytes;
-    int         i;
-    unsigned char *op;
+    const unsigned char *p, *end, *arc3_start;
+    unsigned char *out;
+    unsigned long arc, arc1, arc2;
+    size_t nbytes;
+    int brace = 0;
+    gss_OID oid;
 
     if (minor_status != NULL)
         *minor_status = 0;
 
-    if (oid != NULL)
-        *oid = GSS_C_NO_OID;
+    if (oid_out != NULL)
+        *oid_out = GSS_C_NO_OID;
 
     if (GSS_EMPTY_BUFFER(oid_str))
         return (GSS_S_CALL_INACCESSIBLE_READ);
 
-    if (oid == NULL)
+    if (oid_out == NULL)
         return (GSS_S_CALL_INACCESSIBLE_WRITE);
 
+    /* Skip past initial spaces and, optionally, an open brace. */
     brace = 0;
-    bp = oid_str->value;
-    cp = bp;
-    /* Skip over leading space */
-    while ((bp < &cp[oid_str->length]) && isspace(*bp))
-        bp++;
-    if (*bp == '{') {
+    p = oid_str->value;
+    end = p + oid_str->length;
+    while (p < end && isspace(*p))
+        p++;
+    if (p < end && *p == '{') {
         brace = 1;
-        bp++;
+        p++;
     }
-    while ((bp < &cp[oid_str->length]) && isspace(*bp))
-        bp++;
-    startp = bp;
-    nbytes = 0;
+    while (p < end && isspace(*p))
+        p++;
 
-    /*
-     * The first two numbers are chewed up by the first octet.
-     */
-    if (sscanf((char *)bp, "%ld", &numbuf) != 1) {
-        *minor_status = EINVAL;
-        return(GSS_S_FAILURE);
-    }
-    while ((bp < &cp[oid_str->length]) && isdigit(*bp))
-        bp++;
-    while ((bp < &cp[oid_str->length]) &&
-           (isspace(*bp) || *bp == '.'))
-        bp++;
-    if (sscanf((char *)bp, "%ld", &numbuf) != 1) {
-        *minor_status = EINVAL;
-        return(GSS_S_FAILURE);
-    }
-    while ((bp < &cp[oid_str->length]) && isdigit(*bp))
-        bp++;
-    while ((bp < &cp[oid_str->length]) &&
-           (isspace(*bp) || *bp == '.'))
-        bp++;
-    nbytes++;
-    while (isdigit(*bp)) {
-        if (sscanf((char *)bp, "%ld", &numbuf) != 1) {
-            return(GSS_S_FAILURE);
-        }
-        while (numbuf) {
-            nbytes++;
-            numbuf >>= 7;
-        }
-        while ((bp < &cp[oid_str->length]) && isdigit(*bp))
-            bp++;
-        while ((bp < &cp[oid_str->length]) &&
-               (isspace(*bp) || *bp == '.'))
-            bp++;
-    }
-    if (brace && (*bp != '}')) {
-        return(GSS_S_FAILURE);
-    }
+    /* Get the first two arc values, to be encoded as one subidentifier. */
+    if (!get_arc(&p, end, &arc1) || !get_arc(&p, end, &arc2))
+        return (GSS_S_FAILURE);
+    if (arc1 > 2 || (arc1 < 2 && arc2 > 39) || arc2 > ULONG_MAX - 80)
+        return (GSS_S_FAILURE);
+    arc3_start = p;
 
-    /*
-     * Phew!  We've come this far, so the syntax is good.
-     */
-    if ((*oid = (gss_OID) malloc(sizeof(gss_OID_desc)))) {
-        if (((*oid)->elements = (void *) malloc(nbytes))) {
-            (*oid)->length = nbytes;
-            op = (unsigned char *) (*oid)->elements;
-            bp = startp;
-            (void) sscanf((char *)bp, "%ld", &numbuf);
-            while (isdigit(*bp))
-                bp++;
-            while (isspace(*bp) || *bp == '.')
-                bp++;
-            onumbuf = 40*numbuf;
-            (void) sscanf((char *)bp, "%ld", &numbuf);
-            onumbuf += numbuf;
-            *op = (unsigned char) onumbuf;
-            op++;
-            while (isdigit(*bp))
-                bp++;
-            while (isspace(*bp) || *bp == '.')
-                bp++;
-            while (isdigit(*bp)) {
-                (void) sscanf((char *)bp, "%ld", &numbuf);
-                nbytes = 0;
-                /* Have to fill in the bytes msb-first */
-                onumbuf = numbuf;
-                while (numbuf) {
-                    nbytes++;
-                    numbuf >>= 7;
-                }
-                numbuf = onumbuf;
-                op += nbytes;
-                i = -1;
-                while (numbuf) {
-                    op[i] = (unsigned char) numbuf & 0x7f;
-                    if (i != -1)
-                        op[i] |= 0x80;
-                    i--;
-                    numbuf >>= 7;
-                }
-                while (isdigit(*bp))
-                    bp++;
-                while (isspace(*bp) || *bp == '.')
-                    bp++;
-            }
-            return(GSS_S_COMPLETE);
-        }
-        else {
-            free(*oid);
-            *oid = GSS_C_NO_OID;
-        }
+    /* Compute the total length of the encoding while checking syntax. */
+    nbytes = arc_encoded_length(arc1 * 40 + arc2);
+    while (get_arc(&p, end, &arc))
+        nbytes += arc_encoded_length(arc);
+    if (brace && (p == end || *p != '}'))
+        return (GSS_S_FAILURE);
+
+    /* Allocate an oid structure. */
+    oid = malloc(sizeof(*oid));
+    if (oid == NULL)
+        return (GSS_S_FAILURE);
+    oid->elements = malloc(nbytes);
+    if (oid->elements == NULL) {
+        free(oid);
+        return (GSS_S_FAILURE);
     }
-    return(GSS_S_FAILURE);
+    oid->length = nbytes;
+
+    out = oid->elements;
+    arc_encode(arc1 * 40 + arc2, &out);
+    p = arc3_start;
+    while (get_arc(&p, end, &arc))
+        arc_encode(arc, &out);
+    assert(out - nbytes == oid->elements);
+    *oid_out = oid;
+    return(GSS_S_COMPLETE);
 }
 
 /* Compose an OID of a prefix and an integer suffix */
@@ -542,7 +544,7 @@ generic_gss_copy_oid_set(OM_uint32 *minor_status,
     *new_oidset = copy;
 done:
     if (major != GSS_S_COMPLETE) {
-        (void) gss_release_oid_set(&minor, &copy);
+        (void) generic_gss_release_oid_set(&minor, &copy);
     }
 
     return (major);

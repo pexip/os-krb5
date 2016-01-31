@@ -61,8 +61,9 @@ krb5int_dk_string_to_key(const struct krb5_keytypes *ktp,
 
     /* construct input string ( = string + salt), fold it, make_key it */
 
-    memcpy(concat, string->data, string->length);
-    if (salt)
+    if (string->length > 0)
+        memcpy(concat, string->data, string->length);
+    if (salt != NULL && salt->length > 0)
         memcpy(concat + string->length, salt->data, salt->length);
 
     krb5int_nfold(concatlen*8, concat, keybytes*8, foldstring);
@@ -102,6 +103,8 @@ cleanup:
 
 #define MAX_ITERATION_COUNT             0x1000000L
 
+krb5_boolean k5_allow_weak_pbkdf2iter = FALSE;
+
 static krb5_error_code
 pbkdf2_string_to_key(const struct krb5_keytypes *ktp, const krb5_data *string,
                      const krb5_data *salt, const krb5_data *pepper,
@@ -126,6 +129,9 @@ pbkdf2_string_to_key(const struct krb5_keytypes *ktp, const krb5_data *string,
             if (((iter_count >> 16) >> 16) != 1)
                 return KRB5_ERR_BAD_S2K_PARAMS;
         }
+        if (!k5_allow_weak_pbkdf2iter && iter_count < def_iter_count)
+            return KRB5_ERR_BAD_S2K_PARAMS;
+
     } else
         iter_count = def_iter_count;
 
@@ -146,9 +152,11 @@ pbkdf2_string_to_key(const struct krb5_keytypes *ktp, const krb5_data *string,
         if (err)
             return err;
 
-        memcpy(sandp.data, pepper->data, pepper->length);
+        if (pepper->length > 0)
+            memcpy(sandp.data, pepper->data, pepper->length);
         sandp.data[pepper->length] = '\0';
-        memcpy(&sandp.data[pepper->length + 1], salt->data, salt->length);
+        if (salt->length > 0)
+            memcpy(&sandp.data[pepper->length + 1], salt->data, salt->length);
 
         salt = &sandp;
     }
@@ -183,7 +191,6 @@ krb5int_aes_string_to_key(const struct krb5_keytypes *ktp,
                                 DERIVE_RFC3961, 4096);
 }
 
-#ifdef CAMELLIA
 krb5_error_code
 krb5int_camellia_string_to_key(const struct krb5_keytypes *ktp,
                                const krb5_data *string,
@@ -196,4 +203,3 @@ krb5int_camellia_string_to_key(const struct krb5_keytypes *ktp,
     return pbkdf2_string_to_key(ktp, string, salt, &pepper, params, key,
                                 DERIVE_SP800_108_CMAC, 32768);
 }
-#endif

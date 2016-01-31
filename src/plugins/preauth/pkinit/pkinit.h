@@ -38,6 +38,7 @@
 #include <autoconf.h>
 #include <profile.h>
 #include "pkinit_accessor.h"
+#include "pkinit_trace.h"
 
 /*
  * It is anticipated that all the special checks currently
@@ -70,8 +71,10 @@ extern int longhorn;	    /* XXX Talking to a Longhorn server? */
 
 #define PKINIT_CTX_MAGIC	0x05551212
 #define PKINIT_REQ_CTX_MAGIC	0xdeadbeef
+#define PKINIT_DEFERRED_ID_MAGIC    0x3ca20d21
 
 #define PKINIT_DEFAULT_DH_MIN_BITS  2048
+#define PKINIT_DH_MIN_CONFIG_BITS   1024
 
 #define KRB5_CONF_KDCDEFAULTS                   "kdcdefaults"
 #define KRB5_CONF_LIBDEFAULTS                   "libdefaults"
@@ -115,7 +118,7 @@ static inline void pkiDebug (const char *fmt, ...) { }
 #define OCTETDATA_TO_KRB5DATA(octd, k5d) \
     (k5d)->length = (octd)->length; (k5d)->data = (char *)(octd)->data;
 
-extern const krb5_octet_data dh_oid;
+extern const krb5_data dh_oid;
 
 /*
  * notes about crypto contexts:
@@ -225,8 +228,12 @@ struct _pkinit_req_context {
     pkinit_req_opts *opts;
     pkinit_identity_crypto_context idctx;
     pkinit_identity_opts *idopts;
+    int do_identity_matching;
     krb5_preauthtype pa_type;
     int rfc6112_kdc;
+    int identity_initialized;
+    int identity_prompted;
+    krb5_error_code identity_prompt_retval;
 };
 typedef struct _pkinit_req_context *pkinit_req_context;
 
@@ -283,6 +290,18 @@ krb5_error_code pkinit_identity_initialize
 	 pkinit_req_crypto_context req_cryptoctx,	/* IN */
 	 pkinit_identity_opts *idopts,			/* IN */
 	 pkinit_identity_crypto_context id_cryptoctx,	/* IN/OUT */
+	 krb5_clpreauth_callbacks cb,			/* IN/OUT */
+	 krb5_clpreauth_rock rock,			/* IN/OUT */
+	 krb5_principal princ);				/* IN (optional) */
+
+krb5_error_code pkinit_identity_prompt
+	(krb5_context context,				/* IN */
+	 pkinit_plg_crypto_context plg_cryptoctx,	/* IN */
+	 pkinit_req_crypto_context req_cryptoctx,	/* IN */
+	 pkinit_identity_opts *idopts,			/* IN */
+	 pkinit_identity_crypto_context id_cryptoctx,	/* IN/OUT */
+	 krb5_clpreauth_callbacks cb,			/* IN/OUT */
+	 krb5_clpreauth_rock rock,			/* IN/OUT */
 	 int do_matching,				/* IN */
 	 krb5_principal princ);				/* IN (optional) */
 
@@ -292,6 +311,26 @@ krb5_error_code pkinit_cert_matching
 	pkinit_req_crypto_context req_cryptoctx,
 	pkinit_identity_crypto_context id_cryptoctx,
 	krb5_principal princ);
+
+/*
+ * Client's list of identities for which it needs PINs or passwords
+ */
+struct _pkinit_deferred_id {
+    int magic;
+    char *identity;
+    unsigned long ck_flags;
+    char *password;
+};
+typedef struct _pkinit_deferred_id *pkinit_deferred_id;
+
+krb5_error_code pkinit_set_deferred_id
+	(pkinit_deferred_id **identities, const char *identity,
+	 unsigned long ck_flags, const char *password);
+const char * pkinit_find_deferred_id
+	(pkinit_deferred_id *identities, const char *identity);
+unsigned long pkinit_get_deferred_id_flags
+	(pkinit_deferred_id *identities, const char *identity);
+void pkinit_free_deferred_ids(pkinit_deferred_id *identities);
 
 /*
  * initialization and free functions
@@ -316,13 +355,11 @@ void free_krb5_auth_pack_draft9(krb5_context, krb5_auth_pack_draft9 **in);
 void free_krb5_pa_pk_as_rep(krb5_pa_pk_as_rep **in);
 void free_krb5_pa_pk_as_rep_draft9(krb5_pa_pk_as_rep_draft9 **in);
 void free_krb5_external_principal_identifier(krb5_external_principal_identifier ***in);
-void free_krb5_trusted_ca(krb5_trusted_ca ***in);
-void free_krb5_typed_data(krb5_typed_data ***in);
 void free_krb5_algorithm_identifiers(krb5_algorithm_identifier ***in);
 void free_krb5_algorithm_identifier(krb5_algorithm_identifier *in);
 void free_krb5_kdc_dh_key_info(krb5_kdc_dh_key_info **in);
 void free_krb5_subject_pk_info(krb5_subject_pk_info **in);
-krb5_error_code pkinit_copy_krb5_octet_data(krb5_octet_data *dst, const krb5_octet_data *src);
+krb5_error_code pkinit_copy_krb5_data(krb5_data *dst, const krb5_data *src);
 
 
 /*

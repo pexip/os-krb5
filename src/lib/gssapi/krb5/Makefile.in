@@ -1,23 +1,18 @@
 mydir=lib$(S)gssapi$(S)krb5
 BUILDTOP=$(REL)..$(S)..$(S)..
 LOCALINCLUDES = -I. -I$(srcdir) -I$(srcdir)/.. -I../generic -I$(srcdir)/../generic -I../mechglue -I$(srcdir)/../mechglue
-DEFS=-D_GSS_STATIC_LINK=1
+DEFINES=-D_GSS_STATIC_LINK=1
 
-#PROG_LIBPATH=-L$(TOPLIBD)
-#PROG_RPATH=$(KRB5_LIBDIR)
 #MODULE_INSTALL_DIR = $(GSS_MODULE_DIR)
 #LIBBASE=mech_krb5
 #LIBMAJOR=0
 #LIBMINOR=0
-#SO_EXT=.so
 #LIBINITFUNC=gss_krb5int_init
 #LIBFINIFUNC=gss_krb5int_fini
 #STOBJLISTS=../generic/OBJS.ST OBJS.ST
 #SUBDIROBJLISTS=../generic/OBJS.ST
 #SHLIB_EXPDEPS=$(KRB5_DEPLIB) $(CRYPTO_DEPLIB) $(SUPPORT_DEPLIB) $(COM_ERR_DEPLIB)
 #SHLIB_EXPLIBS=-lkrb5 -lk5crypto -lcom_err $(SUPPORT_LIB) $(DL_LIB) $(LIBS)
-#SHLIB_DIRS=-L$(TOPLIBD)
-#SHLIB_RDIRS=$(KRB5_LIBDIR)
 #RELDIR=gssapi/krb5
 
 ##DOS##BUILDTOP = ..\..\..
@@ -43,15 +38,18 @@ SRCS = \
 	$(srcdir)/compare_name.c \
 	$(srcdir)/context_time.c \
 	$(srcdir)/copy_ccache.c \
+	$(srcdir)/cred_store.c \
 	$(srcdir)/delete_sec_context.c \
 	$(srcdir)/disp_name.c \
 	$(srcdir)/disp_status.c \
 	$(srcdir)/duplicate_name.c \
+	$(srcdir)/export_cred.c \
 	$(srcdir)/export_name.c \
 	$(srcdir)/export_sec_context.c \
 	$(srcdir)/get_tkt_flags.c \
 	$(srcdir)/gssapi_krb5.c \
 	$(srcdir)/iakerb.c \
+	$(srcdir)/import_cred.c \
 	$(srcdir)/import_name.c \
 	$(srcdir)/import_sec_context.c \
 	$(srcdir)/indicate_mechs.c \
@@ -93,15 +91,18 @@ OBJS = \
 	$(OUTPRE)compare_name.$(OBJEXT) \
 	$(OUTPRE)context_time.$(OBJEXT) \
 	$(OUTPRE)copy_ccache.$(OBJEXT) \
+	$(OUTPRE)cred_store.$(OBJEXT) \
 	$(OUTPRE)delete_sec_context.$(OBJEXT) \
 	$(OUTPRE)disp_name.$(OBJEXT) \
 	$(OUTPRE)disp_status.$(OBJEXT) \
 	$(OUTPRE)duplicate_name.$(OBJEXT) \
+	$(OUTPRE)export_cred.$(OBJEXT) \
 	$(OUTPRE)export_name.$(OBJEXT) \
 	$(OUTPRE)export_sec_context.$(OBJEXT) \
 	$(OUTPRE)get_tkt_flags.$(OBJEXT) \
 	$(OUTPRE)gssapi_krb5.$(OBJEXT) \
 	$(OUTPRE)iakerb.$(OBJEXT) \
+	$(OUTPRE)import_cred.$(OBJEXT) \
 	$(OUTPRE)import_name.$(OBJEXT) \
 	$(OUTPRE)import_sec_context.$(OBJEXT) \
 	$(OUTPRE)indicate_mechs.$(OBJEXT) \
@@ -146,15 +147,18 @@ STLIBOBJS = \
 	compare_name.o \
 	context_time.o \
 	copy_ccache.o \
+	cred_store.o \
 	delete_sec_context.o \
 	disp_name.o \
 	disp_status.o \
 	duplicate_name.o \
+	export_cred.o \
 	export_name.o \
 	export_sec_context.o \
 	get_tkt_flags.o \
 	gssapi_krb5.o \
 	iakerb.o \
+	import_cred.o \
 	import_name.o \
 	import_sec_context.o \
 	indicate_mechs.o \

@@ -277,11 +277,16 @@ rd_req_decoded_opt(krb5_context context, krb5_auth_context *auth_context,
         }
         krb5_k_free_key(context, (*auth_context)->key);
         (*auth_context)->key = NULL;
+        if (server == NULL)
+            server = req->ticket->server;
     } else {
         retval = decrypt_ticket(context, req, server, keytab,
                                 check_valid_flag ? &decrypt_key : NULL);
         if (retval)
             goto cleanup;
+        /* decrypt_ticket placed the principal of the keytab key in
+         * req->ticket->server; always use this for later steps. */
+        server = req->ticket->server;
     }
     TRACE_RD_REQ_TICKET(context, req->ticket->enc_part2->client,
                         req->ticket->server, req->ticket->enc_part2->session);
@@ -308,16 +313,13 @@ rd_req_decoded_opt(krb5_context context, krb5_auth_context *auth_context,
         goto cleanup;
     }
 
-    if (!server) {
-        server = req->ticket->server;
-    }
     /* Get an rcache if necessary. */
-    if (((*auth_context)->rcache == NULL)
-        && ((*auth_context)->auth_context_flags & KRB5_AUTH_CONTEXT_DO_TIME)
-        && server) {
-        if ((retval = krb5_get_server_rcache(context,
-                                             krb5_princ_component(context,server,0),
-                                             &(*auth_context)->rcache)))
+    if (((*auth_context)->rcache == NULL) &&
+        ((*auth_context)->auth_context_flags & KRB5_AUTH_CONTEXT_DO_TIME) &&
+        server != NULL && server->length > 0) {
+        retval = krb5_get_server_rcache(context, &server->data[0],
+                                        &(*auth_context)->rcache);
+        if (retval)
             goto cleanup;
     }
     /* okay, now check cross-realm policy */
@@ -330,7 +332,7 @@ rd_req_decoded_opt(krb5_context context, krb5_auth_context *auth_context,
         krb5_transited *trans = &(req->ticket->enc_part2->transited);
 
         /* If the transited list is empty, then we have at most one hop */
-        if (trans->tr_contents.data && trans->tr_contents.data[0])
+        if (trans->tr_contents.length > 0 && trans->tr_contents.data[0])
             retval = KRB5KRB_AP_ERR_ILL_CR_TKT;
     }
 
@@ -343,7 +345,7 @@ rd_req_decoded_opt(krb5_context context, krb5_auth_context *auth_context,
         krb5_data       * realm;
         krb5_transited  * trans;
 
-        realm = krb5_princ_realm(context, req->ticket->enc_part2->client);
+        realm = &req->ticket->enc_part2->client->realm;
         trans = &(req->ticket->enc_part2->transited);
 
         /*
@@ -351,7 +353,7 @@ rd_req_decoded_opt(krb5_context context, krb5_auth_context *auth_context,
          * So we also have to check that the client's realm is the local one
          */
         krb5_get_default_realm(context, &lrealm);
-        if ((trans->tr_contents.data && trans->tr_contents.data[0]) ||
+        if ((trans->tr_contents.length > 0 && trans->tr_contents.data[0]) ||
             !data_eq_string(*realm, lrealm)) {
             retval = KRB5KRB_AP_ERR_ILL_CR_TKT;
         }
@@ -366,7 +368,7 @@ rd_req_decoded_opt(krb5_context context, krb5_auth_context *auth_context,
         krb5_data      * realm;
         krb5_transited * trans;
 
-        realm = krb5_princ_realm(context, req->ticket->enc_part2->client);
+        realm = &req->ticket->enc_part2->client->realm;
         trans = &(req->ticket->enc_part2->transited);
 
         /*
@@ -374,10 +376,9 @@ rd_req_decoded_opt(krb5_context context, krb5_auth_context *auth_context,
          * transited are within the hierarchy between the client's realm
          * and the local realm.
          */
-        if (trans->tr_contents.data && trans->tr_contents.data[0]) {
+        if (trans->tr_contents.length > 0 && trans->tr_contents.data[0]) {
             retval = krb5_check_transited_list(context, &(trans->tr_contents),
-                                               realm,
-                                               krb5_princ_realm (context,server));
+                                               realm, &server->realm);
         }
     }
 
@@ -494,7 +495,7 @@ rd_req_decoded_opt(krb5_context context, krb5_auth_context *auth_context,
             if (retval != 0)
                 goto cleanup;
         }
-        permitted_etypes_len = krb5int_count_etypes(permitted_etypes);
+        permitted_etypes_len = k5_count_etypes(permitted_etypes);
     } else {
         permitted_etypes = NULL;
         permitted_etypes_len = 0;

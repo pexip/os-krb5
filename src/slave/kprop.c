@@ -25,6 +25,7 @@
  */
 
 #include <errno.h>
+#include <locale.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <sys/file.h>
@@ -97,7 +98,7 @@ main(argc, argv)
     krb5_creds *my_creds;
     krb5_auth_context auth_context;
 
-    setlocale(LC_MESSAGES, "");
+    setlocale(LC_ALL, "");
     retval = krb5_init_context(&context);
     if (retval) {
         com_err(argv[0], retval, _("while initializing krb5"));
@@ -310,7 +311,7 @@ void get_tickets(context)
 }
 
 static void
-open_connection(krb5_context context, char *host, int *fd)
+open_connection(krb5_context context, char *host, int *fd_out)
 {
     int     s;
     krb5_error_code retval;
@@ -320,6 +321,7 @@ open_connection(krb5_context context, char *host, int *fd)
     struct sockaddr_storage my_sin;
     int error;
 
+    *fd_out = -1;
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = PF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
@@ -347,7 +349,7 @@ open_connection(krb5_context context, char *host, int *fd)
         }
 
         /* We successfully connect()ed */
-        *fd = s;
+        *fd_out = s;
         retval = sockaddr2krbaddr(context, res->ai_family, res->ai_addr,
                                   &receiver_addr);
         if (retval != 0) {
@@ -530,14 +532,14 @@ xmit_database(context, auth_context, my_creds, fd, database_fd,
     int database_fd;
     int in_database_size;
 {
-    krb5_int32      sent_size, n;
+    krb5_int32      n;
     krb5_data       inbuf, outbuf;
     char            buf[KPROP_BUFSIZ];
     krb5_error_code retval;
     krb5_error      *error;
     /* These must be 4 bytes */
     krb5_ui_4       database_size = in_database_size;
-    krb5_ui_4       send_size;
+    krb5_ui_4       send_size, sent_size;
 
     /*
      * Send over the size

@@ -59,14 +59,8 @@
 
 extern struct timeval timelimit;
 
-#define  SERV_COUNT                  100
 #define  DEFAULT_CONNS_PER_SERVER    5
 #define  REALM_READ_REFRESH_INTERVAL (5 * 60)
-
-#ifdef HAVE_EDIRECTORY
-#define  SECURITY_CONTAINER "cn=Security"
-#define  KERBEROS_CONTAINER "cn=Kerberos,cn=Security"
-#endif
 
 #if !defined(LDAP_OPT_RESULT_CODE) && defined(LDAP_OPT_ERROR_NUMBER)
 #define LDAP_OPT_RESULT_CODE LDAP_OPT_ERROR_NUMBER
@@ -194,9 +188,6 @@ struct _krb5_ldap_server_info {
     krb5_ldap_server_handle      *ldap_server_handles;
     time_t                       downtime;
     char                        *server_name;
-#ifdef HAVE_EDIRECTORY
-    char                        *root_certificate_file;
-#endif
     int                          modify_increment;
     struct _krb5_ldap_server_info *next;
 };
@@ -215,15 +206,14 @@ typedef struct _krb5_ldap_context {
     char                          *bind_pwd;
     char                          *service_password_file;
     char                          *root_certificate_file;
-    char                          *service_cert_path;
-    char                          *service_cert_pass;
     krb5_ldap_certificates        **certificates;
     krb5_ui_4                     cert_count; /* certificate count */
     k5_mutex_t                    hndl_lock;
-    krb5_ldap_krbcontainer_params *krbcontainer;
+    char                          *container_dn;
     krb5_ldap_realm_params        *lrparams;
     krb5_boolean                  disable_last_success;
     krb5_boolean                  disable_lockout;
+    int                           ldap_debug;
     krb5_context                  kcontext;   /* to set the error code and message */
 } krb5_ldap_context;
 
