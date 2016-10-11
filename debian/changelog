@@ -1,3 +1,9 @@
+krb5 (1.10+dfsg~beta1-2ubuntu0.7pexip2) pexip; urgency=low
+
+  * Rebuild against libssl1.0.2
+
+ -- John-Mark Bell <jmb@pexip.com>  Wed, 12 Oct 2016 00:46:12 +0100
+
 krb5 (1.10+dfsg~beta1-2ubuntu0.7pexip1) pexip; urgency=low
 
   * New upstream release.
