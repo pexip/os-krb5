@@ -28,11 +28,8 @@
 
 #include "k5-int.h"
 #include "os-proto.h"
+#include "../krb/int-proto.h"
 #include "prof_int.h"        /* XXX for profile_copy, not public yet */
-
-#ifdef USE_KIM
-#include "kim_library_private.h"
-#endif
 
 #if defined(_WIN32)
 #include <winsock.h>
@@ -237,7 +234,7 @@ free_filespecs(profile_filespec_t *files)
 
 /* This function is needed by KfM's KerberosPreferences API
  * because it needs to be able to specify "secure" */
-krb5_error_code
+static krb5_error_code
 os_get_default_config_files(profile_filespec_t **pfiles, krb5_boolean secure)
 {
     profile_filespec_t* files;
@@ -298,13 +295,6 @@ os_get_default_config_files(profile_filespec_t **pfiles, krb5_boolean secure)
     unsigned int ent_len;
     const char *s, *t;
 
-#ifdef USE_KIM
-    /* If kim_library_allow_home_directory_access() == FALSE, we are probably
-     *   trying to authenticate to a fileserver for the user's homedir.
-     */
-    if (!kim_library_allow_home_directory_access ())
-        secure = 1;
-#endif
     if (secure) {
         filepath = DEFAULT_SECURE_PROFILE_PATH;
     } else {
@@ -431,7 +421,7 @@ os_init_paths(krb5_context ctx, krb5_boolean kdc)
 }
 
 krb5_error_code
-krb5_os_init_context(krb5_context ctx, profile_t profile, krb5_flags flags)
+k5_os_init_context(krb5_context ctx, profile_t profile, krb5_flags flags)
 {
     krb5_os_context os_ctx;
     krb5_error_code    retval = 0;
@@ -508,31 +498,8 @@ krb5_free_config_files(char **filenames)
     free_filespecs(filenames);
 }
 
-
-krb5_error_code
-krb5_secure_config_files(krb5_context ctx)
-{
-    /* Obsolete interface; always return an error.
-     *  This function should be removed next time a major version
-     *  number change happens.
-     */
-    krb5_error_code retval = 0;
-
-    if (ctx->profile) {
-        profile_release(ctx->profile);
-        ctx->profile = 0;
-    }
-
-    ctx->profile_secure = TRUE;
-    retval = os_init_paths(ctx, FALSE);
-    if (retval)
-        return retval;
-
-    return KRB5_OBSOLETE_FN;
-}
-
 void
-krb5_os_free_context(krb5_context ctx)
+k5_os_free_context(krb5_context ctx)
 {
     krb5_os_context os_ctx;
 
@@ -551,7 +518,7 @@ krb5_os_free_context(krb5_context ctx)
     }
 
     if (ctx->preauth_context) {
-        krb5_free_preauth_context(ctx);
+        k5_free_preauth_context(ctx);
         ctx->preauth_context = NULL;
     }
     krb5int_close_plugin_dirs (&ctx->libkrb5_plugins);

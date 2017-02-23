@@ -10,6 +10,7 @@
  * This module will parse the update logs on the master or slave servers.
  */
 
+#include <locale.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <time.h>
@@ -29,8 +30,8 @@ static char     *progname;
 static void
 usage()
 {
-    (void) fprintf(stderr, _("\nUsage: %s [-h] [-v] [-v] [-e num]\n\n"),
-                   progname);
+    fprintf(stderr, _("\nUsage: %s [-h] [-v] [-v] [-e num]\n\t%s -R\n\n"),
+            progname, progname);
     exit(1);
 }
 
@@ -399,7 +400,8 @@ print_attr(kdbe_val_t *val, int vverbose)
  * Print the update entry information
  */
 static void
-print_update(kdb_hlog_t *ulog, uint32_t entry, unsigned int verbose)
+print_update(kdb_hlog_t *ulog, uint32_t entry, uint32_t ulogentries,
+             unsigned int verbose)
 {
     XDR                 xdrs;
     uint32_t            start_sno, i, j, indx;
@@ -413,7 +415,7 @@ print_update(kdb_hlog_t *ulog, uint32_t entry, unsigned int verbose)
         start_sno = ulog->kdb_first_sno - 1;
 
     for (i = start_sno; i < ulog->kdb_last_sno; i++) {
-        indx = i % ulog->kdb_num;
+        indx = i % ulogentries;
 
         indx_log = (kdb_ent_header_t *)INDEX(ulog, indx);
 
@@ -488,6 +490,7 @@ main(int argc, char **argv)
     int                 c;
     unsigned int        verbose = 0;
     bool_t              headeronly = FALSE;
+    bool_t              reset = FALSE;
     uint32_t            entry = 0;
     krb5_context        context;
     kadm5_config_params params;
@@ -495,7 +498,7 @@ main(int argc, char **argv)
     kdb_hlog_t          *ulog = NULL;
     char                **db_args = NULL; /* XXX */
 
-    setlocale(LC_MESSAGES, "");
+    setlocale(LC_ALL, "");
 
 #if !defined(TEXT_DOMAIN)
 #define TEXT_DOMAIN "SYS_TEST"
@@ -505,13 +508,16 @@ main(int argc, char **argv)
 
     progname = argv[0];
 
-    while ((c = getopt(argc, argv, "vhe:")) != -1) {
+    while ((c = getopt(argc, argv, "Rvhe:")) != -1) {
         switch (c) {
         case 'h':
             headeronly = TRUE;
             break;
         case 'e':
             entry = atoi(optarg);
+            break;
+        case 'R':
+            reset = TRUE;
             break;
         case 'v':
             verbose++;
@@ -538,7 +544,8 @@ main(int argc, char **argv)
     (void) printf(_("\nKerberos update log (%s)\n"),
                   params.iprop_logfile);
 
-    if (ulog_map(context, params.iprop_logfile, 0, FKPROPLOG, db_args)) {
+    if (ulog_map(context, params.iprop_logfile, 0,
+                 reset ? FKADMIND : FKPROPLOG, db_args)) {
         (void) fprintf(stderr, _("Unable to map log file %s\n\n"),
                        params.iprop_logfile);
         exit(1);
@@ -557,6 +564,12 @@ main(int argc, char **argv)
         (void) fprintf(stderr,
                        _("Corrupt header log, exiting\n\n"));
         exit(1);
+    }
+
+    if (reset) {
+        ulog_init_header(context);
+        printf(_("Reinitialized the ulog.\n"));
+        exit(0);
     }
 
     (void) printf(_("Update log dump :\n"));
@@ -609,7 +622,7 @@ main(int argc, char **argv)
     }
 
     if ((!headeronly) && ulog->kdb_num) {
-        print_update(ulog, entry, verbose);
+        print_update(ulog, entry, params.iprop_ulogsize, verbose);
     }
 
     (void) printf("\n");

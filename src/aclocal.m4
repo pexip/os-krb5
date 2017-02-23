@@ -89,6 +89,7 @@ KRB5_AC_INITFINI
 KRB5_AC_ENABLE_THREADS
 KRB5_AC_FIND_DLOPEN
 KRB5_AC_KEYRING_CCACHE
+KRB5_AC_PERSISTENT_KEYRING
 ])dnl
 
 dnl Maintainer mode, akin to what automake provides, 'cept we don't
@@ -389,8 +390,7 @@ if test $ac_cv_func_getaddrinfo = yes; then
 fi
 dnl
 AC_REQUIRE([KRB5_SOCKADDR_SA_LEN])dnl
-AC_ARG_ENABLE([ipv6], , AC_MSG_WARN(enable/disable-ipv6 option is deprecated))dnl
-AC_MSG_CHECKING(for IPv6 compile-time support)
+AC_MSG_CHECKING(for IPv6 compile-time support without -DINET6)
 AC_CACHE_VAL(krb5_cv_inet6,[
 if test "$ac_cv_func_inet_ntop" != "yes" ; then
   krb5_cv_inet6=no
@@ -433,7 +433,6 @@ if test $krb5_cv_inet6 = yes || test "$krb5_cv_inet6_with_dinet6" = yes; then
   if test "$krb5_cv_inet6_with_dinet6" = yes; then
     AC_DEFINE(INET6,1,[May need to be defined to enable IPv6 support, for example on IRIX])
   fi
-  AC_DEFINE(KRB5_USE_INET6,1,[Define if we should compile in IPv6 support (even if we can't use it at run time)])
 fi
 ])dnl
 dnl
@@ -524,7 +523,7 @@ if test "$GCC" = yes ; then
     TRY_WARN_CC_FLAG(-Wno-format-zero-length)
     # Other flags here may not be supported on some versions of
     # gcc that people want to use.
-    for flag in overflow strict-overflow missing-format-attribute missing-prototypes return-type missing-braces parentheses switch unused-function unused-label unused-variable unused-value unknown-pragmas sign-compare newline-eof error=uninitialized ; do
+    for flag in overflow strict-overflow missing-format-attribute missing-prototypes return-type missing-braces parentheses switch unused-function unused-label unused-variable unused-value unknown-pragmas sign-compare newline-eof error=uninitialized error=pointer-arith ; do
       TRY_WARN_CC_FLAG(-W$flag)
     done
     #  old-style-definition? generates many, many warnings
@@ -540,7 +539,7 @@ if test "$GCC" = yes ; then
     #
     # We're currently targeting C89+, not C99, so disallow some
     # constructs.
-    for flag in declaration-after-statement variadic-macros ; do
+    for flag in declaration-after-statement ; do
       TRY_WARN_CC_FLAG(-Werror=$flag)
       if test "$flag_supported" = no; then
         TRY_WARN_CC_FLAG(-W$flag)
@@ -1014,6 +1013,9 @@ AC_REQUIRE([AC_PROG_ARCHIVE])dnl
 AC_REQUIRE([AC_PROG_ARCHIVE_ADD])dnl
 AC_REQUIRE([AC_PROG_INSTALL])dnl
 AC_CHECK_PROG(AR, ar, ar, false)
+if test "$AR" = "false"; then
+  AC_MSG_ERROR([ar not found in PATH])
+fi
 AC_CHECK_PROG(PERL, perl, perl, false)
 if test "$ac_cv_prog_PERL" = "false"; then
   AC_MSG_ERROR(Perl is now required for Kerberos builds.)
@@ -1163,7 +1165,7 @@ else
 	esac
 	OBJLISTS="OBJS.SH"
 	PLUGIN='$(LIBBASE)$(DYNOBJEXT)'
-	PLUGINLINK=
+	PLUGINLINK='../$(PLUGIN)'
 	PLUGININST=install-plugin
 	KDB5_PLUGIN_DEPLIBS=
 	KDB5_PLUGIN_LIBS=
@@ -1302,9 +1304,6 @@ dnl KRB5_AC_ENABLE_DNS
 dnl
 AC_DEFUN(KRB5_AC_ENABLE_DNS, [
 enable_dns=yes
-enable_dns_for_kdc=yes
-AC_DEFINE(KRB5_DNS_LOOKUP_KDC,1,[Define to enable DNS lookups of Kerberos KDCs])
-
   AC_ARG_ENABLE([dns-for-realm],
 [  --enable-dns-for-realm  enable DNS lookups of Kerberos realm names], ,
 [enable_dns_for_realm=no])
@@ -1629,6 +1628,7 @@ fi])
 dnl
 dnl
 m4_include(config/ac-archive/acx_pthread.m4)
+m4_include(config/ac-archive/relpaths.m4)
 dnl
 dnl
 dnl
@@ -1640,29 +1640,12 @@ AC_ARG_WITH([ldap],
 [case "$withval" in
     OPENLDAP) with_ldap=yes ;;
     yes | no) ;;
-    EDIRECTORY) AC_MSG_ERROR(Option --with-ldap=EDIRECTORY is deprecated; use --with-edirectory instead.) ;;
     *)  AC_MSG_ERROR(Invalid option value --with-ldap="$withval") ;;
 esac], with_ldap=no)dnl
-AC_ARG_WITH([edirectory],
-[  --with-edirectory       compile eDirectory database backend module],
-[case "$withval" in
-    yes | no) ;;
-    *)  AC_MSG_ERROR(Invalid option value --with-edirectory="$withval") ;;
-esac], with_edirectory=no)dnl
 
-if test $with_ldap = yes; then
-  if test $with_edirectory = yes; then
-    AC_MSG_ERROR(Cannot enable both OpenLDAP and eDirectory backends; choose one.)
-  fi
+if test "$with_ldap" = yes; then
   AC_MSG_NOTICE(enabling OpenLDAP database backend module support)
   OPENLDAP_PLUGIN=yes
-elif test $with_edirectory = yes; then
-  AC_MSG_NOTICE(enabling eDirectory database backend module support)
-  OPENLDAP_PLUGIN=yes
-  AC_DEFINE(HAVE_EDIRECTORY,1,[Define if LDAP KDB interface should assume eDirectory.])
-else
-  : # neither enabled
-dnl  AC_MSG_NOTICE(disabling ldap backend module support)
 fi
 ])dnl
 dnl
@@ -1673,6 +1656,15 @@ AC_DEFUN(KRB5_AC_KEYRING_CCACHE,[
       [dnl Pre-reqs were found
        AC_DEFINE(USE_KEYRING_CCACHE, 1, [Define if the keyring ccache should be enabled])
        LIBS="-lkeyutils $LIBS"
+      ]))
+])dnl
+dnl
+dnl If libkeyutils supports persistent keyrings, use them
+AC_DEFUN(KRB5_AC_PERSISTENT_KEYRING,[
+  AC_CHECK_HEADERS([keyutils.h],
+    AC_CHECK_LIB(keyutils, keyctl_get_persistent,
+      [AC_DEFINE(HAVE_PERSISTENT_KEYRING, 1,
+                 [Define if persistent keyrings are supported])
       ]))
 ])dnl
 dnl

@@ -24,6 +24,10 @@
 #include <windows.h>
 
 #else /* ! RES_ONLY */
+#include <stdlib.h>
+#ifdef DEBUG
+#include <crtdbg.h>
+#endif
 
 /* To ensure backward compatibility of the ABI use 32-bit time_t on
  * 32-bit Windows.
@@ -76,6 +80,8 @@ typedef unsigned long    u_long;      /* Not part of sys/types.h on the pc */
 typedef unsigned int     u_int;
 typedef unsigned short   u_short;
 typedef unsigned char    u_char;
+typedef unsigned short   uint16_t;
+typedef short            int16_t;
 typedef unsigned int     uint32_t;
 typedef int              int32_t;
 #if _INTEGRAL_MAX_BITS >= 64
@@ -113,9 +119,10 @@ typedef _W64 int         ssize_t;
 #define NO_PASSWORD
 #define HAVE_STRERROR
 #define SYS_ERRLIST_DECLARED
-/* if __STDC_VERSION__ >= 199901L this shouldn't be needed */
+/* Visual Studio 2012 errors out when we macroize keywords in C++ mode */
+#ifndef __cplusplus
 #define inline __inline
-#define KRB5_USE_INET6
+#endif
 #define NEED_INSIXADDR_ANY
 #define ENABLE_THREADS
 #endif
@@ -225,6 +232,9 @@ HINSTANCE get_lib_instance(void);
 #endif /* _WIN32 */
 
 #define THREEPARAMOPEN(x,y,z) open(x,y,z)
+
+#define DEFKTNAME "FILE:%{WINDOWS}\\krb5kt"
+#define DEFCKTNAME "FILE:%{WINDOWS}\\krb5clientkt"
 
 #ifndef KRB5_CALLCONV
 #define KRB5_CALLCONV

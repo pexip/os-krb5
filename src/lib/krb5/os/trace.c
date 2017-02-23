@@ -1,5 +1,5 @@
 /* -*- mode: c; c-basic-offset: 4; indent-tabs-mode: nil -*- */
-/* lib/krb5/os/trace.c - k5trace implementation */
+/* lib/krb5/os/trace.c - krb5int_trace implementation */
 /*
  * Copyright 2009 by the Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -25,10 +25,10 @@
  */
 
 /*
- * k5trace is defined in k5-int.h as a macro or static inline function,
- * and is called like so:
+ * krb5int_trace is defined in k5-trace.h as a macro or static inline
+ * function, and is called like so:
  *
- *   void k5trace(krb5_context context, const char *fmt, ...)
+ *   void krb5int_trace(krb5_context context, const char *fmt, ...)
  *
  * Arguments may or may not be evaluated, so don't pass argument
  * expressions with side effects.  Tracing support and calls can be
@@ -38,12 +38,51 @@
  */
 
 #include "k5-int.h"
-#include "cm.h"
+#include "os-proto.h"
 
 #ifndef DISABLE_TRACING
 
 static void subfmt(krb5_context context, struct k5buf *buf,
                    const char *fmt, ...);
+
+static krb5_boolean
+buf_is_printable(const char *p, size_t len)
+{
+    size_t i;
+
+    for (i = 0; i < len; i++) {
+        if (p[i] < 32 || p[i] > 126)
+            break;
+    }
+    return i == len;
+}
+
+static void
+buf_add_printable_len(struct k5buf *buf, const char *p, size_t len)
+{
+    char text[5];
+    size_t i;
+
+    if (buf_is_printable(p, len)) {
+        k5_buf_add_len(buf, p, len);
+    } else {
+        for (i = 0; i < len; i++) {
+            if (buf_is_printable(p + i, 1)) {
+                k5_buf_add_len(buf, p + i, 1);
+            } else {
+                snprintf(text, sizeof(text), "\\x%02x",
+                         (unsigned)(p[i] & 0xff));
+                k5_buf_add_len(buf, text, 4);
+            }
+        }
+    }
+}
+
+static void
+buf_add_printable(struct k5buf *buf, const char *p)
+{
+    buf_add_printable_len(buf, p, strlen(p));
+}
 
 /* Return a four-byte hex string from the first two bytes of a SHA-1 hash of a
  * byte array.  Return NULL on failure. */
@@ -64,13 +103,34 @@ hash_bytes(krb5_context context, const void *ptr, size_t len)
 }
 
 static char *
+principal_type_string(krb5_int32 type)
+{
+    switch (type) {
+    case KRB5_NT_UNKNOWN: return "unknown";
+    case KRB5_NT_PRINCIPAL: return "principal";
+    case KRB5_NT_SRV_INST: return "service instance";
+    case KRB5_NT_SRV_HST: return "service with host as instance";
+    case KRB5_NT_SRV_XHST: return "service with host as components";
+    case KRB5_NT_UID: return "unique ID";
+    case KRB5_NT_X500_PRINCIPAL: return "X.509";
+    case KRB5_NT_SMTP_NAME: return "SMTP email";
+    case KRB5_NT_ENTERPRISE_PRINCIPAL: return "Windows 2000 UPN";
+    case KRB5_NT_WELLKNOWN: return "well-known";
+    case KRB5_NT_MS_PRINCIPAL: return "Windows 2000 UPN and SID";
+    case KRB5_NT_MS_PRINCIPAL_AND_ID: return "NT 4 style name";
+    case KRB5_NT_ENT_PRINCIPAL_AND_ID: return "NT 4 style name and SID";
+    default: return "?";
+    }
+}
+
+static char *
 trace_format(krb5_context context, const char *fmt, va_list ap)
 {
     struct k5buf buf;
     krb5_error_code kerr;
     size_t len, i;
     int err;
-    struct conn_state *cs;
+    struct remote_address *ra;
     const krb5_data *d;
     krb5_data data;
     char addrbuf[NI_MAXHOST], portbuf[NI_MAXSERV], tmpbuf[200], *str;
@@ -85,11 +145,11 @@ trace_format(krb5_context context, const char *fmt, va_list ap)
     krb5_creds *creds;
     krb5_enctype *etypes, etype;
 
-    krb5int_buf_init_dynamic(&buf);
+    k5_buf_init_dynamic(&buf);
     while (TRUE) {
         /* Advance to the next word in braces. */
         len = strcspn(fmt, "{");
-        krb5int_buf_add_len(&buf, fmt, len);
+        k5_buf_add_len(&buf, fmt, len);
         if (fmt[len] == '\0')
             break;
         fmt += len + 1;
@@ -102,67 +162,67 @@ trace_format(krb5_context context, const char *fmt, va_list ap)
 
         /* Process the format word. */
         if (strcmp(tmpbuf, "int") == 0) {
-            krb5int_buf_add_fmt(&buf, "%d", va_arg(ap, int));
+            k5_buf_add_fmt(&buf, "%d", va_arg(ap, int));
         } else if (strcmp(tmpbuf, "long") == 0) {
-            krb5int_buf_add_fmt(&buf, "%ld", va_arg(ap, long));
+            k5_buf_add_fmt(&buf, "%ld", va_arg(ap, long));
         } else if (strcmp(tmpbuf, "str") == 0) {
             p = va_arg(ap, const char *);
-            krb5int_buf_add(&buf, (p == NULL) ? "(null)" : p);
+            buf_add_printable(&buf, (p == NULL) ? "(null)" : p);
         } else if (strcmp(tmpbuf, "lenstr") == 0) {
             len = va_arg(ap, size_t);
             p = va_arg(ap, const char *);
             if (p == NULL && len != 0)
-                krb5int_buf_add(&buf, "(null)");
+                k5_buf_add(&buf, "(null)");
             else
-                krb5int_buf_add_len(&buf, p, len);
+                buf_add_printable_len(&buf, p, len);
         } else if (strcmp(tmpbuf, "hexlenstr") == 0) {
             len = va_arg(ap, size_t);
             p = va_arg(ap, const char *);
             if (p == NULL && len != 0)
-                krb5int_buf_add(&buf, "(null)");
+                k5_buf_add(&buf, "(null)");
             else {
                 for (i = 0; i < len; i++)
-                    krb5int_buf_add_fmt(&buf, "%02X", (unsigned char) p[i]);
+                    k5_buf_add_fmt(&buf, "%02X", (unsigned char)p[i]);
             }
         } else if (strcmp(tmpbuf, "hashlenstr") == 0) {
             len = va_arg(ap, size_t);
             p = va_arg(ap, const char *);
             if (p == NULL && len != 0)
-                krb5int_buf_add(&buf, "(null)");
+                k5_buf_add(&buf, "(null)");
             else {
                 str = hash_bytes(context, p, len);
                 if (str != NULL)
-                    krb5int_buf_add(&buf, str);
+                    k5_buf_add(&buf, str);
                 free(str);
             }
-        } else if (strcmp(tmpbuf, "connstate") == 0) {
-            cs = va_arg(ap, struct conn_state *);
-            if (cs->socktype == SOCK_DGRAM)
-                krb5int_buf_add(&buf, "dgram");
-            else if (cs->socktype == SOCK_STREAM)
-                krb5int_buf_add(&buf, "stream");
+        } else if (strcmp(tmpbuf, "raddr") == 0) {
+            ra = va_arg(ap, struct remote_address *);
+            if (ra->type == SOCK_DGRAM)
+                k5_buf_add(&buf, "dgram");
+            else if (ra->type == SOCK_STREAM)
+                k5_buf_add(&buf, "stream");
             else
-                krb5int_buf_add_fmt(&buf, "socktype%d", cs->socktype);
+                k5_buf_add_fmt(&buf, "socktype%d", ra->type);
 
-            if (getnameinfo((struct sockaddr *)&cs->addr, cs->addrlen,
+            if (getnameinfo((struct sockaddr *)&ra->saddr, ra->len,
                             addrbuf, sizeof(addrbuf), portbuf, sizeof(portbuf),
                             NI_NUMERICHOST|NI_NUMERICSERV) != 0) {
-                if (cs->family == AF_UNSPEC)
-                    krb5int_buf_add(&buf, " AF_UNSPEC");
+                if (ra->family == AF_UNSPEC)
+                    k5_buf_add(&buf, " AF_UNSPEC");
                 else
-                    krb5int_buf_add_fmt(&buf, " af%d", cs->family);
+                    k5_buf_add_fmt(&buf, " af%d", ra->family);
             } else
-                krb5int_buf_add_fmt(&buf, " %s:%s", addrbuf, portbuf);
+                k5_buf_add_fmt(&buf, " %s:%s", addrbuf, portbuf);
         } else if (strcmp(tmpbuf, "data") == 0) {
             d = va_arg(ap, krb5_data *);
             if (d == NULL || (d->length != 0 && d->data == NULL))
-                krb5int_buf_add(&buf, "(null)");
+                k5_buf_add(&buf, "(null)");
             else
-                krb5int_buf_add_len(&buf, d->data, d->length);
+                buf_add_printable_len(&buf, d->data, d->length);
         } else if (strcmp(tmpbuf, "hexdata") == 0) {
             d = va_arg(ap, krb5_data *);
             if (d == NULL)
-                krb5int_buf_add(&buf, "(null)");
+                k5_buf_add(&buf, "(null)");
             else
                 subfmt(context, &buf, "{hexlenstr}", d->length, d->data);
         } else if (strcmp(tmpbuf, "errno") == 0) {
@@ -174,16 +234,16 @@ trace_format(krb5_context context, const char *fmt, va_list ap)
 #endif
             if (p == NULL)
                 p = strerror(err);
-            krb5int_buf_add_fmt(&buf, "%d/%s", err, p);
+            k5_buf_add_fmt(&buf, "%d/%s", err, p);
         } else if (strcmp(tmpbuf, "kerr") == 0) {
             kerr = va_arg(ap, krb5_error_code);
             p = krb5_get_error_message(context, kerr);
-            krb5int_buf_add_fmt(&buf, "%ld/%s", (long) kerr, p);
+            k5_buf_add_fmt(&buf, "%ld/%s", (long)kerr, kerr ? p : "Success");
             krb5_free_error_message(context, p);
         } else if (strcmp(tmpbuf, "keyblock") == 0) {
             keyblock = va_arg(ap, const krb5_keyblock *);
             if (keyblock == NULL)
-                krb5int_buf_add(&buf, "(null)");
+                k5_buf_add(&buf, "(null)");
             else {
                 subfmt(context, &buf, "{etype}/{hashlenstr}",
                        keyblock->enctype, keyblock->length,
@@ -192,7 +252,7 @@ trace_format(krb5_context context, const char *fmt, va_list ap)
         } else if (strcmp(tmpbuf, "key") == 0) {
             key = va_arg(ap, krb5_key);
             if (key == NULL)
-                krb5int_buf_add(&buf, "(null");
+                k5_buf_add(&buf, "(null)");
             else
                 subfmt(context, &buf, "{keyblock}", &key->keyblock);
         } else if (strcmp(tmpbuf, "cksum") == 0) {
@@ -203,49 +263,52 @@ trace_format(krb5_context context, const char *fmt, va_list ap)
         } else if (strcmp(tmpbuf, "princ") == 0) {
             princ = va_arg(ap, krb5_principal);
             if (krb5_unparse_name(context, princ, &str) == 0) {
-                krb5int_buf_add(&buf, str);
+                k5_buf_add(&buf, str);
                 krb5_free_unparsed_name(context, str);
             }
+        } else if (strcmp(tmpbuf, "ptype") == 0) {
+            p = principal_type_string(va_arg(ap, krb5_int32));
+            k5_buf_add(&buf, p);
         } else if (strcmp(tmpbuf, "patypes") == 0) {
             padata = va_arg(ap, krb5_pa_data **);
             if (padata == NULL || *padata == NULL)
-                krb5int_buf_add(&buf, "(empty)");
+                k5_buf_add(&buf, "(empty)");
             for (; padata != NULL && *padata != NULL; padata++) {
-                krb5int_buf_add_fmt(&buf, "%d", (int) (*padata)->pa_type);
+                k5_buf_add_fmt(&buf, "%d", (int)(*padata)->pa_type);
                 if (*(padata + 1) != NULL)
-                    krb5int_buf_add(&buf, ", ");
+                    k5_buf_add(&buf, ", ");
             }
         } else if (strcmp(tmpbuf, "etype") == 0) {
             etype = va_arg(ap, krb5_enctype);
             if (krb5_enctype_to_name(etype, TRUE, tmpbuf, sizeof(tmpbuf)) == 0)
-                krb5int_buf_add(&buf, tmpbuf);
+                k5_buf_add(&buf, tmpbuf);
             else
-                krb5int_buf_add_fmt(&buf, "%d", (int) etype);
+                k5_buf_add_fmt(&buf, "%d", (int)etype);
         } else if (strcmp(tmpbuf, "etypes") == 0) {
             etypes = va_arg(ap, krb5_enctype *);
             if (etypes == NULL || *etypes == 0)
-                krb5int_buf_add(&buf, "(empty");
+                k5_buf_add(&buf, "(empty)");
             for (; etypes != NULL && *etypes != 0; etypes++) {
                 subfmt(context, &buf, "{etype}", *etypes);
                 if (*(etypes + 1) != 0)
-                    krb5int_buf_add(&buf, ", ");
+                    k5_buf_add(&buf, ", ");
             }
         } else if (strcmp(tmpbuf, "ccache") == 0) {
             ccache = va_arg(ap, krb5_ccache);
-            krb5int_buf_add(&buf, krb5_cc_get_type(context, ccache));
-            krb5int_buf_add(&buf, ":");
-            krb5int_buf_add(&buf, krb5_cc_get_name(context, ccache));
+            k5_buf_add(&buf, krb5_cc_get_type(context, ccache));
+            k5_buf_add(&buf, ":");
+            k5_buf_add(&buf, krb5_cc_get_name(context, ccache));
         } else if (strcmp(tmpbuf, "keytab") == 0) {
             keytab = va_arg(ap, krb5_keytab);
             if (krb5_kt_get_name(context, keytab, tmpbuf, sizeof(tmpbuf)) == 0)
-                krb5int_buf_add(&buf, tmpbuf);
+                k5_buf_add(&buf, tmpbuf);
         } else if (strcmp(tmpbuf, "creds") == 0) {
             creds = va_arg(ap, krb5_creds *);
             subfmt(context, &buf, "{princ} -> {princ}",
                    creds->client, creds->server);
         }
     }
-    return krb5int_buf_data(&buf);
+    return k5_buf_data(&buf);
 }
 
 /* Allows trace_format formatters to be represented in terms of other
@@ -259,13 +322,13 @@ subfmt(krb5_context context, struct k5buf *buf, const char *fmt, ...)
     va_start(ap, fmt);
     str = trace_format(context, fmt, ap);
     if (str != NULL)
-        krb5int_buf_add(buf, str);
+        k5_buf_add(buf, str);
     free(str);
     va_end(ap);
 }
 
 void
-krb5int_init_trace(krb5_context context)
+k5_init_trace(krb5_context context)
 {
     const char *filename;
 
@@ -278,7 +341,7 @@ void
 krb5int_trace(krb5_context context, const char *fmt, ...)
 {
     va_list ap;
-    struct krb5_trace_info info;
+    krb5_trace_info info;
     char *str = NULL, *msg = NULL;
     krb5_int32 sec, usec;
 
@@ -314,7 +377,7 @@ krb5_set_trace_callback(krb5_context context, krb5_trace_callback fn,
 }
 
 static void KRB5_CALLCONV
-file_trace_cb(krb5_context context, const struct krb5_trace_info *info, void *data)
+file_trace_cb(krb5_context context, const krb5_trace_info *info, void *data)
 {
     int *fd = data;
 

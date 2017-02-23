@@ -383,12 +383,10 @@ done:
 static krb5_error_code
 ctx_unlock(krb5_context context, krb5_db2_context *dbc)
 {
-    krb5_error_code retval;
+    krb5_error_code retval, retval2;
     DB *db;
 
     retval = osa_adb_release_lock(dbc->policy_db);
-    if (retval)
-        return retval;
 
     if (!dbc->db_locks_held) /* lock already unlocked */
         return KRB5_KDB_NOTLOCKED;
@@ -399,19 +397,23 @@ ctx_unlock(krb5_context context, krb5_db2_context *dbc)
         dbc->db = NULL;
         dbc->db_lock_mode = 0;
 
-        retval = krb5_lock_file(context, dbc->db_lf_file,
+        retval2 = krb5_lock_file(context, dbc->db_lf_file,
                                 KRB5_LOCKMODE_UNLOCK);
+        if (retval2)
+            return retval2;
     }
+
+    /* We may be unlocking because osa_adb_get_lock() failed. */
+    if (retval == OSA_ADB_NOTLOCKED)
+        return 0;
     return retval;
 }
-
-#define MAX_LOCK_TRIES 5
 
 static krb5_error_code
 ctx_lock(krb5_context context, krb5_db2_context *dbc, int lockmode)
 {
     krb5_error_code retval;
-    int kmode, tries;
+    int kmode;
 
     if (lockmode == KRB5_DB_LOCKMODE_PERMANENT ||
         lockmode == KRB5_DB_LOCKMODE_EXCLUSIVE)
@@ -423,20 +425,12 @@ ctx_lock(krb5_context context, krb5_db2_context *dbc, int lockmode)
 
     if (dbc->db_locks_held == 0 || dbc->db_lock_mode < kmode) {
         /* Acquire or upgrade the lock. */
-        for (tries = 0; tries < MAX_LOCK_TRIES; tries++) {
-            retval = krb5_lock_file(context, dbc->db_lf_file,
-                                    kmode | KRB5_LOCKMODE_DONTBLOCK);
-            if (retval == 0)
-                break;
-            if (retval == EBADF && kmode == KRB5_LOCKMODE_EXCLUSIVE)
-                /* Tried to lock something we don't have write access to. */
-                return KRB5_KDB_CANTLOCK_DB;
-            sleep(1);
-        }
-        if (retval == EACCES)
+        retval = krb5_lock_file(context, dbc->db_lf_file, kmode);
+        /* Check if we tried to lock something not open for write. */
+        if (retval == EBADF && kmode == KRB5_LOCKMODE_EXCLUSIVE)
             return KRB5_KDB_CANTLOCK_DB;
-        else if (retval == EAGAIN || retval == EWOULDBLOCK)
-            return OSA_ADB_CANTLOCK_DB;
+        else if (retval == EACCES || retval == EAGAIN || retval == EWOULDBLOCK)
+            return KRB5_KDB_CANTLOCK_DB;
         else if (retval)
             return retval;
 
@@ -462,8 +456,12 @@ ctx_lock(krb5_context context, krb5_db2_context *dbc, int lockmode)
 
     /* Acquire or upgrade the policy lock. */
     retval = osa_adb_get_lock(dbc->policy_db, lockmode);
-    if (retval)
+    if (retval) {
         (void) ctx_unlock(context, dbc);
+        if (retval == OSA_ADB_NOEXCL_PERM || retval == OSA_ADB_CANTLOCK_DB ||
+            retval == OSA_ADB_NOLOCKFILE)
+            retval = KRB5_KDB_CANTLOCK_DB;
+    }
     return retval;
 }
 
@@ -752,7 +750,7 @@ krb5_db2_get_principal(krb5_context context, krb5_const_principal searchfor,
     DB     *db;
     DBT     key, contents;
     krb5_data keydata, contdata;
-    int     trynum, dbret;
+    int     dbret;
 
     *entry = NULL;
     if (!inited(context))
@@ -760,17 +758,9 @@ krb5_db2_get_principal(krb5_context context, krb5_const_principal searchfor,
 
     dbc = context->dal_handle->db_context;
 
-    for (trynum = 0; trynum < KRB5_DB2_MAX_RETRY; trynum++) {
-        if ((retval = ctx_lock(context, dbc, KRB5_LOCKMODE_SHARED))) {
-            if (dbc->db_nb_locks)
-                return (retval);
-            sleep(1);
-            continue;
-        }
-        break;
-    }
-    if (trynum == KRB5_DB2_MAX_RETRY)
-        return KRB5_KDB_DB_INUSE;
+    retval = ctx_lock(context, dbc, KRB5_LOCKMODE_SHARED);
+    if (retval)
+        return retval;
 
     /* XXX deal with wildcard lookups */
     retval = krb5_encode_princ_dbkey(context, &keydata, searchfor);
@@ -935,46 +925,36 @@ cleanup:
     return retval;
 }
 
+typedef krb5_error_code (*ctx_iterate_cb)(krb5_pointer, krb5_db_entry *);
+
 static krb5_error_code
 ctx_iterate(krb5_context context, krb5_db2_context *dbc,
-            krb5_error_code (*func)(krb5_pointer, krb5_db_entry *),
-            krb5_pointer func_arg)
+            ctx_iterate_cb func, krb5_pointer func_arg)
 {
-    DB *db;
     DBT key, contents;
     krb5_data contdata;
     krb5_db_entry *entry;
-    krb5_error_code retval, retval2;
+    krb5_error_code retval;
     int dbret;
 
     retval = ctx_lock(context, dbc, KRB5_LOCKMODE_SHARED);
     if (retval)
         return retval;
 
-    db = dbc->db;
-    dbret = db->seq(db, &key, &contents, R_FIRST);
+    dbret = dbc->db->seq(dbc->db, &key, &contents, R_FIRST);
     while (dbret == 0) {
         contdata.data = contents.data;
         contdata.length = contents.size;
         retval = krb5_decode_princ_entry(context, &contdata, &entry);
         if (retval)
             break;
-        retval = k5_mutex_unlock(krb5_db2_mutex);
-        if (retval)
-            break;
+        k5_mutex_unlock(krb5_db2_mutex);
         retval = (*func)(func_arg, entry);
         krb5_dbe_free(context, entry);
-        retval2 = k5_mutex_lock(krb5_db2_mutex);
-        /* Note: If re-locking fails, the wrapper in db2_exp.c will
-           still try to unlock it again.  That would be a bug.  Fix
-           when integrating the locking better.  */
+        k5_mutex_lock(krb5_db2_mutex);
         if (retval)
             break;
-        if (retval2) {
-            retval = retval2;
-            break;
-        }
-        dbret = db->seq(db, &key, &contents, R_NEXT);
+        dbret = dbc->db->seq(dbc->db, &key, &contents, R_NEXT);
     }
     switch (dbret) {
     case 1:
@@ -989,8 +969,7 @@ ctx_iterate(krb5_context context, krb5_db2_context *dbc,
 }
 
 krb5_error_code
-krb5_db2_iterate(krb5_context context, char *match_expr,
-                 krb5_error_code(*func) (krb5_pointer, krb5_db_entry *),
+krb5_db2_iterate(krb5_context context, char *match_expr, ctx_iterate_cb func,
                  krb5_pointer func_arg)
 {
     if (!inited(context))

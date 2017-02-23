@@ -61,6 +61,9 @@ krb5_dbe_def_search_enctype(kcontext, dbentp, start, ktype, stype, kvno, kdatap)
     krb5_boolean        saw_non_permitted = FALSE;
 
     ret = 0;
+    if (ktype != -1 && !krb5_is_permitted_enctype(kcontext, ktype))
+        return KRB5_KDB_NO_PERMITTED_KEY;
+
     if (kvno == -1 && stype == -1 && ktype == -1)
         kvno = 0;
 
@@ -358,12 +361,12 @@ krb5_db_def_fetch_mkey_keytab(krb5_context   context,
          * kt_ent will be free'd so need to allocate and copy key contents for
          * output to caller.
          */
-        if (!(key->contents = (krb5_octet *)malloc(key->length))) {
-            retval = ENOMEM;
+        key->contents = k5memdup(kt_ent.key.contents, kt_ent.key.length,
+                                 &retval);
+        if (key->contents == NULL) {
             krb5_kt_free_entry(context, &kt_ent);
             goto errout;
         }
-        memcpy(key->contents, kt_ent.key.contents, kt_ent.key.length);
         krb5_kt_free_entry(context, &kt_ent);
     }
 
@@ -418,7 +421,6 @@ krb5_error_code
 krb5_def_fetch_mkey_list(krb5_context        context,
                          krb5_principal        mprinc,
                          const krb5_keyblock  *mkey,
-                         krb5_kvno             mkvno,
                          krb5_keylist_node  **mkeys_list)
 {
     krb5_error_code retval;

@@ -312,8 +312,6 @@ add_princ(context, str_newprinc)
         goto error;
     }
 
-    fprintf(stdout, "Added %s to database\n", princ_name);
-
 error: /* Do cleanup of newentry regardless of error */
     krb5_db_free_principal(context, newentry);
     return;
@@ -327,7 +325,6 @@ set_dbname_help(pname, dbname)
     krb5_error_code retval;
     krb5_data pwd, scratch;
     char *args[2];
-    krb5_keylist_node *mkeys;
     krb5_db_entry *master_entry;
 
     /* assemble & parse the master key name */
@@ -386,13 +383,11 @@ set_dbname_help(pname, dbname)
     free(args[0]);
 
     if ((retval = krb5_db_fetch_mkey_list(test_context, master_princ,
-                                          &master_keyblock, IGNORE_VNO,
-                                          &mkeys))){
+                                          &master_keyblock))){
         com_err(pname, retval, "while verifying master key");
         (void) krb5_db_fini(test_context);
         return(1);
     }
-    krb5_db_free_mkey_list(test_context, mkeys);
     if ((retval = krb5_db_get_principal(test_context, master_princ, 0,
                                         &master_entry))) {
         com_err(pname, retval, "while retrieving master entry");

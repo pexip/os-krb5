@@ -40,7 +40,7 @@
     <?endif?>
     <?define BinDir="$(env.KRB_INSTALL_DIR)\bin\"?>
     <?define LibDir="$(env.KRB_INSTALL_DIR)\lib\"?>
-    <?define InstallerVersion="300"?>
+    <?define InstallerVersion="450"?>
     <?if $(env.CPU) = "i386"?>
         <?define Platform="Intel"?>
         <?define Win64="no"?>
@@ -50,20 +50,41 @@
     <?else?>
         <?error Unknown build type?>
     <?endif?>
+    <?ifndef env.VISUALSTUDIOVERSION?>
+        <?define VCVer="100"?>
+    <?elseif $(env.VISUALSTUDIOVERSION) = "11.0"?>
+        <?define VCVer="110"?>
+    <?else?>
+        <?error Unknown MFC version?>
+    <?endif?>
     
     <?define KfwRegRoot="SOFTWARE\MIT\Kerberos"?>
+    <?define KfwRegWow6432Root="SOFTWARE\Wow6432Node\MIT\Kerberos"?>
 
     <?define DocDir="$(var.TargetDir)doc\"?>
     <?define IncDir="$(var.TargetDir)include\"?>
     <?define SrcDir="$(var.TargetDir)"?>
     <?define InstallDir="$(var.TargetDir)windows\installer\"?>
     <?define SampleDir="$(var.TargetDir)sample\"?>
-    <?define ConfigDir=".\"?>
+    <?ifdef env.MIT_INTERNAL?>
+      <?define ConfigDir=".\athena\"?>
+    <?else?>
+      <?define ConfigDir=".\"?>
+    <?endif?>
+
     <?define SystemDir="$(env.SystemRoot)\System32\"?>
 
     <?include lang\config_$(var.BuildLang).wxi?>
     
     <!-- Parameters for the features containing debug symbols -->
+    <?ifdef env.NODEBUG?>
+         <?ifdef env.DEBUG_SYMBOL?>
+              <?define DebugSyms?>
+         <?endif?>
+    <?else?>
+         <?define Debug?>
+         <?define DebugSyms?>
+    <?endif?>
     <?ifdef DebugSyms?>
          <?ifdef Debug?>
              <?define DebugSymInstallDefault="followParent"?>

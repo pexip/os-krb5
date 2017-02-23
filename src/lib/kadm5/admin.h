@@ -110,21 +110,27 @@ typedef long            kadm5_ret_t;
 #define KADM5_RANDKEY_USED      0x100000
 #endif
 #define KADM5_LOAD              0x200000
+#define KADM5_NOKEY             0x400000
 
 /* all but KEY_DATA, TL_DATA, LOAD */
 #define KADM5_PRINCIPAL_NORMAL_MASK 0x41ffff
 
 
 /* kadm5_policy_ent_t */
-#define KADM5_PW_MAX_LIFE       0x004000
-#define KADM5_PW_MIN_LIFE       0x008000
-#define KADM5_PW_MIN_LENGTH     0x010000
-#define KADM5_PW_MIN_CLASSES    0x020000
-#define KADM5_PW_HISTORY_NUM    0x040000
-#define KADM5_REF_COUNT         0x080000
-#define KADM5_PW_MAX_FAILURE            0x100000
-#define KADM5_PW_FAILURE_COUNT_INTERVAL 0x200000
-#define KADM5_PW_LOCKOUT_DURATION       0x400000
+#define KADM5_PW_MAX_LIFE               0x00004000
+#define KADM5_PW_MIN_LIFE               0x00008000
+#define KADM5_PW_MIN_LENGTH             0x00010000
+#define KADM5_PW_MIN_CLASSES            0x00020000
+#define KADM5_PW_HISTORY_NUM            0x00040000
+#define KADM5_REF_COUNT                 0x00080000
+#define KADM5_PW_MAX_FAILURE            0x00100000
+#define KADM5_PW_FAILURE_COUNT_INTERVAL 0x00200000
+#define KADM5_PW_LOCKOUT_DURATION       0x00400000
+#define KADM5_POLICY_ATTRIBUTES         0x00800000
+#define KADM5_POLICY_MAX_LIFE           0x01000000
+#define KADM5_POLICY_MAX_RLIFE          0x02000000
+#define KADM5_POLICY_ALLOWED_KEYSALTS   0x04000000
+#define KADM5_POLICY_TL_DATA            0x08000000
 
 /* kadm5_config_params */
 #define KADM5_CONFIG_REALM              0x00000001
@@ -134,7 +140,7 @@ typedef long            kadm5_ret_t;
 #define KADM5_CONFIG_MAX_RLIFE          0x00000010
 #define KADM5_CONFIG_EXPIRATION         0x00000020
 #define KADM5_CONFIG_FLAGS              0x00000040
-#define KADM5_CONFIG_ADMIN_KEYTAB       0x00000080
+/*#define KADM5_CONFIG_ADMIN_KEYTAB       0x00000080*/
 #define KADM5_CONFIG_STASH_FILE         0x00000100
 #define KADM5_CONFIG_ENCTYPE            0x00000200
 #define KADM5_CONFIG_ADBNAME            0x00000400
@@ -159,6 +165,7 @@ typedef long            kadm5_ret_t;
 #define KADM5_CONFIG_IPROP_LOGFILE      0x08000000
 #define KADM5_CONFIG_IPROP_PORT         0x10000000
 #define KADM5_CONFIG_KVNO               0x20000000
+#define KADM5_CONFIG_IPROP_RESYNC_TIMEOUT   0x40000000
 /*
  * permission bits
  */
@@ -179,6 +186,7 @@ typedef long            kadm5_ret_t;
 #define KADM5_API_VERSION_MASK  0x12345700
 #define KADM5_API_VERSION_2     (KADM5_API_VERSION_MASK|0x02)
 #define KADM5_API_VERSION_3     (KADM5_API_VERSION_MASK|0x03)
+#define KADM5_API_VERSION_4     (KADM5_API_VERSION_MASK|0x04)
 
 typedef struct _kadm5_principal_ent_t {
     krb5_principal  principal;
@@ -212,12 +220,20 @@ typedef struct _kadm5_policy_ent_t {
     long            pw_min_length;
     long            pw_min_classes;
     long            pw_history_num;
-    long            policy_refcnt;
+    long            policy_refcnt;  /* no longer used */
 
     /* version 3 fields */
     krb5_kvno       pw_max_fail;
     krb5_deltat     pw_failcnt_interval;
     krb5_deltat     pw_lockout_duration;
+
+    /* version 4 fields */
+    krb5_flags      attributes;
+    krb5_deltat     max_life;
+    krb5_deltat     max_renewable_life;
+    char            *allowed_keysalts;
+    krb5_int16      n_tl_data;
+    krb5_tl_data    *tl_data;
 } kadm5_policy_ent_rec, *kadm5_policy_ent_t;
 
 /*
@@ -240,7 +256,6 @@ typedef struct _kadm5_config_params {
        file.  */
     char *             dbname;
 
-    char *             admin_keytab;
     char *             acl_file;
     char *             dict_file;
 
@@ -261,45 +276,8 @@ typedef struct _kadm5_config_params {
     char *              iprop_logfile;
 /*    char *            iprop_server;*/
     int                 iprop_port;
+    int                 iprop_resync_timeout;
 } kadm5_config_params;
-
-/***********************************************************************
- * This is the old krb5_realm_read_params, which I mutated into
- * kadm5_get_config_params but which old code (kdb5_* and krb5kdc)
- * still uses.
- ***********************************************************************/
-
-/*
- * Data structure returned by krb5_read_realm_params()
- */
-typedef struct __krb5_realm_params {
-    char *              realm_profile;
-    char *              realm_mkey_name;
-    char *              realm_stash_file;
-    char *              realm_kdc_ports;
-    char *              realm_kdc_tcp_ports;
-    char *              realm_acl_file;
-    char *              realm_host_based_services;
-    char *              realm_no_host_referral;
-    krb5_int32          realm_kadmind_port;
-    krb5_enctype        realm_enctype;
-    krb5_deltat         realm_max_life;
-    krb5_deltat         realm_max_rlife;
-    krb5_timestamp      realm_expiration;
-    krb5_flags          realm_flags;
-    krb5_key_salt_tuple *realm_keysalts;
-    unsigned int        realm_reject_bad_transit:1;
-    unsigned int        realm_restrict_anon:1;
-    unsigned int        realm_kadmind_port_valid:1;
-    unsigned int        realm_enctype_valid:1;
-    unsigned int        realm_max_life_valid:1;
-    unsigned int        realm_max_rlife_valid:1;
-    unsigned int        realm_expiration_valid:1;
-    unsigned int        realm_flags_valid:1;
-    unsigned int        realm_reject_bad_transit_valid:1;
-    unsigned int        realm_restrict_anon_valid:1;
-    krb5_int32          realm_num_keysalts;
-} krb5_realm_params;
 
 /*
  * functions
@@ -312,9 +290,6 @@ krb5_error_code kadm5_get_config_params(krb5_context context,
 
 krb5_error_code kadm5_free_config_params(krb5_context context,
                                          kadm5_config_params *params);
-
-krb5_error_code kadm5_free_realm_params(krb5_context kcontext,
-                                        kadm5_config_params *params);
 
 krb5_error_code kadm5_get_admin_service_name(krb5_context, char *,
                                              char *, size_t);
@@ -437,29 +412,11 @@ kadm5_ret_t    kadm5_decrypt_key(void *server_handle,
 kadm5_ret_t    kadm5_create_policy(void *server_handle,
                                    kadm5_policy_ent_t ent,
                                    long mask);
-/*
- * kadm5_create_policy_internal is not part of the supported,
- * exposed API.  It is available only in the server library, and you
- * shouldn't use it unless you know why it's there and how it's
- * different from kadm5_create_policy.
- */
-kadm5_ret_t    kadm5_create_policy_internal(void *server_handle,
-                                            kadm5_policy_ent_t
-                                            entry, long mask);
 kadm5_ret_t    kadm5_delete_policy(void *server_handle,
                                    kadm5_policy_t policy);
 kadm5_ret_t    kadm5_modify_policy(void *server_handle,
                                    kadm5_policy_ent_t ent,
                                    long mask);
-/*
- * kadm5_modify_policy_internal is not part of the supported,
- * exposed API.  It is available only in the server library, and you
- * shouldn't use it unless you know why it's there and how it's
- * different from kadm5_modify_policy.
- */
-kadm5_ret_t    kadm5_modify_policy_internal(void *server_handle,
-                                            kadm5_policy_ent_t
-                                            entry, long mask);
 kadm5_ret_t    kadm5_get_policy(void *server_handle,
                                 kadm5_policy_t policy,
                                 kadm5_policy_ent_t ent);

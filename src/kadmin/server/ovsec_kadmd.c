@@ -31,6 +31,7 @@
  */
 
 #include    <errno.h>
+#include    <locale.h>
 #include    <stdio.h>
 #include    <signal.h>
 #include    <syslog.h>
@@ -42,7 +43,6 @@
 #include    <sys/socket.h>
 #include    <unistd.h>
 #include    <netinet/in.h>
-#include    <arpa/inet.h>  /* inet_ntoa */
 #include    <netdb.h>
 #include    <gssrpc/rpc.h>
 #include    <gssapi/gssapi.h>
@@ -69,11 +69,8 @@ gss_name_t gss_changepw_name = NULL, gss_oldchangepw_name = NULL;
 gss_name_t gss_kadmin_name = NULL;
 void *global_server_handle;
 
-extern krb5_keylist_node  *master_keylist;
-
 char *build_princ_name(char *name, char *realm);
-void log_badauth(OM_uint32 major, OM_uint32 minor,
-                 struct sockaddr_in *addr, char *data);
+void log_badauth(OM_uint32 major, OM_uint32 minor, SVCXPRT *xprt, char *data);
 void log_badverf(gss_name_t client_name, gss_name_t server_name,
                  struct svc_req *rqst, struct rpc_msg *msg,
                  char *data);
@@ -109,7 +106,8 @@ static void usage()
 {
     fprintf(stderr, _("Usage: kadmind [-x db_args]* [-r realm] [-m] [-nofork] "
                       "[-port port-number]\n"
-                      "\t\t[-P pid_file]\n"
+                      "\t\t[-p path-to-kdb5_util] [-F dump-file]\n"
+                      "\t\t[-K path-to-kprop] [-P pid_file]\n"
                       "\nwhere,\n\t[-x db_args]* - any number of database "
                       "specific arguments.\n"
                       "\t\t\tLook at each database documentation for "
@@ -150,15 +148,14 @@ static void display_status_1(m, code, type)
     OM_uint32 code;
     int type;
 {
-    OM_uint32 maj_stat, min_stat;
+    OM_uint32 min_stat;
     gss_buffer_desc msg;
     OM_uint32 msg_ctx;
 
     msg_ctx = 0;
     while (1) {
-        maj_stat = gss_display_status(&min_stat, code,
-                                      type, GSS_C_NULL_OID,
-                                      &msg_ctx, &msg);
+        (void) gss_display_status(&min_stat, code, type, GSS_C_NULL_OID,
+                                  &msg_ctx, &msg);
         fprintf(stderr, _("GSS-API error %s: %s\n"), m, (char *)msg.value);
         (void) gss_release_buffer(&min_stat, &msg);
 
@@ -188,14 +185,15 @@ write_pid_file(const char *pid_file)
 {
     FILE *file;
     unsigned long pid;
+    int st1, st2;
 
     file = fopen(pid_file, "w");
     if (file == NULL)
         return errno;
     pid = (unsigned long) getpid();
-    if (fprintf(file, "%ld\n", pid) < 0 || fclose(file) == EOF)
-        return errno;
-    return 0;
+    st1 = (fprintf(file, "%ld\n", pid) < 0) ? errno : 0;
+    st2 = (fclose(file) == EOF) ? errno : 0;
+    return st1 ? st1 : st2;
 }
 
 /* XXX yuck.  the signal handlers need this */
@@ -204,6 +202,9 @@ static krb5_context context;
 static krb5_context hctx;
 
 int nofork = 0;
+char *kdb5_util = KPROPD_DEFAULT_KDB5_UTIL;
+char *kprop = KPROPD_DEFAULT_KPROP;
+char *dump_file = KPROP_DEFAULT_FILE;
 
 int main(int argc, char *argv[])
 {
@@ -219,7 +220,7 @@ int main(int argc, char *argv[])
     kadm5_config_params params;
     char **db_args      = NULL;
     int    db_args_size = 0;
-    char *errmsg;
+    const char *errmsg;
     int i;
     int strong_random = 1;
     const char *pid_file = NULL;
@@ -228,7 +229,7 @@ int main(int argc, char *argv[])
 
     verto_ctx *ctx;
 
-    setlocale(LC_MESSAGES, "");
+    setlocale(LC_ALL, "");
     setvbuf(stderr, NULL, _IONBF, 0);
 
     /* This is OID value the Krb5_Name NameType */
@@ -300,6 +301,21 @@ int main(int argc, char *argv[])
             pid_file = *argv;
         } else if (strcmp(*argv, "-W") == 0) {
             strong_random = 0;
+        } else if (strcmp(*argv, "-p") == 0) {
+            argc--; argv++;
+            if (!argc)
+                usage();
+            kdb5_util = *argv;
+        } else if (strcmp(*argv, "-F") == 0) {
+            argc--; argv++;
+            if (!argc)
+                usage();
+            dump_file = *argv;
+        } else if (strcmp(*argv, "-K") == 0) {
+            argc--; argv++;
+            if (!argc)
+                usage();
+            kprop = *argv;
         } else
             break;
         argc--; argv++;
@@ -319,7 +335,7 @@ int main(int argc, char *argv[])
     if((ret = kadm5_init(context, "kadmind", NULL,
                          NULL, &params,
                          KADM5_STRUCT_VERSION,
-                         KADM5_API_VERSION_3,
+                         KADM5_API_VERSION_4,
                          db_args,
                          &global_server_handle)) != KADM5_OK) {
         const char *e_txt = krb5_get_error_message (context, ret);
@@ -473,11 +489,11 @@ kterr:
     (void) gss_import_name(&OMret, &in_buf, nt_krb5_name_oid,
                            &gss_changepw_name);
 
-    svcauth_gssapi_set_log_badauth_func(log_badauth, NULL);
+    svcauth_gssapi_set_log_badauth2_func(log_badauth, NULL);
     svcauth_gssapi_set_log_badverf_func(log_badverf, NULL);
     svcauth_gssapi_set_log_miscerr_func(log_miscerr, NULL);
 
-    svcauth_gss_set_log_badauth_func(log_badauth, NULL);
+    svcauth_gss_set_log_badauth2_func(log_badauth, NULL);
     svcauth_gss_set_log_badverf_func(log_badverf, NULL);
     svcauth_gss_set_log_miscerr_func(log_miscerr, NULL);
 
@@ -754,7 +770,7 @@ void log_badverf(gss_name_t client_name, gss_name_t server_name,
     OM_uint32 minor;
     gss_buffer_desc client, server;
     gss_OID gss_type;
-    char *a;
+    const char *a;
     rpcproc_t proc;
     unsigned int i;
     const char *procname;
@@ -782,7 +798,7 @@ void log_badverf(gss_name_t client_name, gss_name_t server_name,
         slen = server.length;
     }
     trunc_name(&slen, &sdots);
-    a = inet_ntoa(rqst->rq_xprt->xp_raddr.sin_addr);
+    a = client_addr(rqst->rq_xprt);
 
     proc = msg->rm_call.cb_proc;
     procname = NULL;
@@ -828,11 +844,8 @@ void log_badverf(gss_name_t client_name, gss_name_t server_name,
 void log_miscerr(struct svc_req *rqst, struct rpc_msg *msg,
                  char *error, char *data)
 {
-    char *a;
-
-    a = inet_ntoa(rqst->rq_xprt->xp_raddr.sin_addr);
-    krb5_klog_syslog(LOG_NOTICE, _("Miscellaneous RPC error: %s, %s"), a,
-                     error);
+    krb5_klog_syslog(LOG_NOTICE, _("Miscellaneous RPC error: %s, %s"),
+                     client_addr(rqst->rq_xprt), error);
 }
 
 
@@ -854,18 +867,14 @@ void log_miscerr(struct svc_req *rqst, struct rpc_msg *msg,
  * Logs the GSS-API error via krb5_klog_syslog(); see functional spec for
  * format.
  */
-void log_badauth(OM_uint32 major, OM_uint32 minor,
-                 struct sockaddr_in *addr, char *data)
+void log_badauth(OM_uint32 major, OM_uint32 minor, SVCXPRT *xprt, char *data)
 {
-    char *a;
-
     /* Authentication attempt failed: <IP address>, <GSS-API error */
     /* strings> */
 
-    a = inet_ntoa(addr->sin_addr);
-
     krb5_klog_syslog(LOG_NOTICE, _("Authentication attempt failed: %s, "
-                                   "GSS-API error strings are:"), a);
+                                   "GSS-API error strings are:"),
+                     client_addr(xprt));
     log_badauth_display_status("   ", major, minor);
     krb5_klog_syslog(LOG_NOTICE, _("   GSS-API error strings complete."));
 }

@@ -100,7 +100,7 @@ static const krb5_ser_entry krb5_profile_ser_entry = {
 static inline unsigned int
 etypes_len(krb5_enctype *list)
 {
-    return (list == NULL) ? 0 : krb5int_count_etypes(list);
+    return (list == NULL) ? 0 : k5_count_etypes(list);
 }
 
 /*
@@ -189,7 +189,8 @@ krb5_context_externalize(krb5_context kcontext, krb5_pointer arg, krb5_octet **b
     context = (krb5_context) arg;
     if (!context)
         return (EINVAL);
-    KRB5_VERIFY_MAGIC(context, KV5M_CONTEXT);
+    if (context->magic != KV5M_CONTEXT)
+        return (KV5M_CONTEXT);
 
     if ((kret = krb5_context_size(kcontext, arg, &required)))
         return (kret);

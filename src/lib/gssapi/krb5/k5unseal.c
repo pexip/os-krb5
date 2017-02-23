@@ -67,7 +67,7 @@ kg_unseal_v1(context, minor_status, ctx, ptr, bodysize, message_buffer,
     int bodysize;
     gss_buffer_t message_buffer;
     int *conf_state;
-    int *qop_state;
+    gss_qop_t *qop_state;
     int toktype;
 {
     krb5_error_code code;
@@ -206,12 +206,8 @@ kg_unseal_v1(context, minor_status, ctx, ptr, bodysize, message_buffer,
 
         plainlen = tmsglen;
 
-        if ((sealalg == 0xffff) && ctx->big_endian) {
-            token.length = tmsglen;
-        } else {
-            conflen = kg_confounder_size(context, ctx->enc->keyblock.enctype);
-            token.length = tmsglen - conflen - plain[tmsglen-1];
-        }
+        conflen = kg_confounder_size(context, ctx->enc->keyblock.enctype);
+        token.length = tmsglen - conflen - plain[tmsglen-1];
 
         if (token.length) {
             if ((token.value = (void *) gssalloc_malloc(token.length)) == NULL) {
@@ -267,8 +263,7 @@ kg_unseal_v1(context, minor_status, ctx, ptr, bodysize, message_buffer,
 
         /* 8 = bytes of token body to be checksummed according to spec */
 
-        if (! (data_ptr = (void *)
-               xmalloc(8 + (ctx->big_endian ? token.length : plainlen)))) {
+        if (! (data_ptr = xmalloc(8 + plainlen))) {
             if (sealalg != 0xffff)
                 xfree(plain);
             if (toktype == KG_TOK_SEAL_MSG)
@@ -279,12 +274,9 @@ kg_unseal_v1(context, minor_status, ctx, ptr, bodysize, message_buffer,
 
         (void) memcpy(data_ptr, ptr-2, 8);
 
-        if (ctx->big_endian)
-            (void) memcpy(data_ptr+8, token.value, token.length);
-        else
-            (void) memcpy(data_ptr+8, plain, plainlen);
+        (void) memcpy(data_ptr+8, plain, plainlen);
 
-        plaind.length = 8 + (ctx->big_endian ? token.length : plainlen);
+        plaind.length = 8 + plainlen;
         plaind.data = data_ptr;
         code = krb5_k_make_checksum(context, md5cksum.checksum_type,
                                     ctx->seq, sign_usage,
@@ -317,7 +309,7 @@ kg_unseal_v1(context, minor_status, ctx, ptr, bodysize, message_buffer,
             cksum.length = 16;
         cksum.contents = md5cksum.contents + 16 - cksum.length;
 
-        code = memcmp(cksum.contents, ptr+14, cksum.length);
+        code = k5_bcmp(cksum.contents, ptr + 14, cksum.length);
         break;
 
     case SGN_ALG_MD2_5:
@@ -332,9 +324,7 @@ kg_unseal_v1(context, minor_status, ctx, ptr, bodysize, message_buffer,
             return GSS_S_FAILURE;
         }
 
-        if (! (data_ptr = (void *)
-               xmalloc(sizeof(ctx->seed) + 8 +
-                       (ctx->big_endian ? token.length : plainlen)))) {
+        if (! (data_ptr = xmalloc(sizeof(ctx->seed) + 8 + plainlen))) {
             krb5_free_checksum_contents(context, &md5cksum);
             if (sealalg == 0)
                 xfree(plain);
@@ -345,14 +335,8 @@ kg_unseal_v1(context, minor_status, ctx, ptr, bodysize, message_buffer,
         }
         (void) memcpy(data_ptr, ptr-2, 8);
         (void) memcpy(data_ptr+8, ctx->seed, sizeof(ctx->seed));
-        if (ctx->big_endian)
-            (void) memcpy(data_ptr+8+sizeof(ctx->seed),
-                          token.value, token.length);
-        else
-            (void) memcpy(data_ptr+8+sizeof(ctx->seed),
-                          plain, plainlen);
-        plaind.length = 8 + sizeof(ctx->seed) +
-            (ctx->big_endian ? token.length : plainlen);
+        (void) memcpy(data_ptr+8+sizeof(ctx->seed), plain, plainlen);
+        plaind.length = 8 + sizeof(ctx->seed) + plainlen;
         plaind.data = data_ptr;
         krb5_free_checksum_contents(context, &md5cksum);
         code = krb5_k_make_checksum(context, md5cksum.checksum_type,
@@ -369,7 +353,7 @@ kg_unseal_v1(context, minor_status, ctx, ptr, bodysize, message_buffer,
             return(GSS_S_FAILURE);
         }
 
-        code = memcmp(md5cksum.contents, ptr+14, 8);
+        code = k5_bcmp(md5cksum.contents, ptr + 14, 8);
         /* Falls through to defective-token??  */
 
     default:
@@ -382,8 +366,7 @@ kg_unseal_v1(context, minor_status, ctx, ptr, bodysize, message_buffer,
 
         /* 8 = bytes of token body to be checksummed according to spec */
 
-        if (! (data_ptr = (void *)
-               xmalloc(8 + (ctx->big_endian ? token.length : plainlen)))) {
+        if (! (data_ptr = xmalloc(8 + plainlen))) {
             if (sealalg != 0xffff)
                 xfree(plain);
             if (toktype == KG_TOK_SEAL_MSG)
@@ -394,12 +377,9 @@ kg_unseal_v1(context, minor_status, ctx, ptr, bodysize, message_buffer,
 
         (void) memcpy(data_ptr, ptr-2, 8);
 
-        if (ctx->big_endian)
-            (void) memcpy(data_ptr+8, token.value, token.length);
-        else
-            (void) memcpy(data_ptr+8, plain, plainlen);
+        (void) memcpy(data_ptr+8, plain, plainlen);
 
-        plaind.length = 8 + (ctx->big_endian ? token.length : plainlen);
+        plaind.length = 8 + plainlen;
         plaind.data = data_ptr;
         code = krb5_k_make_checksum(context, md5cksum.checksum_type,
                                     ctx->seq, sign_usage,
@@ -413,7 +393,7 @@ kg_unseal_v1(context, minor_status, ctx, ptr, bodysize, message_buffer,
             return(GSS_S_FAILURE);
         }
 
-        code = memcmp(md5cksum.contents, ptr+14, cksum_len);
+        code = k5_bcmp(md5cksum.contents, ptr + 14, cksum_len);
         break;
     }
 

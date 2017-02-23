@@ -34,6 +34,7 @@
  */
 
 #include "k5-int.h"
+#include "os-proto.h"
 
 #if !defined(_WIN32)
 
@@ -114,7 +115,7 @@
  */
 
 
-#if defined(__linux__) && defined(KRB5_USE_INET6) && !defined(HAVE_IFADDRS_H)
+#if defined(__linux__) && !defined(HAVE_IFADDRS_H)
 #define LINUX_IPV6_HACK
 #endif
 
@@ -183,12 +184,10 @@ is_loopback_address(struct sockaddr *sa)
         struct sockaddr_in *s4 = (struct sockaddr_in *)sa;
         return s4->sin_addr.s_addr == htonl(INADDR_LOOPBACK);
     }
-#ifdef KRB5_USE_INET6
     case AF_INET6: {
         struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)sa;
         return IN6_IS_ADDR_LOOPBACK(&s6->sin6_addr);
     }
-#endif
     default:
         return 0;
     }
@@ -1123,9 +1122,7 @@ count_addrs (void *P_data, struct sockaddr *a)
     struct localaddr_data *data = P_data;
     switch (a->sa_family) {
     case AF_INET:
-#ifdef KRB5_USE_INET6
     case AF_INET6:
-#endif
 #ifdef KRB5_USE_NS
     case AF_XNS:
 #endif
@@ -1197,7 +1194,6 @@ add_addr (void *P_data, struct sockaddr *a)
             data->mem_err++;
         break;
 
-#ifdef KRB5_USE_INET6
     case AF_INET6:
     {
         const struct sockaddr_in6 *in = (const struct sockaddr_in6 *) a;
@@ -1211,7 +1207,6 @@ add_addr (void *P_data, struct sockaddr *a)
             data->mem_err++;
         break;
     }
-#endif /* KRB5_USE_INET6 */
 #endif /* netinet/in.h */
 
 #ifdef KRB5_USE_NS
@@ -1297,7 +1292,7 @@ krb5_os_localaddr_profile (krb5_context context, struct localaddr_data *datap)
             fprintf (stderr, "    processing '%s'\n", current);
 #endif
             newaddrs = 0;
-            err = krb5_os_hostaddr (context, current, &newaddrs);
+            err = k5_os_hostaddr (context, current, &newaddrs);
             if (err)
                 continue;
             for (i = 0; newaddrs[i]; i++) {
@@ -1351,12 +1346,10 @@ get_localaddrs (krb5_context context, krb5_address ***addr, int use_profile)
 {
     struct localaddr_data data = { 0 };
     int r;
-    krb5_error_code err;
 
-    if (use_profile) {
-        err = krb5_os_localaddr_profile (context, &data);
-        /* ignore err for now */
-    }
+    /* Ignore errors for now. */
+    if (use_profile)
+        (void)krb5_os_localaddr_profile (context, &data);
 
     r = foreach_localaddr (&data, count_addrs, allocate, add_addr);
     if (r != 0) {
@@ -1414,7 +1407,6 @@ get_localaddrs (krb5_context context, krb5_address ***addr, int use_profile)
 #endif
                 break;
             }
-#ifdef KRB5_USE_INET6
             case ADDRTYPE_INET6:
             {
                 struct sockaddr_in6 *sin6p = ss2sin6 (&ss);
@@ -1425,7 +1417,6 @@ get_localaddrs (krb5_context context, krb5_address ***addr, int use_profile)
 #endif
                 break;
             }
-#endif
             default:
                 ss2sa(&ss)->sa_family = 0;
                 break;

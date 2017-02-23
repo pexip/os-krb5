@@ -25,7 +25,7 @@
 #define _GSSAPIP_GENERIC_H_
 
 /*
- * $Id: gssapiP_generic.h 25331 2011-10-14 14:40:05Z hartmans $
+ * $Id$
  */
 
 #if defined(_WIN32)
@@ -157,7 +157,6 @@ void g_make_token_header (const gss_OID_desc * mech, unsigned int body_size,
 
 /* flags for g_verify_token_header() */
 #define G_VFY_TOKEN_HDR_WRAPPER_REQUIRED        0x01
-#define G_VFY_TOKEN_HDR_IGNORE_SEQ_SIZE         0x02
 
 gss_int32 g_verify_token_header (const gss_OID_desc * mech,
                                  unsigned int *body_size,
@@ -276,9 +275,9 @@ k5buf_to_gss(OM_uint32 *minor,
              gss_buffer_t output_buffer)
 {
     OM_uint32 status = GSS_S_COMPLETE;
-    char *bp = krb5int_buf_data(input_k5buf);
-    output_buffer->length = krb5int_buf_len(input_k5buf)+1;
-#ifdef _WIN32
+    char *bp = k5_buf_data(input_k5buf);
+    output_buffer->length = k5_buf_len(input_k5buf);
+#if defined(_WIN32) || defined(DEBUG_GSSALLOC)
     if (output_buffer->length > 0) {
         output_buffer->value = gssalloc_malloc(output_buffer->length);
         if (output_buffer->value) {
@@ -290,7 +289,7 @@ k5buf_to_gss(OM_uint32 *minor,
     } else {
         output_buffer->value = NULL;
     }
-    krb5int_free_buf(input_k5buf);
+    k5_free_buf(input_k5buf);
 #else
     output_buffer->value = bp;
     /*

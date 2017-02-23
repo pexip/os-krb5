@@ -5,6 +5,7 @@
 #if defined(_WIN32) || defined(USE_CCAPI)
 
 #include "k5-int.h"     /* loads krb5.h */
+#include "../cc-int.h"
 
 #ifdef USE_CCAPI_V3
 #include <CredentialsCache.h>
@@ -117,6 +118,8 @@ krb5_error_code KRB5_CALLCONV krb5_stdccv3_context_lock
 krb5_error_code KRB5_CALLCONV krb5_stdccv3_context_unlock
 (krb5_context context);
 
+krb5_error_code KRB5_CALLCONV krb5_stdccv3_switch_to
+(krb5_context context, krb5_ccache id);
 #else
 
 krb5_error_code KRB5_CALLCONV krb5_stdcc_close

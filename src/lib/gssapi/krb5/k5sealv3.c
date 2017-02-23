@@ -82,8 +82,6 @@ gss_krb5int_make_seal_token_v3 (krb5_context context,
     krb5_key key;
     krb5_cksumtype cksumtype;
 
-    assert(ctx->big_endian == 0);
-
     acceptor_flag = ctx->initiate ? 0 : FLAG_SENDER_IS_ACCEPTOR;
     key_usage = (toktype == KG_TOK_WRAP_MSG
                  ? (ctx->initiate
@@ -128,10 +126,9 @@ gss_krb5int_make_seal_token_v3 (krb5_context context,
 #else
         ec = 0;
 #endif
-        plain.length = message->length + 16 + ec;
-        plain.data = malloc(message->length + 16 + ec);
-        if (plain.data == NULL)
-            return ENOMEM;
+        err = alloc_data(&plain, message->length + 16 + ec);
+        if (err)
+            return err;
 
         /* Get size of ciphertext.  */
         bufsize = 16 + krb5_encrypt_size (plain.length, key->keyblock.enctype);
@@ -192,10 +189,9 @@ gss_krb5int_make_seal_token_v3 (krb5_context context,
         tok_id = KG2_TOK_WRAP_MSG;
 
     wrap_with_checksum:
-        plain.length = message->length + 16;
-        plain.data = malloc(message->length + 16);
-        if (plain.data == NULL)
-            return ENOMEM;
+        err = alloc_data(&plain, message->length + 16);
+        if (err)
+            return err;
 
         err = krb5_c_checksum_length(context, cksumtype, &cksumsize);
         if (err)
@@ -318,9 +314,6 @@ gss_krb5int_unseal_token_v3(krb5_context *contextptr,
     krb5_boolean valid;
     krb5_key key;
     krb5_cksumtype cksumtype;
-
-    if (ctx->big_endian != 0)
-        goto defective;
 
     if (qop_state)
         *qop_state = GSS_C_QOP_DEFAULT;
@@ -447,8 +440,7 @@ gss_krb5int_unseal_token_v3(krb5_context *contextptr,
                Rotate the first two.  */
             store_16_be(0, ptr+4);
             store_16_be(0, ptr+6);
-            plain.length = bodysize-ec;
-            plain.data = (char *)ptr;
+            plain = make_data(ptr, bodysize - ec);
             if (!gss_krb5int_rotate_left(ptr, bodysize-ec, 16))
                 goto no_mem;
             sum.length = ec;

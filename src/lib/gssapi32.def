@@ -170,3 +170,13 @@ EXPORTS
 	gss_nt_service_name_v2				@137	DATA
 ; Added in 1.10
 	gss_localname					@138
+; Added in 1.11
+	gss_acquire_cred_from				@139
+	gss_add_cred_from				@140
+	gss_store_cred_into				@141
+	gss_export_cred					@142
+	gss_import_cred					@143
+; Added in 1.12
+	gss_get_mic_iov					@144
+	gss_get_mic_iov_length				@145
+	gss_verify_mic_iov				@146
