@@ -58,11 +58,7 @@ kg_impersonate_name(OM_uint32 *minor_status,
     if (impersonator_cred->req_enctypes != NULL)
         in_creds.keyblock.enctype = impersonator_cred->req_enctypes[0];
 
-    code = k5_mutex_lock(&user->lock);
-    if (code != 0) {
-        *minor_status = code;
-        return GSS_S_FAILURE;
-    }
+    k5_mutex_lock(&user->lock);
 
     if (user->ad_context != NULL) {
         code = krb5_authdata_export_authdata(context,
@@ -169,6 +165,39 @@ krb5_gss_acquire_cred_impersonate_name(OM_uint32 *minor_status,
 
 }
 
+/*
+ * Set up cred to be an S4U2Proxy credential by copying in the impersonator's
+ * creds, setting a cache config variable with the impersonator principal name,
+ * and saving the impersonator principal name in the cred structure.
+ */
+static krb5_error_code
+make_proxy_cred(krb5_context context, krb5_gss_cred_id_t cred,
+                krb5_gss_cred_id_t impersonator_cred)
+{
+    krb5_error_code code;
+    krb5_data data;
+    char *str;
+
+    code = krb5_cc_copy_creds(context, impersonator_cred->ccache,
+                              cred->ccache);
+    if (code)
+        return code;
+
+    code = krb5_unparse_name(context, impersonator_cred->name->princ, &str);
+    if (code)
+        return code;
+
+    data = string2data(str);
+    code = krb5_cc_set_config(context, cred->ccache, NULL,
+                              KRB5_CC_CONF_PROXY_IMPERSONATOR, &data);
+    krb5_free_unparsed_name(context, str);
+    if (code)
+        return code;
+
+    return krb5_copy_principal(context, impersonator_cred->name->princ,
+                               &cred->impersonator);
+}
+
 OM_uint32
 kg_compose_deleg_cred(OM_uint32 *minor_status,
                       krb5_gss_cred_id_t impersonator_cred,
@@ -187,7 +216,7 @@ kg_compose_deleg_cred(OM_uint32 *minor_status,
 
     if (!kg_is_initiator_cred(impersonator_cred) ||
         impersonator_cred->name == NULL ||
-        impersonator_cred->proxy_cred) {
+        impersonator_cred->impersonator != NULL) {
         code = G_BAD_USAGE;
         goto cleanup;
     }
@@ -208,16 +237,9 @@ kg_compose_deleg_cred(OM_uint32 *minor_status,
     if (code != 0)
         goto cleanup;
 
-    /*
-     * Only return a "proxy" credential for use with constrained
-     * delegation if the subject credentials are forwardable.
-     * Submitting non-forwardable credentials to the KDC for use
-     * with constrained delegation will only return an error.
-     */
     cred->usage = GSS_C_INITIATE;
-    cred->proxy_cred = !!(subject_creds->ticket_flags & TKT_FLG_FORWARDABLE);
 
-    cred->tgt_expire = subject_creds->times.endtime;
+    cred->expire = subject_creds->times.endtime;
 
     code = kg_init_name(context, subject_creds->client, NULL, NULL, NULL, 0,
                         &cred->name);
@@ -229,16 +251,18 @@ kg_compose_deleg_cred(OM_uint32 *minor_status,
         goto cleanup;
     cred->destroy_ccache = 1;
 
-    code = krb5_cc_initialize(context, cred->ccache,
-                              cred->proxy_cred ? impersonator_cred->name->princ :
-                              subject_creds->client);
+    code = krb5_cc_initialize(context, cred->ccache, subject_creds->client);
     if (code != 0)
         goto cleanup;
 
-    if (cred->proxy_cred) {
-        /* Impersonator's TGT will be necessary for S4U2Proxy */
-        code = krb5_cc_copy_creds(context, impersonator_cred->ccache,
-                                  cred->ccache);
+    /*
+     * Only return a "proxy" credential for use with constrained
+     * delegation if the subject credentials are forwardable.
+     * Submitting non-forwardable credentials to the KDC for use
+     * with constrained delegation will only return an error.
+     */
+    if (subject_creds->ticket_flags & TKT_FLG_FORWARDABLE) {
+        code = make_proxy_cred(context, cred, impersonator_cred);
         if (code != 0)
             goto cleanup;
     }
@@ -254,7 +278,7 @@ kg_compose_deleg_cred(OM_uint32 *minor_status,
         if (code != 0)
             goto cleanup;
 
-        *time_rec = cred->tgt_expire - now;
+        *time_rec = cred->expire - now;
     }
 
     major_status = GSS_S_COMPLETE;

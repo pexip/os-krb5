@@ -1,10 +1,6 @@
 mydir=lib$(S)crypto$(S)crypto_tests
 BUILDTOP=$(REL)..$(S)..$(S)..
 LOCALINCLUDES = -I$(srcdir)/../krb -I$(srcdir)/../$(CRYPTO_IMPL)
-RUN_SETUP = @KRB5_RUN_ENV@
-PROG_LIBPATH=-L$(TOPLIBD)
-PROG_RPATH=$(KRB5_LIBDIR)
-DEFS=
 
 EXTRADEPSRCS=\
 	$(srcdir)/t_nfold.c	\
@@ -59,8 +55,7 @@ check-unix:: t_nfold t_encrypt t_decrypt t_prf t_prng t_cmac t_hmac \
 	$(RUN_SETUP) $(VALGRIND) ./aes-test > vt.txt
 	cmp vt.txt $(srcdir)/expect-vt.txt
 	$(RUN_SETUP) $(VALGRIND) ./camellia-test > camellia-vt.txt
-# Enable this when Camellia becomes unconditional.
-#	cmp camellia-vt.txt $(srcdir)/camellia-expect-vt.txt
+	cmp camellia-vt.txt $(srcdir)/camellia-expect-vt.txt
 	$(RUN_SETUP) $(VALGRIND) $(C)t_mddriver4 -x
 	$(RUN_SETUP) $(VALGRIND) $(C)t_mddriver -x
 	$(RUN_SETUP) $(VALGRIND) ./t_short

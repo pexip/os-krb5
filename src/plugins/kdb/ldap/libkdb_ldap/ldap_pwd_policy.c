@@ -41,7 +41,91 @@ static char *password_policy_attributes[] = { "cn", "krbmaxpwdlife", "krbminpwdl
                                               "krbpwdmindiffchars", "krbpwdminlength",
                                               "krbpwdhistorylength", "krbpwdmaxfailure",
                                               "krbpwdfailurecountinterval",
-                                              "krbpwdlockoutduration", NULL };
+                                              "krbpwdlockoutduration",
+                                              "krbpwdattributes",
+                                              "krbpwdmaxlife",
+                                              "krbpwdmaxrenewablelife",
+                                              "krbpwdallowedkeysalts", NULL };
+
+/* Fill in mods with LDAP operations for the fields of policy, using the
+ * modification type op.  mods must be freed by the caller on error. */
+static krb5_error_code
+add_policy_mods(krb5_context context, LDAPMod ***mods, osa_policy_ent_t policy,
+                int op)
+{
+    krb5_error_code st;
+    char *strval[2] = { NULL };
+
+    st = krb5_add_int_mem_ldap_mod(mods, "krbmaxpwdlife", op,
+                                   (int)policy->pw_max_life);
+    if (st)
+        return st;
+
+    st = krb5_add_int_mem_ldap_mod(mods, "krbminpwdlife", op,
+                                   (int)policy->pw_min_life);
+    if (st)
+        return st;
+
+    st = krb5_add_int_mem_ldap_mod(mods, "krbpwdmindiffchars", op,
+                                   (int)policy->pw_min_classes);
+    if (st)
+        return st;
+
+    st = krb5_add_int_mem_ldap_mod(mods, "krbpwdminlength", op,
+                                   (int)policy->pw_min_length);
+    if (st)
+        return st;
+
+    st = krb5_add_int_mem_ldap_mod(mods, "krbpwdhistorylength", op,
+                                   (int)policy->pw_history_num);
+    if (st)
+        return st;
+
+    st = krb5_add_int_mem_ldap_mod(mods, "krbpwdmaxfailure", op,
+                                   (int)policy->pw_max_fail);
+    if (st)
+        return st;
+
+    st = krb5_add_int_mem_ldap_mod(mods, "krbpwdfailurecountinterval", op,
+                                   (int)policy->pw_failcnt_interval);
+    if (st)
+        return st;
+
+    st = krb5_add_int_mem_ldap_mod(mods, "krbpwdlockoutduration", op,
+                                   (int)policy->pw_lockout_duration);
+    if (st)
+        return st;
+
+    st = krb5_add_int_mem_ldap_mod(mods, "krbpwdattributes", op,
+                                   (int)policy->attributes);
+    if (st)
+        return st;
+
+    st = krb5_add_int_mem_ldap_mod(mods, "krbpwdmaxlife", op,
+                                   (int)policy->max_life);
+    if (st)
+        return st;
+
+    st = krb5_add_int_mem_ldap_mod(mods, "krbpwdmaxrenewablelife", op,
+                                   (int)policy->max_renewable_life);
+    if (st)
+        return st;
+
+    if (policy->allowed_keysalts != NULL) {
+        strval[0] = policy->allowed_keysalts;
+        st = krb5_add_str_mem_ldap_mod(mods, "krbpwdallowedkeysalts",
+                                       op, strval);
+        if (st)
+            return st;
+    }
+
+    /*
+     * Each policy tl-data type we add should be explicitly marshalled here.
+     * Unlike principals, we do not marshal unrecognized policy tl-data.
+     */
+
+    return 0;
+}
 
 /*
  * Function to create password policy object.
@@ -56,7 +140,7 @@ krb5_ldap_create_password_policy(krb5_context context, osa_policy_ent_t policy)
     kdb5_dal_handle             *dal_handle=NULL;
     krb5_ldap_context           *ldap_context=NULL;
     krb5_ldap_server_handle     *ldap_server_handle=NULL;
-    char                        **rdns=NULL, *strval[2]={NULL}, *policy_dn;
+    char                        *strval[2]={NULL}, *policy_dn=NULL;
 
     /* Clear the global error string */
     krb5_clear_error_message(context);
@@ -72,16 +156,7 @@ krb5_ldap_create_password_policy(krb5_context context, osa_policy_ent_t policy)
     if (st != 0)
         goto cleanup;
 
-    /* get the first component of the dn to set the cn attribute */
-    rdns = ldap_explode_dn(policy_dn, 1);
-    if (rdns == NULL) {
-        st = EINVAL;
-        krb5_set_error_message(context, st,
-                               _("Invalid password policy DN syntax"));
-        goto cleanup;
-    }
-
-    strval[0] = rdns[0];
+    strval[0] = policy->name;
     if ((st=krb5_add_str_mem_ldap_mod(&mods, "cn", LDAP_MOD_ADD, strval)) != 0)
         goto cleanup;
 
@@ -89,22 +164,8 @@ krb5_ldap_create_password_policy(krb5_context context, osa_policy_ent_t policy)
     if ((st=krb5_add_str_mem_ldap_mod(&mods, "objectclass", LDAP_MOD_ADD, strval)) != 0)
         goto cleanup;
 
-    if (((st=krb5_add_int_mem_ldap_mod(&mods, "krbmaxpwdlife", LDAP_MOD_ADD,
-                                       (signed) policy->pw_max_life)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbminpwdlife", LDAP_MOD_ADD,
-                                          (signed) policy->pw_min_life)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbpwdmindiffchars", LDAP_MOD_ADD,
-                                          (signed) policy->pw_min_classes)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbpwdminlength", LDAP_MOD_ADD,
-                                          (signed) policy->pw_min_length)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbpwdhistorylength", LDAP_MOD_ADD,
-                                          (signed) policy->pw_history_num)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbpwdmaxfailure", LDAP_MOD_ADD,
-                                          (signed) policy->pw_max_fail)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbpwdfailurecountinterval", LDAP_MOD_ADD,
-                                          (signed) policy->pw_failcnt_interval)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbpwdlockoutduration", LDAP_MOD_ADD,
-                                          (signed) policy->pw_lockout_duration)) != 0))
+    st = add_policy_mods(context, &mods, policy, LDAP_MOD_ADD);
+    if (st)
         goto cleanup;
 
     /* password policy object creation */
@@ -114,11 +175,7 @@ krb5_ldap_create_password_policy(krb5_context context, osa_policy_ent_t policy)
     }
 
 cleanup:
-    if (rdns)
-        ldap_value_free(rdns);
-
-    if (policy_dn != NULL)
-        free (policy_dn);
+    free(policy_dn);
     ldap_mods_free(mods, 1);
     krb5_ldap_put_handle_to_pool(ldap_context, ldap_server_handle);
     return(st);
@@ -131,7 +188,7 @@ cleanup:
 krb5_error_code
 krb5_ldap_put_password_policy(krb5_context context, osa_policy_ent_t policy)
 {
-    char                        *policy_dn;
+    char                        *policy_dn=NULL;
     krb5_error_code             st=0;
     LDAP                        *ld=NULL;
     LDAPMod                     **mods=NULL;
@@ -153,22 +210,8 @@ krb5_ldap_put_password_policy(krb5_context context, osa_policy_ent_t policy)
     if (st != 0)
         goto cleanup;
 
-    if (((st=krb5_add_int_mem_ldap_mod(&mods, "krbmaxpwdlife", LDAP_MOD_REPLACE,
-                                       (signed) policy->pw_max_life)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbminpwdlife", LDAP_MOD_REPLACE,
-                                          (signed) policy->pw_min_life)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbpwdmindiffchars", LDAP_MOD_REPLACE,
-                                          (signed) policy->pw_min_classes)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbpwdminlength", LDAP_MOD_REPLACE,
-                                          (signed) policy->pw_min_length)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbpwdhistorylength", LDAP_MOD_REPLACE,
-                                          (signed) policy->pw_history_num)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbpwdmaxfailure", LDAP_MOD_REPLACE,
-                                          (signed) policy->pw_max_fail)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbpwdfailurecountinterval", LDAP_MOD_REPLACE,
-                                          (signed) policy->pw_failcnt_interval)) != 0)
-        || ((st=krb5_add_int_mem_ldap_mod(&mods, "krbpwdlockoutduration", LDAP_MOD_REPLACE,
-                                          (signed) policy->pw_lockout_duration)) != 0))
+    st = add_policy_mods(context, &mods, policy, LDAP_MOD_REPLACE);
+    if (st)
         goto cleanup;
 
     /* modify the password policy object. */
@@ -183,11 +226,19 @@ krb5_ldap_put_password_policy(krb5_context context, osa_policy_ent_t policy)
     }
 
 cleanup:
-    if (policy_dn != NULL)
-        free (policy_dn);
+    free(policy_dn);
     ldap_mods_free(mods, 1);
     krb5_ldap_put_handle_to_pool(ldap_context, ldap_server_handle);
     return(st);
+}
+
+static void
+get_ui4(LDAP *ld, LDAPMessage *ent, char *name, krb5_ui_4 *out)
+{
+    int val;
+
+    krb5_ldap_get_value(ld, ent, name, &val);
+    *out = val;
 }
 
 static krb5_error_code
@@ -203,16 +254,23 @@ populate_policy(krb5_context context,
     CHECK_NULL(pol_entry->name);
     pol_entry->version = 1;
 
-    krb5_ldap_get_value(ld, ent, "krbmaxpwdlife", &(pol_entry->pw_max_life));
-    krb5_ldap_get_value(ld, ent, "krbminpwdlife", &(pol_entry->pw_min_life));
-    krb5_ldap_get_value(ld, ent, "krbpwdmindiffchars", &(pol_entry->pw_min_classes));
-    krb5_ldap_get_value(ld, ent, "krbpwdminlength", &(pol_entry->pw_min_length));
-    krb5_ldap_get_value(ld, ent, "krbpwdhistorylength", &(pol_entry->pw_history_num));
+    get_ui4(ld, ent, "krbmaxpwdlife", &pol_entry->pw_max_life);
+    get_ui4(ld, ent, "krbminpwdlife", &pol_entry->pw_min_life);
+    get_ui4(ld, ent, "krbpwdmindiffchars", &pol_entry->pw_min_classes);
+    get_ui4(ld, ent, "krbpwdminlength", &pol_entry->pw_min_length);
+    get_ui4(ld, ent, "krbpwdhistorylength", &pol_entry->pw_history_num);
+    get_ui4(ld, ent, "krbpwdmaxfailure", &pol_entry->pw_max_fail);
+    get_ui4(ld, ent, "krbpwdfailurecountinterval",
+            &pol_entry->pw_failcnt_interval);
+    get_ui4(ld, ent, "krbpwdlockoutduration", &pol_entry->pw_lockout_duration);
+    get_ui4(ld, ent, "krbpwdattributes", &pol_entry->attributes);
+    get_ui4(ld, ent, "krbpwdmaxlife", &pol_entry->max_life);
+    get_ui4(ld, ent, "krbpwdmaxrenewablelife", &pol_entry->max_renewable_life);
 
-    krb5_ldap_get_value(ld, ent, "krbpwdmaxfailure", &(pol_entry->pw_max_fail));
-    krb5_ldap_get_value(ld, ent, "krbpwdfailurecountinterval", &(pol_entry->pw_failcnt_interval));
-    krb5_ldap_get_value(ld, ent, "krbpwdlockoutduration", &(pol_entry->pw_lockout_duration));
-
+    st = krb5_ldap_get_string(ld, ent, "krbpwdallowedkeysalts",
+                              &(pol_entry->allowed_keysalts), NULL);
+    if (st)
+        goto cleanup;
     /*
      * We don't store the policy refcnt, because principals might be maintained
      * outside of kadmin.  Instead, we will check for principal references when
@@ -254,30 +312,11 @@ krb5_ldap_get_password_policy_from_dn(krb5_context context, char *pol_name,
     memset(*policy, 0, sizeof(osa_policy_ent_rec));
 
     LDAP_SEARCH(pol_dn, LDAP_SCOPE_BASE, "(objectclass=krbPwdPolicy)", password_policy_attributes);
-#if 0 /************** Begin IFDEF'ed OUT *******************************/
-    (*policy)->name = strdup(name);
-    CHECK_NULL((*policy)->name);
-    (*policy)->version = 1;
-#endif /**************** END IFDEF'ed OUT *******************************/
 
     ent=ldap_first_entry(ld, result);
     if (ent != NULL) {
         if ((st = populate_policy(context, ld, ent, pol_name, *policy)) != 0)
             goto cleanup;
-#if 0 /************** Begin IFDEF'ed OUT *******************************/
-        krb5_ldap_get_value(ld, ent, "krbmaxpwdlife", &((*policy)->pw_max_life));
-        krb5_ldap_get_value(ld, ent, "krbminpwdlife", &((*policy)->pw_min_life));
-        krb5_ldap_get_value(ld, ent, "krbpwdmindiffchars", &((*policy)->pw_min_classes));
-        krb5_ldap_get_value(ld, ent, "krbpwdminlength", &((*policy)->pw_min_length));
-        krb5_ldap_get_value(ld, ent, "krbpwdhistorylength", &((*policy)->pw_history_num));
-
-        /* Get the reference count */
-        st = krb5_ldap_get_reference_count (context,
-                                            name,
-                                            "krbPwdPolicyReference",
-                                            &(*policy)->policy_refcnt,
-                                            ld);
-#endif /**************** END IFDEF'ed OUT *******************************/
     }
 
 cleanup:
@@ -321,15 +360,14 @@ krb5_ldap_get_password_policy(krb5_context context, char *name,
                                                policy);
 
 cleanup:
-    if (policy_dn != NULL)
-        free (policy_dn);
+    free(policy_dn);
     return st;
 }
 
 krb5_error_code
 krb5_ldap_delete_password_policy(krb5_context context, char *policy)
 {
-    int                         mask = 0, refcount;
+    int                         mask = 0;
     char                        *policy_dn = NULL, *class[] = {"krbpwdpolicy", NULL};
     krb5_error_code             st=0;
     LDAP                        *ld=NULL;
@@ -351,13 +389,6 @@ krb5_ldap_delete_password_policy(krb5_context context, char *policy)
     if (st != 0)
         goto cleanup;
 
-    st = krb5_ldap_get_reference_count(context, policy_dn,
-                                       "krbPwdPolicyReference", &refcount, ld);
-    if (st == 0 && refcount != 0)
-        st = KRB5_KDB_POLICY_REF;
-    if (st != 0)
-        goto cleanup;
-
     /* Ensure that the object is a password policy */
     if ((st=checkattributevalue(ld, policy_dn, "objectclass", class, &mask)) != 0)
         goto cleanup;
@@ -374,8 +405,7 @@ krb5_ldap_delete_password_policy(krb5_context context, char *policy)
 
 cleanup:
     krb5_ldap_put_handle_to_pool(ldap_context, ldap_server_handle);
-    if (policy_dn != NULL)
-        free (policy_dn);
+    free(policy_dn);
 
     return st;
 }
@@ -420,23 +450,6 @@ krb5_ldap_iterate_password_policy(krb5_context context, char *match_expr,
         memset(entry, 0, sizeof(osa_policy_ent_rec));
         if ((st = populate_policy(context, ld, ent, policy, entry)) != 0)
             goto cleanup;
-#if 0 /************** Begin IFDEF'ed OUT *******************************/
-        entry->name = policy;
-        entry->version = 1;
-
-        krb5_ldap_get_value(ld, ent, "krbmaxpwdlife", &(entry->pw_max_life));
-        krb5_ldap_get_value(ld, ent, "krbminpwdlife", &(entry->pw_min_life));
-        krb5_ldap_get_value(ld, ent, "krbpwdmindiffchars", &(entry->pw_min_classes));
-        krb5_ldap_get_value(ld, ent, "krbpwdminlength", &(entry->pw_min_length));
-        krb5_ldap_get_value(ld, ent, "krbpwdhistorylength", &(entry->pw_history_num));
-
-        /* Get the reference count */
-        st = krb5_ldap_get_reference_count (context,
-                                            policy,
-                                            "krbPwdPolicyReference",
-                                            &(entry->policy_refcnt),
-                                            ld);
-#endif /**************** END IFDEF'ed OUT *******************************/
 
         (*func)(func_arg, entry);
         /* XXX this will free policy so don't free it */
@@ -446,8 +459,7 @@ krb5_ldap_iterate_password_policy(krb5_context context, char *match_expr,
     ldap_msgfree(result);
 
 cleanup:
-    if (entry)
-        free (entry);
+    free(entry);
 
     krb5_ldap_put_handle_to_pool(ldap_context, ldap_server_handle);
     return st;
@@ -459,8 +471,7 @@ krb5_ldap_free_password_policy (context, entry)
     osa_policy_ent_t            entry;
 {
     if (entry) {
-        if (entry->name)
-            free(entry->name);
+        free(entry->name);
         free(entry);
     }
     return;

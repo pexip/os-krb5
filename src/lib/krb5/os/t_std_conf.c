@@ -72,37 +72,6 @@ test_set_default_ccname(krb5_context ctx, char *ccname)
 }
 
 static void
-test_get_krbhst(krb5_context ctx, char *realm)
-{
-    char **hostlist, **cpp;
-    krb5_data rlm;
-    krb5_error_code retval;
-
-    rlm.data = realm;
-    rlm.length = strlen(realm);
-    retval = krb5_get_krbhst(ctx, &rlm, &hostlist);
-    if (retval) {
-        com_err("krb5_get_krbhst", retval, 0);
-        return;
-    }
-    printf("krb_get_krbhst(%s) returned:", realm);
-    if (hostlist == 0) {
-        printf(" (null)\n");
-        return;
-    }
-    if (hostlist[0] == 0) {
-        printf(" (none)\n");
-        krb5_free_krbhst(ctx, hostlist);
-        return;
-    }
-    for (cpp = hostlist; *cpp; cpp++) {
-        printf(" '%s'", *cpp);
-    }
-    krb5_free_krbhst(ctx, hostlist);
-    printf("\n");
-}
-
-static void
 test_locate_kdc(krb5_context ctx, char *realm)
 {
     struct serverlist servers;
@@ -133,7 +102,6 @@ test_locate_kdc(krb5_context ctx, char *realm)
                    ntohs(s_sin->sin_port));
         }
         break;
-#ifdef KRB5_USE_INET6
         case AF_INET6:
         {
             struct sockaddr_in6 *s_sin6 = (struct sockaddr_in6 *)&entry->addr;
@@ -146,7 +114,6 @@ test_locate_kdc(krb5_context ctx, char *realm)
             printf("/%d", ntohs(s_sin6->sin6_port));
             break;
         }
-#endif
         default:
             printf(" unknown-af-%d", entry->family);
             break;
@@ -223,16 +190,13 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    while ((c = getopt(argc, argv, "cdk:r:C:D:l:s:")) != -1) {
+    while ((c = getopt(argc, argv, "cdr:C:D:l:s:")) != -1) {
         switch (c) {
         case 'c':           /* Get default ccname */
             test_get_default_ccname(ctx);
             break;
         case 'd': /* Get default realm */
             test_get_default_realm(ctx);
-            break;
-        case 'k': /* Get list of KDC's */
-            test_get_krbhst(ctx, optarg);
             break;
         case 'l':
             test_locate_kdc(ctx, optarg);

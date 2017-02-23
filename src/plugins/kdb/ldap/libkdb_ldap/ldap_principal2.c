@@ -331,12 +331,9 @@ process_db_args(krb5_context context, char **db_args, xargs_t *xargs,
                                                       dptr)) != 0)
                     goto cleanup;
             } else {
-                *dptr = calloc (1, arg_val_len);
-                if (*dptr == NULL) {
-                    st = ENOMEM;
+                *dptr = k5memdup(arg_val, arg_val_len, &st);
+                if (*dptr == NULL)
                     goto cleanup;
-                }
-                memcpy(*dptr, arg_val, arg_val_len);
             }
         }
     }
@@ -365,6 +362,7 @@ asn1_encode_sequence_of_keys(krb5_key_data *key_data, krb5_int16 n_key_data,
     val.key_data = key_data;
     val.n_key_data = n_key_data;
     val.mkvno = mkvno;
+    val.kvno = key_data[0].key_data_kvno;
 
     return accessor.asn1_ldap_encode_sequence_of_keys(&val, code);
 }
@@ -375,6 +373,7 @@ asn1_decode_sequence_of_keys(krb5_data *in, krb5_key_data **out,
 {
     krb5_error_code err;
     ldap_seqof_key_data *p;
+    int i;
 
     /*
      * This should be pushed back into other library initialization
@@ -387,6 +386,14 @@ asn1_decode_sequence_of_keys(krb5_data *in, krb5_key_data **out,
     err = accessor.asn1_ldap_decode_sequence_of_keys(in, &p);
     if (err)
         return err;
+
+    /* Set kvno and key_data_ver in each key_data element. */
+    for (i = 0; i < p->n_key_data; i++) {
+        p->key_data[i].key_data_kvno = p->kvno;
+        p->key_data[i].key_data_ver =
+            (p->key_data[i].key_data_length[1] == 0) ? 1 : 2;
+    }
+
     *out = p->key_data;
     *n_key_data = p->n_key_data;
     *mkvno = p->mkvno;
@@ -486,6 +493,7 @@ krb5_ldap_put_principal(krb5_context context, krb5_db_entry *entry,
     LDAPMessage                 *result=NULL, *ent=NULL;
     char                        *user=NULL, *subtree=NULL, *principal_dn=NULL;
     char                        **values=NULL, *strval[10]={NULL}, errbuf[1024];
+    char                        *filtuser=NULL;
     struct berval               **bersecretkey=NULL;
     LDAPMod                     **mods=NULL;
     krb5_boolean                create_standalone_prinicipal=FALSE;
@@ -506,7 +514,7 @@ krb5_ldap_put_principal(krb5_context context, krb5_db_entry *entry,
     krb5_clear_error_message(context);
 
     SETUP_CONTEXT();
-    if (ldap_context->lrparams == NULL || ldap_context->krbcontainer == NULL)
+    if (ldap_context->lrparams == NULL || ldap_context->container_dn == NULL)
         return EINVAL;
 
     /* get ldap handle */
@@ -520,10 +528,13 @@ krb5_ldap_put_principal(krb5_context context, krb5_db_entry *entry,
     }
 
     /* get the principal information to act on */
-    if (entry->princ) {
-        if (((st=krb5_unparse_name(context, entry->princ, &user)) != 0) ||
-            ((st=krb5_ldap_unparse_principal_name(user)) != 0))
-            goto cleanup;
+    if (((st=krb5_unparse_name(context, entry->princ, &user)) != 0) ||
+        ((st=krb5_ldap_unparse_principal_name(user)) != 0))
+        goto cleanup;
+    filtuser = ldap_filter_correct(user);
+    if (filtuser == NULL) {
+        st = ENOMEM;
+        goto cleanup;
     }
 
     /* Identity the type of operation, it can be
@@ -544,7 +555,8 @@ krb5_ldap_put_principal(krb5_context context, krb5_db_entry *entry,
         goto cleanup;
 
     if (entry->mask & KADM5_LOAD) {
-        int              tree = 0, ntrees = 0, princlen = 0, numlentries = 0;
+        unsigned int     tree = 0, ntrees = 0;
+        int              numlentries = 0;
         char             **subtreelist = NULL, *filter = NULL;
 
         /*  A load operation is special, will do a mix-in (add krbprinc
@@ -554,20 +566,11 @@ krb5_ldap_put_principal(krb5_context context, krb5_db_entry *entry,
          *  krbprincipalname attribute is unique (only one object entry has
          *  a particular krbprincipalname attribute).
          */
-        if (user == NULL) {
-            /* must have principal name for search */
-            st = EINVAL;
-            krb5_set_error_message(context, st,
-                                   _("operation can not continue, principal "
-                                     "name not found"));
-            goto cleanup;
-        }
-        princlen = strlen(FILTER) + strlen(user) + 2 + 1;      /* 2 for closing brackets */
-        if ((filter = malloc(princlen)) == NULL) {
+        if (asprintf(&filter, FILTER"%s))", filtuser) < 0) {
+            filter = NULL;
             st = ENOMEM;
             goto cleanup;
         }
-        snprintf(filter, princlen, FILTER"%s))", user);
 
         /* get the current subtree list */
         if ((st = krb5_get_subtree_info(ldap_context, &subtreelist, &ntrees)) != 0)
@@ -674,7 +677,7 @@ krb5_ldap_put_principal(krb5_context context, krb5_db_entry *entry,
         CHECK_NULL(subtree);
 
         if (asprintf(&standalone_principal_dn, "krbprincipalname=%s,%s",
-                     user, subtree) < 0)
+                     filtuser, subtree) < 0)
             standalone_principal_dn = NULL;
         CHECK_NULL(standalone_principal_dn);
         /*
@@ -693,7 +696,8 @@ krb5_ldap_put_principal(krb5_context context, krb5_db_entry *entry,
      */
     if (xargs.dn_from_kbd == TRUE) {
         /* make sure the DN falls in the subtree */
-        int              tre=0, dnlen=0, subtreelen=0, ntrees=0;
+        unsigned int     tre=0, ntrees=0;
+        int              dnlen=0, subtreelen=0;
         char             **subtreelist=NULL;
         char             *dn=NULL;
         krb5_boolean     outofsubtree=TRUE;
@@ -1252,6 +1256,9 @@ cleanup:
     if (user)
         free(user);
 
+    if (filtuser)
+        free(filtuser);
+
     free_xargs(xargs);
 
     if (standalone_principal_dn)
@@ -1288,7 +1295,7 @@ krb5_read_tkt_policy(krb5_context context, krb5_ldap_context *ldap_context,
                      krb5_db_entry *entries, char *policy)
 {
     krb5_error_code             st=0;
-    unsigned int                mask=0, omask=0;
+    int                         mask=0, omask=0;
     int                         tkt_mask=(KDB_MAX_LIFE_ATTR | KDB_MAX_RLIFE_ATTR | KDB_TKT_FLAGS_ATTR);
     krb5_ldap_policy_params     *tktpoldnparam=NULL;
 
@@ -1373,7 +1380,8 @@ krb5_decode_krbsecretkey(krb5_context context, krb5_db_entry *entries,
         }
         noofkeys += n_kd;
         tmp = key_data;
-        key_data = realloc (key_data, noofkeys * sizeof (krb5_key_data));
+        /* Allocate an extra key data to avoid allocating zero bytes. */
+        key_data = realloc(key_data, (noofkeys + 1) * sizeof (krb5_key_data));
         if (key_data == NULL) {
             key_data = tmp;
             st = ENOMEM;

@@ -46,6 +46,7 @@ static krb5_error_code armor_ap_request
     krb5_auth_context authcontext = NULL;
     krb5_ticket *ticket = NULL;
     krb5_keyblock *subkey = NULL;
+    kdc_realm_t *kdc_active_realm = state->realm_data;
 
     assert(armor->armor_type == KRB5_FAST_ARMOR_AP_REQUEST);
     krb5_clear_error_message(kdc_context);
@@ -103,6 +104,8 @@ encrypt_fast_reply(struct kdc_request_state *state,
     krb5_error_code retval = 0;
     krb5_enc_data encrypted_reply;
     krb5_data *encoded_response = NULL;
+    kdc_realm_t *kdc_active_realm = state->realm_data;
+
     assert(state->armor_key);
     retval = encode_krb5_fast_response(response, &encoded_response);
     if (retval== 0)
@@ -138,14 +141,15 @@ kdc_find_fast(krb5_kdc_req **requestptr,
     krb5_checksum *cksum;
     krb5_boolean cksum_valid;
     krb5_keyblock empty_keyblock;
+    kdc_realm_t *kdc_active_realm = state->realm_data;
 
     if (inner_body_out != NULL)
         *inner_body_out = NULL;
     scratch.data = NULL;
     krb5_clear_error_message(kdc_context);
     memset(&empty_keyblock, 0, sizeof(krb5_keyblock));
-    fast_padata = find_pa_data(request->padata,
-                               KRB5_PADATA_FX_FAST);
+    fast_padata = krb5int_find_pa_data(kdc_context,
+                                       request->padata, KRB5_PADATA_FX_FAST);
     if (fast_padata !=  NULL){
         scratch.length = fast_padata->length;
         scratch.data = (char *) fast_padata->contents;
@@ -230,16 +234,22 @@ kdc_find_fast(krb5_kdc_req **requestptr,
                 retval = KRB5KDC_ERR_UNKNOWN_CRITICAL_FAST_OPTION;
         }
         if (retval == 0)
-            cookie_padata = find_pa_data(fast_req->req_body->padata,
-                                         KRB5_PADATA_FX_COOKIE);
+            cookie_padata = krb5int_find_pa_data(kdc_context,
+                                                 fast_req->req_body->padata,
+                                                 KRB5_PADATA_FX_COOKIE);
         if (retval == 0) {
             state->fast_options = fast_req->fast_options;
+            fast_req->req_body->msg_type = request->msg_type;
             krb5_free_kdc_req( kdc_context, request);
             *requestptr = fast_req->req_body;
             fast_req->req_body = NULL;
         }
     }
-    else cookie_padata = find_pa_data(request->padata, KRB5_PADATA_FX_COOKIE);
+    else {
+        cookie_padata = krb5int_find_pa_data(kdc_context,
+                                             request->padata,
+                                             KRB5_PADATA_FX_COOKIE);
+    }
     if (retval == 0 && cookie_padata != NULL) {
         krb5_pa_data *new_padata = malloc(sizeof (krb5_pa_data));
         if (new_padata == NULL) {
@@ -247,15 +257,12 @@ kdc_find_fast(krb5_kdc_req **requestptr,
         } else {
             new_padata->pa_type = KRB5_PADATA_FX_COOKIE;
             new_padata->length = cookie_padata->length;
-            new_padata->contents = malloc(new_padata->length);
-            if (new_padata->contents == NULL) {
-                retval = ENOMEM;
+            new_padata->contents =
+                k5memdup(cookie_padata->contents, new_padata->length, &retval);
+            if (new_padata->contents == NULL)
                 free(new_padata);
-            } else {
-                memcpy(new_padata->contents, cookie_padata->contents,
-                       new_padata->length);
+            else
                 state->cookie = new_padata;
-            }
         }
     }
     if (retval == 0 && inner_body_out != NULL) {
@@ -272,12 +279,13 @@ kdc_find_fast(krb5_kdc_req **requestptr,
 
 
 krb5_error_code
-kdc_make_rstate(struct kdc_request_state **out)
+kdc_make_rstate(kdc_realm_t *active_realm, struct kdc_request_state **out)
 {
     struct kdc_request_state *state = malloc( sizeof(struct kdc_request_state));
     if (state == NULL)
         return ENOMEM;
     memset( state, 0, sizeof(struct kdc_request_state));
+    state->realm_data = active_realm;
     *out = state;
     return 0;
 }
@@ -285,8 +293,8 @@ kdc_make_rstate(struct kdc_request_state **out)
 void
 kdc_free_rstate (struct kdc_request_state *s)
 {
-    if (s == NULL)
-        return;
+    kdc_realm_t *kdc_active_realm = s->realm_data;
+
     if (s->armor_key)
         krb5_free_keyblock(kdc_context, s->armor_key);
     if (s->strengthen_key)
@@ -312,6 +320,7 @@ kdc_fast_response_handle_padata(struct kdc_request_state *state,
     krb5_cksumtype cksumtype = CKSUMTYPE_RSA_MD5;
     krb5_pa_data *empty_padata[] = {NULL};
     krb5_keyblock *strengthen_key = NULL;
+    kdc_realm_t *kdc_active_realm = state->realm_data;
 
     if (!state->armor_key)
         return 0;
@@ -401,10 +410,11 @@ kdc_fast_handle_error(krb5_context context,
     krb5_pa_data *outer_pa[3], *cookie = NULL;
     krb5_pa_data **inner_pa = NULL;
     size_t size = 0;
+    kdc_realm_t *kdc_active_realm = state->realm_data;
 
     *fast_edata_out = NULL;
     memset(outer_pa, 0, sizeof(outer_pa));
-    if (!state || !state->armor_key)
+    if (state->armor_key == NULL)
         return 0;
     fx_error = *err;
     fx_error.e_data.data = NULL;
@@ -424,7 +434,8 @@ kdc_fast_handle_error(krb5_context context,
         pa[0].length = encoded_fx_error->length;
         pa[0].contents = (unsigned char *) encoded_fx_error->data;
         inner_pa[size++] = &pa[0];
-        if (find_pa_data(inner_pa, KRB5_PADATA_FX_COOKIE) == NULL)
+        if (krb5int_find_pa_data(kdc_context,
+                                 inner_pa, KRB5_PADATA_FX_COOKIE) == NULL)
             retval = kdc_preauth_get_cookie(state, &cookie);
     }
     if (cookie != NULL)
@@ -464,6 +475,8 @@ kdc_fast_handle_reply_key(struct kdc_request_state *state,
                           krb5_keyblock **out_key)
 {
     krb5_error_code retval = 0;
+    kdc_realm_t *kdc_active_realm = state->realm_data;
+
     if (state->armor_key)
         retval = krb5_c_fx_cf2_simple(kdc_context,
                                       state->strengthen_key, "strengthenkey",
@@ -481,6 +494,7 @@ kdc_preauth_get_cookie(struct kdc_request_state *state,
 {
     char *contents;
     krb5_pa_data *pa = NULL;
+
     /* In our current implementation, the only purpose served by
      * returning a cookie is to indicate that a conversation should
      * continue on error.  Thus, the cookie can have a constant
@@ -501,4 +515,10 @@ kdc_preauth_get_cookie(struct kdc_request_state *state,
     pa->contents = (unsigned char *) contents;
     *cookie = pa;
     return 0;
+}
+
+krb5_boolean
+kdc_fast_hide_client(struct kdc_request_state *state)
+{
+    return (state->fast_options & KRB5_FAST_OPTION_HIDE_CLIENT_NAMES) != 0;
 }

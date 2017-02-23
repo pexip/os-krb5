@@ -78,11 +78,16 @@ kadm5_ret_t    passwd_check(kadm5_server_handle_t handle,
 kadm5_ret_t    principal_exists(krb5_principal principal);
 krb5_error_code     kdb_init_master(kadm5_server_handle_t handle,
                                     char *r, int from_keyboard);
+krb5_error_code     kdb_get_active_mkey(kadm5_server_handle_t handle,
+                                        krb5_kvno *act_kvno_out,
+                                        krb5_keyblock **act_mkey_out);
 krb5_error_code     kdb_init_hist(kadm5_server_handle_t handle,
                                   char *r);
 krb5_error_code     kdb_get_hist_key(kadm5_server_handle_t handle,
-                                     krb5_keyblock *hist_keyblock,
-                                     krb5_kvno *hist_kvno);
+                                     krb5_keyblock **keyblocks_out,
+                                     krb5_kvno *kvno_out);
+void                kdb_free_keyblocks(kadm5_server_handle_t handle,
+                                       krb5_keyblock *keyblocks);
 krb5_error_code     kdb_get_entry(kadm5_server_handle_t handle,
                                   krb5_principal principal,
                                   krb5_db_entry **kdb, osa_princ_ent_rec *adb);

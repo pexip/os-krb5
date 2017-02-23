@@ -32,14 +32,14 @@ static krb5_error_code
 mk_priv_basic(krb5_context context, const krb5_data *userdata,
               krb5_key key, krb5_replay_data *replaydata,
               krb5_address *local_addr, krb5_address *remote_addr,
-              krb5_pointer i_vector, krb5_data *outbuf)
+              krb5_data *cstate, krb5_data *outbuf)
 {
     krb5_enctype        enctype = krb5_k_key_enctype(context, key);
     krb5_error_code     retval;
     krb5_priv           privmsg;
     krb5_priv_enc_part  privmsg_enc_part;
-    krb5_data           *scratch1, *scratch2, ivdata;
-    size_t              blocksize, enclen;
+    krb5_data           *scratch1, *scratch2;
+    size_t              enclen;
 
     privmsg.enc_part.kvno = 0;  /* XXX allow user-set? */
     privmsg.enc_part.enctype = enctype;
@@ -69,18 +69,9 @@ mk_priv_basic(krb5_context context, const krb5_data *userdata,
         goto clean_scratch;
     }
 
-    /* call the encryption routine */
-    if (i_vector) {
-        if ((retval = krb5_c_block_size(context, enctype, &blocksize)))
-            goto clean_encpart;
-
-        ivdata.length = blocksize;
-        ivdata.data = i_vector;
-    }
-
     if ((retval = krb5_k_encrypt(context, key,
                                  KRB5_KEYUSAGE_KRB_PRIV_ENCPART,
-                                 i_vector?&ivdata:0,
+                                 (cstate->length > 0) ? cstate : NULL,
                                  scratch1, &privmsg.enc_part)))
         goto clean_encpart;
 
@@ -194,7 +185,7 @@ krb5_mk_priv(krb5_context context, krb5_auth_context auth_context,
 
         if ((retval = mk_priv_basic(context, userdata, key, &replaydata,
                                     plocal_fulladdr, premote_fulladdr,
-                                    auth_context->i_vector, &buf))) {
+                                    &auth_context->cstate, &buf))) {
             CLEANUP_DONE();
             goto error;
         }

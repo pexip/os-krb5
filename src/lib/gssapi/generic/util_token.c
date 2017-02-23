@@ -28,7 +28,7 @@
 #include <limits.h>
 
 /*
- * $Id: util_token.c 24745 2011-03-25 15:50:06Z ghudson $
+ * $Id$
  */
 
 /* XXXX this code currently makes the assumption that a mech oid will
@@ -194,8 +194,7 @@ g_verify_token_header(
     if ((seqsize = der_read_length(&buf, &toksize)) < 0)
         return(G_BAD_TOK_HEADER);
 
-    if ((flags & G_VFY_TOKEN_HDR_IGNORE_SEQ_SIZE) == 0 &&
-        seqsize != toksize)
+    if (seqsize != toksize)
         return(G_BAD_TOK_HEADER);
 
     if ((toksize-=1) < 0)

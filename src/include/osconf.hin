@@ -42,7 +42,6 @@
 
 #if defined(_WIN32)
 #define DEFAULT_PROFILE_FILENAME "krb5.ini"
-#define DEFAULT_KEYTAB_NAME     "FILE:%s\\krb5kt"
 #else /* !_WINDOWS */
 #if TARGET_OS_MAC
 #define DEFAULT_SECURE_PROFILE_PATH "/Library/Preferences/edu.mit.Kerberos:/etc/krb5.conf:@SYSCONFDIR/krb5.conf"
@@ -54,20 +53,20 @@
 #define DEFAULT_SECURE_PROFILE_PATH     "/etc/krb5.conf:@SYSCONFDIR/krb5.conf"
 #define DEFAULT_PROFILE_PATH        DEFAULT_SECURE_PROFILE_PATH
 #endif
-#define DEFAULT_KEYTAB_NAME     "FILE:/etc/krb5.keytab"
 #endif /* _WINDOWS  */
 
 #define DEFAULT_PLUGIN_BASE_DIR "@LIBDIR/krb5/plugins"
 #define PLUGIN_EXT              "@DYNOBJEXT"
 
-#define DEFAULT_KDB_FILE        "@LOCALSTATEDIR/krb5kdc/principal"
-#define DEFAULT_KEYFILE_STUB    "@LOCALSTATEDIR/krb5kdc/.k5."
-#define KRB5_DEFAULT_ADMIN_ACL  "@LOCALSTATEDIR/krb5kdc/krb5_adm.acl"
+#define KDC_DIR                 "@LOCALSTATEDIR/krb5kdc"
+#define DEFAULT_KDB_FILE        KDC_DIR "/principal"
+#define DEFAULT_KEYFILE_STUB    KDC_DIR "/.k5."
+#define KRB5_DEFAULT_ADMIN_ACL  KDC_DIR "/krb5_adm.acl"
 /* Used by old admin server */
-#define DEFAULT_ADMIN_ACL       "@LOCALSTATEDIR/krb5kdc/kadm_old.acl"
+#define DEFAULT_ADMIN_ACL       KDC_DIR "/kadm_old.acl"
 
 /* Location of KDC profile */
-#define DEFAULT_KDC_PROFILE     "@LOCALSTATEDIR/krb5kdc/kdc.conf"
+#define DEFAULT_KDC_PROFILE     KDC_DIR "/kdc.conf"
 #define KDC_PROFILE_ENV         "KRB5_KDC_PROFILE"
 
 #if TARGET_OS_MAC
@@ -95,8 +94,8 @@
 /*
  * Defaults for the KADM5 admin system.
  */
-#define DEFAULT_KADM5_KEYTAB    "@LOCALSTATEDIR/krb5kdc/kadm5.keytab"
-#define DEFAULT_KADM5_ACL_FILE  "@LOCALSTATEDIR/krb5kdc/kadm5.acl"
+#define DEFAULT_KADM5_KEYTAB    KDC_DIR "/kadm5.keytab"
+#define DEFAULT_KADM5_ACL_FILE  KDC_DIR "/kadm5.acl"
 #define DEFAULT_KADM5_PORT      749 /* assigned by IANA */
 
 #define KRB5_DEFAULT_SUPPORTED_ENCTYPES                 \
@@ -104,7 +103,7 @@
     "aes128-cts-hmac-sha1-96:normal "                   \
     "des3-cbc-sha1:normal arcfour-hmac-md5:normal"
 
-#define MAX_DGRAM_SIZE  4096
+#define MAX_DGRAM_SIZE  65536
 
 #define RCTMPDIR        "@KRB5RCTMPDIR" /* directory to store replay caches */
 
@@ -118,12 +117,12 @@
  * krb5 slave support follows
  */
 
-#define KPROP_DEFAULT_FILE "@LOCALSTATEDIR/krb5kdc/slave_datatrans"
-#define KPROPD_DEFAULT_FILE "@LOCALSTATEDIR/krb5kdc/from_master"
+#define KPROP_DEFAULT_FILE KDC_DIR "/slave_datatrans"
+#define KPROPD_DEFAULT_FILE KDC_DIR "/from_master"
 #define KPROPD_DEFAULT_KDB5_UTIL "@SBINDIR/kdb5_util"
 #define KPROPD_DEFAULT_KPROP "@SBINDIR/kprop"
 #define KPROPD_DEFAULT_KRB_DB DEFAULT_KDB_FILE
-#define KPROPD_ACL_FILE "@LOCALSTATEDIR/krb5kdc/kpropd.acl"
+#define KPROPD_ACL_FILE KDC_DIR "/kpropd.acl"
 
 /*
  * GSS mechglue

@@ -54,7 +54,6 @@ gss_krb5int_make_seal_token_v3_iov(krb5_context context,
     krb5_cksumtype cksumtype;
     size_t data_length, assoc_data_length;
 
-    assert(ctx->big_endian == 0);
     assert(ctx->proto == 1);
 
     acceptor_flag = ctx->initiate ? 0 : FLAG_SENDER_IS_ACCEPTOR;
@@ -77,7 +76,7 @@ gss_krb5int_make_seal_token_v3_iov(krb5_context context,
 
     kg_iov_msglen(iov, iov_count, &data_length, &assoc_data_length);
 
-    header = kg_locate_iov(iov, iov_count, GSS_IOV_BUFFER_TYPE_HEADER);
+    header = kg_locate_header_iov(iov, iov_count, toktype);
     if (header == NULL)
         return EINVAL;
 
@@ -241,7 +240,7 @@ gss_krb5int_make_seal_token_v3_iov(krb5_context context,
 
         code = kg_make_checksum_iov_v3(context, cksumtype,
                                        rrc, key, key_usage,
-                                       iov, iov_count);
+                                       iov, iov_count, toktype);
         if (code != 0)
             goto cleanup;
 
@@ -300,13 +299,10 @@ gss_krb5int_unseal_v3_iov(krb5_context context,
     krb5_cksumtype cksumtype;
     int conf_flag = 0;
 
-    if (ctx->big_endian != 0)
-        return GSS_S_DEFECTIVE_TOKEN;
-
     if (qop_state != NULL)
         *qop_state = GSS_C_QOP_DEFAULT;
 
-    header = kg_locate_iov(iov, iov_count, GSS_IOV_BUFFER_TYPE_HEADER);
+    header = kg_locate_header_iov(iov, iov_count, toktype);
     assert(header != NULL);
 
     padding = kg_locate_iov(iov, iov_count, GSS_IOV_BUFFER_TYPE_PADDING);
@@ -425,7 +421,7 @@ gss_krb5int_unseal_v3_iov(krb5_context context,
 
             code = kg_verify_checksum_iov_v3(context, cksumtype, rrc,
                                              key, key_usage,
-                                             iov, iov_count, &valid);
+                                             iov, iov_count, toktype, &valid);
             if (code != 0 || valid == FALSE) {
                 *minor_status = code;
                 return GSS_S_BAD_SIG;
@@ -442,9 +438,12 @@ gss_krb5int_unseal_v3_iov(krb5_context context,
             goto defective;
         seqnum = load_64_be(ptr + 8);
 
-        code = kg_verify_checksum_iov_v3(context, cksumtype, 0,
+        /* For MIC tokens, the GSS header and checksum are in the same buffer.
+         * Fake up an RRC so that the checksum is expected in the header. */
+        rrc = (trailer != NULL) ? 0 : header->buffer.length - 16;
+        code = kg_verify_checksum_iov_v3(context, cksumtype, rrc,
                                          key, key_usage,
-                                         iov, iov_count, &valid);
+                                         iov, iov_count, toktype, &valid);
         if (code != 0 || valid == FALSE) {
             *minor_status = code;
             return GSS_S_BAD_SIG;

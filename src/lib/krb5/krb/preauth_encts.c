@@ -26,13 +26,20 @@
  */
 
 #include <k5-int.h>
-#include <krb5/preauth_plugin.h>
+#include <krb5/clpreauth_plugin.h>
 #include "int-proto.h"
 
-static int
-encts_flags(krb5_context context, krb5_preauthtype pa_type)
+static krb5_error_code
+encts_prep_questions(krb5_context context, krb5_clpreauth_moddata moddata,
+                     krb5_clpreauth_modreq modreq,
+                     krb5_get_init_creds_opt *opt, krb5_clpreauth_callbacks cb,
+                     krb5_clpreauth_rock rock, krb5_kdc_req *request,
+                     krb5_data *encoded_request_body,
+                     krb5_data *encoded_previous_request,
+                     krb5_pa_data *pa_data)
 {
-    return PA_REAL;
+    cb->need_as_key(context, rock);
+    return 0;
 }
 
 static krb5_error_code
@@ -58,8 +65,15 @@ encts_process(krb5_context context, krb5_clpreauth_moddata moddata,
         goto cleanup;
     TRACE_PREAUTH_ENC_TS_KEY_GAK(context, as_key);
 
-    /* now get the time of day, and encrypt it accordingly */
-    ret = krb5_us_timeofday(context, &pa_enc.patimestamp, &pa_enc.pausec);
+    /*
+     * Try and use the timestamp of the preauth request, even if it's
+     * unauthenticated.  We could be fooled into making a preauth response for
+     * a future time, but that has no security consequences other than the
+     * KDC's audit logs.  If kdc_timesync is not configured, then this will
+     * just use local time.
+     */
+    ret = cb->get_preauth_time(context, rock, TRUE, &pa_enc.patimestamp,
+                               &pa_enc.pausec);
     if (ret)
         goto cleanup;
 
@@ -78,7 +92,7 @@ encts_process(krb5_context context, krb5_clpreauth_moddata moddata,
     if (ret)
         goto cleanup;
 
-    pa = k5alloc(2 * sizeof(krb5_pa_data *), &ret);
+    pa = k5calloc(2, sizeof(krb5_pa_data *), &ret);
     if (pa == NULL)
         goto cleanup;
 
@@ -117,7 +131,7 @@ clpreauth_encrypted_timestamp_initvt(krb5_context context, int maj_ver,
     vt = (krb5_clpreauth_vtable)vtable;
     vt->name = "encrypted_timestamp";
     vt->pa_type_list = encts_pa_types;
-    vt->flags = encts_flags;
+    vt->prep_questions = encts_prep_questions;
     vt->process = encts_process;
     return 0;
 }

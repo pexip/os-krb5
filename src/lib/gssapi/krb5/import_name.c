@@ -22,7 +22,7 @@
  */
 
 /*
- * $Id: import_name.c 25144 2011-09-04 23:52:34Z raeburn $
+ * $Id$
  */
 
 #include "gssapiP_krb5.h"
@@ -56,6 +56,9 @@ import_name_composite(krb5_context context,
     krb5_authdata_context ad_context;
     krb5_error_code code;
     krb5_data data;
+
+    if (enc_length == 0)
+        return 0;
 
     code = krb5_authdata_context_init(context, &ad_context);
     if (code != 0)
@@ -133,7 +136,7 @@ krb5_gss_import_name(minor_status, input_name_buffer,
 #ifndef NO_PASSWORD
     struct passwd *pw;
 #endif
-    int has_ad = 0;
+    int is_composite = 0;
     krb5_authdata_context ad_context = NULL;
     OM_uint32 status = GSS_S_FAILURE;
     krb5_gss_name_t name;
@@ -193,13 +196,11 @@ krb5_gss_import_name(minor_status, input_name_buffer,
 
         stringrep = NULL;
 
-        tmp = k5alloc(input_name_buffer->length + 1, &code);
+        tmp = k5memdup0(input_name_buffer->value, input_name_buffer->length,
+                        &code);
         if (tmp == NULL)
             goto cleanup;
         tmp2 = NULL;
-
-        memcpy(tmp, input_name_buffer->value, input_name_buffer->length);
-        tmp[input_name_buffer->length] = '\0';
 
         /* Find the appropriate string rep to pass into parse_name. */
         if ((input_name_type == GSS_C_NULL_OID) ||
@@ -218,7 +219,8 @@ krb5_gss_import_name(minor_status, input_name_buffer,
             uid = atoi(tmp);
             goto do_getpwuid;
 #endif
-        } else if (g_OID_equal(input_name_type, gss_nt_exported_name)) {
+        } else if (g_OID_equal(input_name_type, gss_nt_exported_name) ||
+                   g_OID_equal(input_name_type, GSS_C_NT_COMPOSITE_EXPORT)) {
 #define BOUNDS_CHECK(cp, end, n)                                        \
             do { if ((end) - (cp) < (n)) goto fail_name; } while (0)
             cp = (unsigned char *)tmp;
@@ -231,7 +233,7 @@ krb5_gss_import_name(minor_status, input_name_buffer,
             case 0x01:
                 break;
             case 0x02:
-                has_ad++;
+                is_composite++;
                 break;
             default:
                 goto fail_name;
@@ -271,7 +273,7 @@ krb5_gss_import_name(minor_status, input_name_buffer,
             stringrep = tmp2;
             cp += length;
 
-            if (has_ad) {
+            if (is_composite) {
                 BOUNDS_CHECK(cp, end, 4);
                 length = *cp++;
                 length = (length << 8) | *cp++;

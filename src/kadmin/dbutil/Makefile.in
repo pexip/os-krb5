@@ -1,9 +1,6 @@
 mydir=kadmin$(S)dbutil
 BUILDTOP=$(REL)..$(S)..
-DEFS=
 LOCALINCLUDES = -I.
-PROG_LIBPATH=-L$(TOPLIBD) $(KRB5_LIBPATH)
-PROG_RPATH=$(KRB5_LIBDIR)
 KDB_DEP_LIB=$(DL_LIB) $(THREAD_LINKOPTS)
 
 PROG = kdb5_util
@@ -27,7 +24,6 @@ $(OBJS): import_err.h
 
 install::
 	$(INSTALL_PROGRAM) $(PROG) ${DESTDIR}$(ADMIN_BINDIR)/$(PROG)
-	$(INSTALL_DATA) $(srcdir)/$(PROG).M ${DESTDIR}$(ADMIN_MANDIR)/$(PROG).8
 
 clean::
 	$(RM) $(PROG) $(OBJS) import_err.c import_err.h

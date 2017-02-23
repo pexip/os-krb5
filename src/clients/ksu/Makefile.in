@@ -1,10 +1,6 @@
 mydir=clients$(S)ksu
 BUILDTOP=$(REL)..$(S)..
 DEFINES = -DGET_TGT_VIA_PASSWD -DPRINC_LOOK_AHEAD -DCMD_PATH='"/bin /local/bin"'
-DEFS=
-
-PROG_LIBPATH=-L$(TOPLIBD)
-PROG_RPATH=$(KRB5_LIBDIR)
 
 KSU_LIBS=@KSU_LIBS@
 
@@ -36,6 +32,4 @@ install::
 	-for f in ksu; do \
 	  $(INSTALL_SETUID) $$f \
 		$(DESTDIR)$(CLIENT_BINDIR)/`echo $$f|sed '$(transform)'`; \
-	  $(INSTALL_DATA) $(srcdir)/$$f.M \
-		${DESTDIR}$(CLIENT_MANDIR)/`echo $$f|sed '$(transform)'`.1; \
 	done

@@ -5,6 +5,9 @@
 #define KRB5_AUTOCONF_H
 
 
+/* Define if AES-NI support is enabled */
+#undef AESNI
+
 /* Define if ANSI stdio is present (in particular "b" option to fopen) */
 #undef ANSI_STDIO
 
@@ -22,6 +25,15 @@
 
 /* Define if crypto implementation is NSS */
 #undef CRYPTO_IMPL_NSS
+
+/* Define to default ccache name */
+#undef DEFCCNAME
+
+/* Define to default client keytab name */
+#undef DEFCKTNAME
+
+/* Define to default keytab name */
+#undef DEFKTNAME
 
 /* Define if library initialization should be delayed until first use */
 #undef DELAY_INITIALIZER
@@ -127,6 +139,9 @@
 /* Define if com_err has compatible gettext support */
 #undef HAVE_COM_ERR_INTL
 
+/* Define to 1 if you have the <cpuid.h> header file. */
+#undef HAVE_CPUID_H
+
 /* Define to 1 if you have the `daemon' function. */
 #undef HAVE_DAEMON
 
@@ -139,9 +154,6 @@
 
 /* Define to 1 if you have the `dn_skipname' function. */
 #undef HAVE_DN_SKIPNAME
-
-/* Define if LDAP KDB interface should assume eDirectory. */
-#undef HAVE_EDIRECTORY
 
 /* Define to 1 if you have the <endian.h> header file. */
 #undef HAVE_ENDIAN_H
@@ -310,6 +322,9 @@
 
 /* Define to 1 if you have the <paths.h> header file. */
 #undef HAVE_PATHS_H
+
+/* Define if persistent keyrings are supported */
+#undef HAVE_PERSISTENT_KEYRING
 
 /* Define to 1 if you have the <poll.h> header file. */
 #undef HAVE_POLL_H
@@ -619,27 +634,14 @@
 /* May need to be defined to enable IPv6 support, for example on IRIX */
 #undef INET6
 
-/* Define if using bundled libverto */
-#undef INTERNAL_VERTO
-
 /* Define if MIT Project Athena default configuration should be used */
 #undef KRB5_ATHENA_COMPAT
 
 /* Define for DNS support of locating realms and KDCs */
 #undef KRB5_DNS_LOOKUP
 
-/* Define to enable DNS lookups of Kerberos KDCs */
-#undef KRB5_DNS_LOOKUP_KDC
-
 /* Define to enable DNS lookups of Kerberos realm names */
 #undef KRB5_DNS_LOOKUP_REALM
-
-/* Define if we should compile in IPv6 support (even if we can't use it at run
-   time) */
-#undef KRB5_USE_INET6
-
-/* Define if KDC should update database with each request */
-#undef KRBCONF_KDC_MODIFIES_KDB
 
 /* Define if the KDC should return only vague error codes to clients */
 #undef KRBCONF_VAGUE_ERRORS
@@ -649,9 +651,6 @@
 
 /* Define if in6addr_any is not defined in libc */
 #undef NEED_INSIXADDR_ANY
-
-/* define if the system header files are missing prototype for isblank() */
-#undef NEED_ISBLANK_PROTO
 
 /* define if the system header files are missing prototype for strptime() */
 #undef NEED_STRPTIME_PROTO

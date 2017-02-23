@@ -23,7 +23,7 @@
 """A module for krb5 test scripts
 
 To run test scripts during "make check" (if Python 2.4 or later is
-available), add rules like the following to Makeflie.in:
+available), add rules like the following to Makefile.in:
 
     check-pytests::
 	$(RUNPYTEST) $(srcdir)/t_testname.py $(PYTESTFLAGS)
@@ -34,26 +34,23 @@ A sample test script:
 
     # Run a test program under a variety of configurations:
     for realm in multipass_realms():
-        realm.run_as_client(['./testprog', 'arg'])
+        realm.run(['./testprog', 'arg'])
 
     # Run a test server and client under just the default configuration:
     realm = K5Realm()
     realm.start_server(['./serverprog'], 'starting...')
-    realm.run_as_client(['./clientprog', realm.host_princ])
+    realm.run(['./clientprog', realm.host_princ])
 
     # Inform framework that tests completed successfully.
-    success('World peace and cure for cancer.')
+    success('World peace and cure for cancer')
 
 By default, the realm will have:
 
 * The name KRBTEST.COM
 * Listener ports starting at 61000
-* Four different krb5.conf files for the client, server, master KDC,
-  and slave KDC, specifying only the variables necessary for
-  self-contained test operation
-* Two different kdc.conf files for the master and slave KDCs
+* krb5.conf and kdc.conf files
 * A fresh DB2 KDB
-* Running krb5kdc and kadmind processes
+* Running krb5kdc (but not kadmind)
 * Principals named realm.user_princ and realm.admin_princ; call
   password('user') and password('admin') to get the password
 * Credentials for realm.user_princ in realm.ccache
@@ -73,20 +70,17 @@ keyword arguments:
   (path may be specified relative to the current working dir)
 
 * krb5_conf={ ... }: krb5.conf options, expressed as a nested
-  dictionary, to be merged with the default krb5.conf settings.  The
-  top level keys of the dictionary should be 'all' to apply to all
-  four krb5.conf files, and/or 'client'/'server'/'master'/'slave' to
-  apply to a particular one.  A key may be mapped to None to delete a
-  setting from the defaults.  A key may be maped to a list in order to
-  create multpile settings for the same variable name.  Keys and
-  values undergo the following template substitutions:
+  dictionary, to be merged with the default krb5.conf settings.  A key
+  may be mapped to None to delete a setting from the defaults.  A key
+  may be mapped to a list in order to create multiple settings for the
+  same variable name.  Keys and values undergo the following template
+  substitutions:
 
-    - $type:     The configuration type (client/server/master/slave)
     - $realm:    The realm name
     - $testdir:  The realm storage directory (absolute path)
     - $buildtop: The root of the build directory
     - $srctop:   The root of the source directory
-    - $plugins:  The plugin directory under $buildtop/util/fakedest
+    - $plugins:  The plugin directory in the build tree
     - $hostname: The FQDN of the host
     - $port0:    The first listener port (portbase)
     - ...
@@ -97,12 +91,13 @@ keyword arguments:
     - port0 is used in the default krb5.conf for the KDC
     - port1 is used in the default krb5.conf for kadmind
     - port2 is used in the default krb5.conf for kpasswd
-    - port3 is the return value of realm.server_port()
+    - port3 is used in the default krb5.conf for kpropd
+    - port4 is used in the default krb5.conf for iprop (in kadmind)
+    - port5 is the return value of realm.server_port()
 
 * kdc_conf={...}: kdc.conf options, expressed as a nested dictionary,
-  to be merged with the default kdc.conf settings.  The top level keys
-  should be 'all' or 'master'/'slave'.  The same conventions and
-  substitutions for krb5_conf apply.
+  to be merged with the default kdc.conf settings.  The same
+  conventions and substitutions for krb5_conf apply.
 
 * create_kdb=False: Don't create a KDB.  Implicitly disables all of
   the other options since they all require a KDB.
@@ -119,7 +114,7 @@ keyword arguments:
 
 * start_kdc=False: Don't start the KDC.  Implies get_creds=False.
 
-* start_kadmind=False: Don't start kadmind.
+* start_kadmind=True: Start kadmind.
 
 * get_creds=False: Don't get user credentials.
 
@@ -138,6 +133,9 @@ Scripts may use the following functions and variables:
   added newline) in testlog, and write it to stdout if running
   verbosely.
 
+* which(progname): Return the location of progname in the executable
+  path, or None if it is not found.
+
 * password(name): Return a weakly random password based on name.  The
   password will be consistent across calls with the same name.
 
@@ -154,11 +152,24 @@ Scripts may use the following functions and variables:
   honored.  If keywords contains krb5_conf and/or kdc_conf fragments,
   they will be merged with the default and per-pass specifications.
 
+* cross_realms(num, xtgts=None, args=None, **keywords): This function
+  returns a list of num realms, where each realm's configuration knows
+  how to contact all of the realms.  By default, each realm will
+  contain cross TGTs in both directions for all other realms; this
+  default may be overridden by specifying a collection of tuples in
+  the xtgts parameter, where each tuple is a pair of zero-based realm
+  indexes, indicating that the first realm can authenticate to the
+  second (i.e. krbtgt/secondrealm@firstrealm exists in both realm's
+  databases).  If args is given, it should be a list of keyword
+  arguments specific to each realm; these will be merged with the
+  global keyword arguments passed to cross_realms, with specific
+  arguments taking priority.
+
 * buildtop: The top of the build directory (absolute path).
 
 * srctop: The top of the source directory (absolute path).
 
-* plugins: The plugin directory under <buildtop>/util/fakedest.
+* plugins: The plugin directory in the build tree (absolute path).
 
 * hostname: This machine's fully-qualified domain name.
 
@@ -177,6 +188,7 @@ Scripts may use the following functions and variables:
   - kadmind
   - kadmin
   - kadmin_local
+  - kdb5_ldap_util
   - kdb5_util
   - ktutil
   - kinit
@@ -192,53 +204,50 @@ Scripts may use the following functions and variables:
 
 Scripts may use the following realm methods and attributes:
 
-* realm.run_as_client(args, **keywords): Run a command with an
-  environment pointing at the client krb5.conf, obeying the
+* realm.run(args, env=None, **keywords): Run a command in a specified
+  environment (or the realm's environment by default), obeying the
   command-line debugging options.  Fail if the command does not return
   0.  Log the command output appropriately, and return it as a single
   multi-line string.  Keyword arguments can contain input='string' to
   send an input string to the command, and expected_code=N to expect a
   return code other than 0.
 
-* Similar methods for the server, master KDC, and slave KDC
-  environments:
-  - realm.run_as_server
-  - realm.run_as_master
-  - realm.run_as_slave
+* realm.kprop_port(): Returns a port number based on realm.portbase
+  intended for use by kprop and kpropd.
 
 * realm.server_port(): Returns a port number based on realm.portbase
   intended for use by server processes.
 
-* realm.start_server(args, sentinel): Start a process in the server
-  environment.  Wait until sentinel appears as a substring of a line
-  in the server process's stdout or stderr (which are folded
-  together).  Returns a subprocess.Popen object which can be passed to
+* realm.start_server(args, sentinel, env=None): Start a daemon
+  process.  Wait until sentinel appears as a substring of a line in
+  the server process's stdout or stderr (which are folded together).
+  Returns a subprocess.Popen object which can be passed to
   stop_daemon() to stop the server, or used to read from the server's
   output.
 
-* realm.start_in_inetd(args, port=None): Begin a t_inetd process which
-  will spawn a server process within the server environment after
-  accepting a client connection.  If port is not specified,
-  realm.server_port() will be used.  Returns a process object which
-  can be passed to stop_daemon() to stop the server.
+* realm.start_in_inetd(args, port=None, env=None): Begin a t_inetd
+  process which will spawn a server process after accepting a client
+  connection.  If port is not specified, realm.server_port() will be
+  used.  Returns a process object which can be passed to stop_daemon()
+  to stop the server.
 
-* realm.create_kdb(): Create a new master KDB.
+* realm.create_kdb(): Create a new KDB.
 
-* realm.start_kdc(args=[]): Start a krb5kdc with the realm's master
-  KDC environment.  Errors if a KDC is already running.  If args is
-  given, it contains a list of additional krb5kdc arguments.
+* realm.start_kdc(args=[], env=None): Start a krb5kdc process.  Errors
+  if a KDC is already running.  If args is given, it contains a list
+  of additional krb5kdc arguments.
 
 * realm.stop_kdc(): Stop the krb5kdc process.  Errors if no KDC is
   running.
 
-* realm.start_kadmind(): Start a kadmind with the realm's master KDC
-  environment.  Errors if a kadmind is already running.
+* realm.start_kadmind(env=None): Start a kadmind process.  Errors if a
+  kadmind is already running.
 
 * realm.stop_kadmind(): Stop the kadmind process.  Errors if no
   kadmind is running.
 
-* realm.stop(): Stop any KDC and kadmind processes running on behalf
-  of the realm.
+* realm.stop(): Stop any daemon processes running on behalf of the
+  realm.
 
 * realm.addprinc(princname, password=None): Using kadmin.local, create
   a principle in the KDB named princname, with either a random or
@@ -266,6 +275,28 @@ Scripts may use the following realm methods and attributes:
 
 * realm.run_kadminl(query): Run the specified query in kadmin.local.
 
+* realm.prep_kadmin(princname=None, password=None, flags=[]): Populate
+  realm.kadmin_ccache with a ticket which can be used to run kadmin.
+  If princname is not specified, realm.admin_princ and its default
+  password will be used.
+
+* realm.run_kadmin(query, **keywords): Run the specified query in
+  kadmin, using realm.kadmin_ccache to authenticate.  Accepts the same
+  keyword arguments as run.
+
+* realm.special_env(name, has_kdc_conf, krb5_conf=None,
+  kdc_conf=None): Create an environment with a modified krb5.conf
+  and/or kdc.conf.  The specified krb5_conf and kdc_conf fragments, if
+  any, will be merged with the realm's existing configuration.  If
+  has_kdc_conf is false, the new environment will have no kdc.conf.
+  The environment returned by this method can be used with realm.run()
+  or similar methods.
+
+* realm.start_kpropd(env, args=[]): Start a kpropd process.  Pass an
+  environment created with realm.special_env() for the slave.  If args
+  is given, it contains a list of additional kpropd arguments.
+  Returns a handle to the kpropd process.
+
 * realm.realm: The realm's name.
 
 * realm.testdir: The realm's storage directory (absolute path).
@@ -279,21 +310,26 @@ Scripts may use the following realm methods and attributes:
 * realm.host_princ: The name of the host principal for this machine,
   with realm.
 
+* realm.nfs_princ: The name of the nfs principal for this machine,
+  with realm.
+
 * realm.krbtgt_princ: The name of the krbtgt principal for the realm.
 
 * realm.keytab: A keytab file in realm.testdir.  Initially contains a
   host keytab unless disabled by the realm construction options.
 
+* realm.client_keytab: A keytab file in realm.testdir.  Initially
+  nonexistent.
+
 * realm.ccache: A ccache file in realm.testdir.  Initially contains
   credentials for user unless disabled by the realm construction
   options.
 
-* Attributes for the client, server, master, and slave environments.
-  These environments are extensions of os.environ.
-  - realm.env_client
-  - realm.env_server
-  - realm.env_master
-  - realm.env_slave
+* realm.kadmin_ccache: The ccache file initialized by prep_kadmin and
+  used by run_kadmin.
+
+* env: The realm's environment, extended from os.environ to point at
+  the realm's config files and the build tree's shared libraries.
 
 When the test script is run, its behavior can be modified with
 command-line flags.  These are documented in the --help output.
@@ -338,6 +374,16 @@ def output(msg, force_verbose=False):
         sys.stdout.write(msg)
 
 
+# Return the location of progname in the executable path, or None if
+# it is not found.
+def which(progname):
+    for dir in os.environ["PATH"].split(os.pathsep):
+        path = os.path.join(dir, progname)
+        if os.access(path, os.X_OK):
+            return path
+    return None
+
+
 def password(name):
     """Choose a weakly random password from name, consistent across calls."""
     return name + str(os.getpid())
@@ -367,10 +413,9 @@ def _onexit():
         if not verbose:
             print 'See testlog for details, or re-run with -v flag.'
             print
-        print 'Use --debug=NUM to run a command (other than a daemon) under a'
-        print 'debugger.  Use --stop-after=NUM to stop after a daemon is'
-        print 'started in order to attach to it with a debugger.  Use --help'
-        print 'to see other options.'
+        print 'Use --debug=NUM to run a command under a debugger.  Use'
+        print '--stop-after=NUM to stop after a daemon is started in order to'
+        print 'attach to it with a debugger.  Use --help to see other options.'
 
 # Find the parent of dir which is at the root of a build or source directory.
 def _find_root(dir):
@@ -404,16 +449,6 @@ def _find_srctop():
     return os.path.abspath(root)
 
 
-def _find_plugins():
-    global buildtop
-    fakeroot = os.path.join(buildtop, 'util', 'fakedest')
-    if not os.path.exists(fakeroot):
-        fail('You must run "make fake-install" in %s first.' % buildtop)
-    for dir, subdirs, files in os.walk(fakeroot):
-        if os.path.basename(dir) == 'plugins' and 'kdb' in subdirs:
-            return dir
-    fail('Cannot locate plugins; run "make fake-install" at %s.' % buildtop)
-
 # Return the local hostname as it will be canonicalized by
 # krb5_sname_to_principal.  We can't simply use socket.getfqdn()
 # because it explicitly prefers results containing periods and
@@ -421,8 +456,7 @@ def _find_plugins():
 def _get_hostname():
     hostname = socket.gethostname()
     try:
-        ai = socket.getaddrinfo(hostname, None, 0, 0, 0,
-                                socket.AI_CANONNAME | socket.AI_ADDRCONFIG)
+        ai = socket.getaddrinfo(hostname, None, 0, 0, 0, socket.AI_CANONNAME)
     except socket.gaierror, (error, errstr):
         fail('Local hostname "%s" does not resolve: %s.' % (hostname, errstr))
     (family, socktype, proto, canonname, sockaddr) = ai[0]
@@ -499,8 +533,9 @@ def _build_env():
             env[k] = os.path.join(buildtop, v)
         else:
             env[k] = v
-    # Make sure we don't get confused by translated messages.
-    env['LC_MESSAGES'] = 'C'
+    # Make sure we don't get confused by translated messages
+    # or localized times.
+    env['LC_ALL'] = 'C'
     return env
 
 
@@ -508,7 +543,7 @@ def _import_runenv():
     global buildtop
     runenv_py = os.path.join(buildtop, 'runenv.py')
     if not os.path.exists(runenv_py):
-        fail('You must run "make fake-install" in %s first.' % buildtop)
+        fail('You must run "make runenv.py" in %s first.' % buildtop)
     module = imp.load_source('runenv', runenv_py)
     return module.env
 
@@ -621,9 +656,12 @@ def _start_daemon(args, env, sentinel):
     global null_input, _cmd_index, _debug
     global _stop_before, _stop_after, _shell_before, _shell_after
 
-    # Make this non-fatal so that --debug=all works.
     if (_match_cmdnum(_debug, _cmd_index)):
-        output('*** [%d] Cannot run daemon in debugger\n' % _cmd_index, True)
+        output('*** [%d] Warning: ' % _cmd_index, True)
+        output( 'test script cannot proceed after debugging a daemon\n', True)
+        _debug_cmd(args, env, None)
+        output('*** Exiting after debugging daemon\n', True)
+        sys.exit(1)
 
     args = _valgrind(args)
     output('*** [%d] Starting: %s\n' %
@@ -674,7 +712,8 @@ class K5Realm(object):
     def __init__(self, realm='KRBTEST.COM', portbase=61000, testdir='testdir',
                  krb5_conf=None, kdc_conf=None, create_kdb=True,
                  krbtgt_keysalt=None, create_user=True, get_creds=True,
-                 create_host=True, start_kdc=True, start_kadmind=True):
+                 create_host=True, start_kdc=True, start_kadmind=False,
+                 start_kpropd=False):
         global hostname, _default_krb5_conf, _default_kdc_conf
 
         self.realm = realm
@@ -683,28 +722,26 @@ class K5Realm(object):
         self.user_princ = 'user@' + self.realm
         self.admin_princ = 'user/admin@' + self.realm
         self.host_princ = 'host/%s@%s' % (hostname, self.realm)
+        self.nfs_princ = 'nfs/%s@%s' % (hostname, self.realm)
         self.krbtgt_princ = 'krbtgt/%s@%s' % (self.realm, self.realm)
         self.keytab = os.path.join(self.testdir, 'keytab')
+        self.client_keytab = os.path.join(self.testdir, 'client_keytab')
         self.ccache = os.path.join(self.testdir, 'ccache')
+        self.kadmin_ccache = os.path.join(self.testdir, 'kadmin_ccache')
         self._krb5_conf = _cfg_merge(_default_krb5_conf, krb5_conf)
         self._kdc_conf = _cfg_merge(_default_kdc_conf, kdc_conf)
         self._kdc_proc = None
         self._kadmind_proc = None
+        self._kpropd_procs = []
+        krb5_conf_path = os.path.join(self.testdir, 'krb5.conf')
+        kdc_conf_path = os.path.join(self.testdir, 'kdc.conf')
+        self.env = self._make_env(krb5_conf_path, kdc_conf_path)
 
         self._create_empty_dir()
-        self._create_krb5_conf('client')
-        self._create_krb5_conf('server')
-        self._create_krb5_conf('master')
-        self._create_krb5_conf('slave')
-        self._create_kdc_conf('master')
-        self._create_kdc_conf('slave')
+        self._create_conf(self._krb5_conf, krb5_conf_path)
+        self._create_conf(self._kdc_conf, kdc_conf_path)
         self._create_acl()
         self._create_dictfile()
-
-        self.env_client = self._make_env('client', False)
-        self.env_server = self._make_env('server', False)
-        self.env_master = self._make_env('master', True)
-        self.env_slave = self._make_env('slave', True)
 
         if create_kdb:
             self.create_kdb()
@@ -732,50 +769,38 @@ class K5Realm(object):
             fail('Cannot remove %s to create test realm.' % dir)
         os.mkdir(dir)
 
-    def _create_krb5_conf(self, type):
-        filename = os.path.join(self.testdir, 'krb5.%s.conf' % type)
+    def _create_conf(self, profile, filename):
         file = open(filename, 'w')
-        profile = _cfg_merge(self._krb5_conf['all'], self._krb5_conf.get(type))
         for section, contents in profile.items():
             file.write('[%s]\n' % section)
-            self._write_cfg_section(file, type, contents, 1)
+            self._write_cfg_section(file, contents, 1)
         file.close()
 
-    def _create_kdc_conf(self, type):
-        filename = os.path.join(self.testdir, 'kdc.%s.conf' % type)
-        file = open(filename, 'w')
-        profile = _cfg_merge(self._kdc_conf['all'], self._kdc_conf.get(type))
-        for section, contents in profile.items():
-            file.write('[%s]\n' % section)
-            self._write_cfg_section(file, type, contents, 1)
-        file.close()
-
-    def _write_cfg_section(self, file, type, contents, indent_level):
+    def _write_cfg_section(self, file, contents, indent_level):
         indent = '\t' * indent_level
         for name, value in contents.items():
-            name = self._subst_cfg_value(name, type)
+            name = self._subst_cfg_value(name)
             if isinstance(value, dict):
                 # A dictionary value yields a list subsection.
                 file.write('%s%s = {\n' % (indent, name))
-                self._write_cfg_section(file, type, value, indent_level + 1)
+                self._write_cfg_section(file, value, indent_level + 1)
                 file.write('%s}\n' % indent)
             elif isinstance(value, list):
                 # A list value yields multiple values for the same name.
                 for item in value:
-                    item = self._subst_cfg_value(item, type)
+                    item = self._subst_cfg_value(item)
                     file.write('%s%s = %s\n' % (indent, name, item))
             elif isinstance(value, str):
                 # A string value yields a straightforward variable setting.
-                value = self._subst_cfg_value(value, type)
+                value = self._subst_cfg_value(value)
                 file.write('%s%s = %s\n' % (indent, name, value))
             elif value is not None:
                 raise TypeError()
 
-    def _subst_cfg_value(self, value, type):
+    def _subst_cfg_value(self, value):
         global buildtop, srctop, hostname
         template = string.Template(value)
-        return template.substitute(type=type,
-                                   realm=self.realm,
+        return template.substitute(realm=self.realm,
                                    testdir=self.testdir,
                                    buildtop=buildtop,
                                    srctop=srctop,
@@ -806,72 +831,93 @@ class K5Realm(object):
         file.write('weak_password\n')
         file.close()
 
-    def _make_env(self, type, has_kdc_conf):
+    def _make_env(self, krb5_conf_path, kdc_conf_path):
         env = _build_env()
-        env['KRB5_CONFIG'] = os.path.join(self.testdir, 'krb5.%s.conf' % type)
-        if has_kdc_conf:
-            filename = os.path.join(self.testdir, 'kdc.%s.conf' % type)
-            env['KRB5_KDC_PROFILE'] = filename
+        env['KRB5_CONFIG'] = krb5_conf_path
+        env['KRB5_KDC_PROFILE'] = kdc_conf_path or os.devnull
         env['KRB5CCNAME'] = self.ccache
         env['KRB5_KTNAME'] = self.keytab
+        env['KRB5_CLIENT_KTNAME'] = self.client_keytab
         env['KRB5RCACHEDIR'] = self.testdir
+        env['KPROPD_PORT'] = str(self.kprop_port())
+        env['KPROP_PORT'] = str(self.kprop_port())
         return env
 
-    def run_as_client(self, args, **keywords):
-        return _run_cmd(args, self.env_client, **keywords)
+    def run(self, args, env=None, **keywords):
+        if env is None:
+            env = self.env
+        return _run_cmd(args, env, **keywords)
 
-    def run_as_server(self, args, **keywords):
-        return _run_cmd(args, self.env_server, **keywords)
-
-    def run_as_master(self, args, **keywords):
-        return _run_cmd(args, self.env_master, **keywords)
-
-    def run_as_slave(self, args, **keywords):
-        return _run_cmd(args, self.env_slave, **keywords)
-
-    def server_port(self):
+    def kprop_port(self):
         return self.portbase + 3
 
-    def start_server(self, args, sentinel):
-        return _start_daemon(args, self.env_server, sentinel)
+    def server_port(self):
+        return self.portbase + 5
 
-    def start_in_inetd(self, args, port=None):
+    def start_server(self, args, sentinel, env=None):
+        if env is None:
+            env = self.env
+        return _start_daemon(args, env, sentinel)
+
+    def start_in_inetd(self, args, port=None, env=None):
         if not port:
             port = self.server_port()
+        if env is None:
+            env = self.env
         inetd_args = [t_inetd, str(port)] + args
-        return _start_daemon(inetd_args, self.env_server, 'Ready!')
+        return _start_daemon(inetd_args, env, 'Ready!')
 
     def create_kdb(self):
         global kdb5_util
-        self.run_as_master([kdb5_util, 'create', '-W', '-s', '-P', 'master'])
+        self.run([kdb5_util, 'create', '-W', '-s', '-P', 'master'])
 
-    def start_kdc(self, args=[]):
+    def start_kdc(self, args=[], env=None):
         global krb5kdc
+        if env is None:
+            env = self.env
         assert(self._kdc_proc is None)
-        self._kdc_proc = _start_daemon([krb5kdc, '-n'] + args, self.env_master,
-                                        'starting...')
+        self._kdc_proc = _start_daemon([krb5kdc, '-n'] + args, env,
+                                       'starting...')
 
     def stop_kdc(self):
         assert(self._kdc_proc is not None)
         stop_daemon(self._kdc_proc)
         self._kdc_proc = None
 
-    def start_kadmind(self):
+    def start_kadmind(self, env=None):
         global krb5kdc
+        if env is None:
+            env = self.env
         assert(self._kadmind_proc is None)
-        self._kadmind_proc = _start_daemon([kadmind, '-nofork', '-W'],
-                                            self.env_master, 'starting...')
+        dump_path = os.path.join(self.testdir, 'dump')
+        self._kadmind_proc = _start_daemon([kadmind, '-nofork', '-W',
+                                            '-p', kdb5_util, '-K', kprop,
+                                            '-F', dump_path], env,
+                                           'starting...')
 
     def stop_kadmind(self):
         assert(self._kadmind_proc is not None)
         stop_daemon(self._kadmind_proc)
         self._kadmind_proc = None
 
+    def start_kpropd(self, env, args=[]):
+        global krb5kdc
+        slavedump_path = os.path.join(self.testdir, 'incoming-slave-datatrans')
+        kpropdacl_path = os.path.join(self.testdir, 'kpropd-acl')
+        proc = _start_daemon([kpropd, '-D', '-P', str(self.kprop_port()),
+                              '-f', slavedump_path, '-p', kdb5_util,
+                              '-a', kpropdacl_path] + args, env, 'ready')
+        self._kpropd_procs.append(proc)
+        return proc
+
     def stop(self):
         if self._kdc_proc:
             self.stop_kdc()
         if self._kadmind_proc:
             self.stop_kadmind()
+        for p in self._kpropd_procs:
+            stop_daemon(p)
+        self._kpropd_procs = []
 
     def addprinc(self, princname, password=None):
         if password:
@@ -887,16 +933,18 @@ class K5Realm(object):
             input = password + "\n"
         else:
             input = None
-        self.run_as_client([kinit] + flags + [princname], input=input,
-                           **keywords)
+        return self.run([kinit] + flags + [princname], input=input, **keywords)
 
     def klist(self, client_princ, service_princ=None, ccache=None, **keywords):
         if service_princ is None:
             service_princ = self.krbtgt_princ
         if ccache is None:
             ccache = self.ccache
-        output = self.run_as_client([klist, ccache], **keywords)
-        if (('Ticket cache: FILE:%s\n' % ccache) not in output or
+        ccachestr = ccache
+        if len(ccachestr) < 2 or ':' not in ccachestr[2:]:
+            ccachestr = 'FILE:' + ccachestr
+        output = self.run([klist, ccache], **keywords)
+        if (('Ticket cache: %s\n' % ccachestr) not in output or
             ('Default principal: %s\n' % client_princ) not in output or
             service_princ not in output):
             fail('Unexpected klist output.')
@@ -904,15 +952,39 @@ class K5Realm(object):
     def klist_keytab(self, princ, keytab=None, **keywords):
         if keytab is None:
             keytab = self.keytab
-        output = self.run_as_client([klist, '-k', keytab], **keywords)
+        output = self.run([klist, '-k', keytab], **keywords)
         if (('Keytab name: FILE:%s\n' % keytab) not in output or
             'KVNO Principal\n----' not in output or
             princ not in output):
             fail('Unexpected klist output.')
 
-    def run_kadminl(self, query):
+    def run_kadminl(self, query, env=None):
         global kadmin_local
-        return self.run_as_master([kadmin_local, '-q', query])
+        return self.run([kadmin_local, '-q', query], env=env)
+
+    def prep_kadmin(self, princname=None, pw=None, flags=[]):
+        if princname is None:
+            princname = self.admin_princ
+            pw = password('admin')
+        return self.kinit(princname, pw,
+                          flags=['-S', 'kadmin/admin',
+                                 '-c', self.kadmin_ccache] + flags)
+
+    def run_kadmin(self, query, **keywords):
+        return self.run([kadmin, '-c', self.kadmin_ccache, '-q', query],
+                        **keywords)
+
+    def special_env(self, name, has_kdc_conf, krb5_conf=None, kdc_conf=None):
+        krb5_conf_path = os.path.join(self.testdir, 'krb5.conf.%s' % name)
+        krb5_conf = _cfg_merge(self._krb5_conf, krb5_conf)
+        self._create_conf(krb5_conf, krb5_conf_path)
+        if has_kdc_conf:
+            kdc_conf_path = os.path.join(self.testdir, 'kdc.conf.%s' % name)
+            kdc_conf = _cfg_merge(self._kdc_conf, kdc_conf)
+            self._create_conf(kdc_conf, kdc_conf_path)
+        else:
+            kdc_conf_path = None
+        return self._make_env(krb5_conf_path, kdc_conf_path)
 
 
 def multipass_realms(**keywords):
@@ -934,65 +1006,100 @@ def multipass_realms(**keywords):
         _current_pass = None
 
 
-_default_krb5_conf = {
-    'all' : {
-        'libdefaults' : {
-            'default_realm' : '$realm',
-            'dns_lookup_kdc' : 'false',
-            'plugin_base_dir' : '$plugins'
-        },
-        'realms' : {
-            '$realm' : {
-                'kdc' : '$hostname:$port0',
-                'admin_server' : '$hostname:$port1',
-                'kpasswd_server' : '$hostname:$port2'
+def cross_realms(num, xtgts=None, args=None, **keywords):
+    # Build keyword args for each realm.
+    realm_args = []
+    for i in range(num):
+        realmnumber = i + 1
+        # Start with any global keyword arguments to this function.
+        a = keywords.copy()
+        if args and args[i]:
+            # Merge in specific arguments for this realm.  Use
+            # _cfg_merge for config fragments.
+            a.update(args[i])
+            for cf in ('krb5_conf', 'kdc_conf'):
+                if cf in keywords and cf in args[i]:
+                    a[cf] = _cfg_merge(keywords[cf], args[i][cf])
+        # Set defaults for the realm name, testdir, and portbase.
+        if not 'realm' in a:
+            a['realm'] = 'KRBTEST%d.COM' % realmnumber
+        if not 'testdir' in a:
+            a['testdir'] = os.path.join('testdir', str(realmnumber))
+        if not 'portbase' in a:
+            a['portbase'] = 61000 + 10 * realmnumber
+        realm_args.append(a)
+        
+    # Build a [realms] config fragment containing all of the realms.
+    realmsection = { '$realm' : None }
+    for a in realm_args:
+        name = a['realm']
+        portbase = a['portbase']
+        realmsection[name] = {
+            'kdc' : '$hostname:%d' % portbase,
+            'admin_server' : '$hostname:%d' % (portbase + 1),
+            'kpasswd_server' : '$hostname:%d' % (portbase + 2)
             }
-        }
-    }
-}
+    realmscfg = {'realms': realmsection}
+
+    # Set realmsection in each realm's krb5_conf keyword argument.
+    for a in realm_args:
+        a['krb5_conf'] = _cfg_merge(realmscfg, a.get('krb5_conf'))
+
+    if xtgts is None:
+        # Default to cross tgts for every pair of realms.
+        # (itertools.permutations would work here but is new in 2.6.)
+        xtgts = [(x,y) for x in range(num) for y in range(num) if x != y]
+
+    # Create the realms.
+    realms = []
+    for i in range(num):
+        r = K5Realm(**realm_args[i])
+        # Create specified cross TGTs in this realm's db.
+        for j in range(num):
+            if j == i:
+                continue
+            iname = r.realm
+            jname = realm_args[j]['realm']
+            if (i, j) in xtgts:
+                # This realm can authenticate to realm j.
+                r.addprinc('krbtgt/%s' % jname, password('cr-%d-%d-' % (i, j)))
+            if (j, i) in xtgts:
+                # Realm j can authenticate to this realm.
+                r.addprinc('krbtgt/%s@%s' % (iname, jname),
+                           password('cr-%d-%d-' % (j, i)))
+        realms.append(r)
+    return realms
+
+
+_default_krb5_conf = {
+    'libdefaults': {
+        'default_realm': '$realm',
+        'dns_lookup_kdc': 'false',
+        'plugin_base_dir': '$plugins'},
+    'realms': {'$realm': {
+            'kdc': '$hostname:$port0',
+            'admin_server': '$hostname:$port1',
+            'kpasswd_server': '$hostname:$port2'}}}
 
 
 _default_kdc_conf = {
-    'all' : {
-        'realms' : {
-            '$realm' : {
-                'database_module' : 'foo_db2'
-            }
-        },
-        'dbmodules' : {
-            'db_module_dir' : '$plugins/kdb',
-            'foo_db2' : {
-                'db_library' : 'db2',
-                'database_name' : '$testdir/$type-db'
-            }
-        },
-        'logging' : {
-            'admin_server' : 'FILE:$testdir/kadmind5.log',
-            'kdc' : 'FILE:$testdir/kdc.log',
-            'default' : 'FILE:$testdir/others.log'
-        }
-    },
-    'master' : {
-        'realms' : {
-            '$realm' : {
-                'key_stash_file' : '$testdir/stash',
-                'acl_file' : '$testdir/acl',
-                'dictfile' : '$testdir/dictfile',
-                'kadmind_port' : '$port1',
-                'kpasswd_port' : '$port2',
-                'kdc_ports' : '$port0',
-                'kdc_tcp_ports' : '$port0'
-            }
-        }
-    },
-    'slave' : {
-        'realms' : {
-            '$realm' : {
-                'key_stash_file' : '$testdir/slave-stash',
-            }
-        }
-    }
-}
+    'realms': {'$realm': {
+            'database_module': 'db',
+            'iprop_port': '$port4',
+            'key_stash_file': '$testdir/stash',
+            'acl_file': '$testdir/acl',
+            'dictfile': '$testdir/dictfile',
+            'kadmind_port': '$port1',
+            'kpasswd_port': '$port2',
+            'kdc_ports': '$port0',
+            'kdc_tcp_ports': '$port0'}},
+    'dbmodules': {
+        'db_module_dir': '$plugins/kdb',
+        'db': {'db_library': 'db2', 'database_name' : '$testdir/db'}},
+    'logging': {
+        'admin_server': 'FILE:$testdir/kadmind5.log',
+        'kdc': 'FILE:$testdir/kdc.log',
+        'default': 'FILE:$testdir/others.log'}}
 
 
 # A pass is a tuple of: name, krbtgt_keysalt, krb5_conf, kdc_conf.
@@ -1002,59 +1109,58 @@ _passes = [
 
     # Exercise a DES enctype and the v4 salt type.
     ('desv4', None,
-     {'all' : {'libdefaults' : {
-                    'default_tgs_enctypes' : 'des-cbc-crc',
-                    'default_tkt_enctypes' : 'des-cbc-crc',
-                    'permitted_enctypes' : 'des-cbc-crc',
-                    'allow_weak_crypto' : 'true'}}},
-     {'master' : {'realms' : {'$realm' : {
-                        'supported_enctypes' : 'des-cbc-crc:v4',
-                        'master_key_type' : 'des-cbc-crc'}}}}),
+     {'libdefaults': {
+                'default_tgs_enctypes': 'des-cbc-crc',
+                'default_tkt_enctypes': 'des-cbc-crc',
+                'permitted_enctypes': 'des-cbc-crc',
+                'allow_weak_crypto': 'true'}},
+     {'realms': {'$realm': {
+                    'supported_enctypes': 'des-cbc-crc:v4',
+                    'master_key_type': 'des-cbc-crc'}}}),
 
     # Exercise the DES3 enctype.
     ('des3', None,
-     {'all' : {'libdefaults' : {
-                    'default_tgs_enctypes' : 'des3',
-                    'default_tkt_enctypes' : 'des3',
-                    'permitted_enctypes' : 'des3'}}},
-     {'master' : {'realms' : {'$realm' : {
-                        'supported_enctypes' : 'des3-cbc-sha1:normal',
-                        'master_key_type' : 'des3-cbc-sha1'}}}}),
+     {'libdefaults': {
+                'default_tgs_enctypes': 'des3',
+                'default_tkt_enctypes': 'des3',
+                'permitted_enctypes': 'des3'}},
+     {'realms': {'$realm': {
+                    'supported_enctypes': 'des3-cbc-sha1:normal',
+                    'master_key_type': 'des3-cbc-sha1'}}}),
 
     # Exercise the arcfour enctype.
     ('arcfour', None,
-     {'all' : {'libdefaults' : {
-                    'default_tgs_enctypes' : 'rc4',
-                    'default_tkt_enctypes' : 'rc4',
-                    'permitted_enctypes' : 'rc4'}}},
-     {'master' : {'realms' : {'$realm' : {
-                        'supported_enctypes' : 'arcfour-hmac:normal',
-                        'master_key_type' : 'arcfour-hmac'}}}}),
+     {'libdefaults': {
+                'default_tgs_enctypes': 'rc4',
+                'default_tkt_enctypes': 'rc4',
+                'permitted_enctypes': 'rc4'}},
+     {'realms': {'$realm': {
+                    'supported_enctypes': 'arcfour-hmac:normal',
+                    'master_key_type': 'arcfour-hmac'}}}),
 
     # Exercise the AES128 enctype.
     ('aes128', None,
-      {'all' : {'libdefaults' : {
-                    'default_tgs_enctypes' : 'aes128-cts',
-                    'default_tkt_enctypes' : 'aes128-cts',
-                    'permitted_enctypes' : 'aes128-cts'}}},
-      {'master' : {'realms' : {'$realm' : {
-                        'supported_enctypes' : 'aes128-cts:normal',
-                        'master_key_type' : 'aes128-cts'}}}}),
+      {'libdefaults': {
+                'default_tgs_enctypes': 'aes128-cts',
+                'default_tkt_enctypes': 'aes128-cts',
+                'permitted_enctypes': 'aes128-cts'}},
+      {'realms': {'$realm': {
+                    'supported_enctypes': 'aes128-cts:normal',
+                    'master_key_type': 'aes128-cts'}}}),
 
     # Exercise the camellia256-cts enctype.
-# Enable when Camellia support becomes unconditional.
-#    ('camellia256', None,
-#      {'all' : {'libdefaults' : {
-#                    'default_tgs_enctypes' : 'camellia256-cts',
-#                    'default_tkt_enctypes' : 'camellia256-cts',
-#                    'permitted_enctypes' : 'camellia256-cts'}}},
-#      {'master' : {'realms' : {'$realm' : {
-#                        'supported_enctypes' : 'camellia256-cts:normal',
-#                        'master_key_type' : 'camellia256-cts'}}}}),
+    ('camellia256', None,
+      {'libdefaults': {
+                'default_tgs_enctypes': 'camellia256-cts',
+                'default_tkt_enctypes': 'camellia256-cts',
+                'permitted_enctypes': 'camellia256-cts'}},
+      {'realms': {'$realm': {
+                    'supported_enctypes': 'camellia256-cts:normal',
+                    'master_key_type': 'camellia256-cts'}}}),
 
     # Test a setup with modern principal keys but an old TGT key.
     ('aes256.destgt', 'des-cbc-crc:normal',
-     {'all' : {'libdefaults' : {'allow_weak_crypto' : 'true'}}},
+     {'libdefaults': {'allow_weak_crypto': 'true'}},
      None)
 ]
 
@@ -1067,7 +1173,7 @@ _outfile = open('testlog', 'w')
 _cmd_index = 1
 buildtop = _find_buildtop()
 srctop = _find_srctop()
-plugins = _find_plugins()
+plugins = os.path.join(buildtop, 'plugins')
 _runenv = _import_runenv()
 hostname = _get_hostname()
 null_input = open(os.devnull, 'r')
@@ -1076,6 +1182,8 @@ krb5kdc = os.path.join(buildtop, 'kdc', 'krb5kdc')
 kadmind = os.path.join(buildtop, 'kadmin', 'server', 'kadmind')
 kadmin = os.path.join(buildtop, 'kadmin', 'cli', 'kadmin')
 kadmin_local = os.path.join(buildtop, 'kadmin', 'cli', 'kadmin.local')
+kdb5_ldap_util = os.path.join(buildtop, 'plugins', 'kdb', 'ldap', 'ldap_util',
+                              'kdb5_ldap_util')
 kdb5_util = os.path.join(buildtop, 'kadmin', 'dbutil', 'kdb5_util')
 ktutil = os.path.join(buildtop, 'kadmin', 'ktutil', 'ktutil')
 kinit = os.path.join(buildtop, 'clients', 'kinit', 'kinit')
@@ -1088,20 +1196,3 @@ t_inetd = os.path.join(buildtop, 'tests', 'dejagnu', 't_inetd')
 kproplog = os.path.join(buildtop, 'slave', 'kproplog')
 kpropd = os.path.join(buildtop, 'slave', 'kpropd')
 kprop = os.path.join(buildtop, 'slave', 'kprop')
-
-# Currently there are no helpers for doing cross-realm testing, but
-# the necessary flexibility is present in K5Realm to create them.  A
-# cross-realm test setup would need to:
-#
-# * Select distinct realm names, port bases, and directories for each
-#   realm.
-# 
-# * Create a krb5_conf fragment with a comprehensive [realms] section
-#   so that each realm knows how to reach the others, since there
-#   won't be DNS SRV records.  The fragment should probably None out
-#   'realms' -> '$realm' to avoid a duplicate section for the home
-#   realm.  capaths configuration may also be desired for some test
-#   cases.
-#
-# * Create cross-TGS principals for some or all of the pairs of
-#   realms.

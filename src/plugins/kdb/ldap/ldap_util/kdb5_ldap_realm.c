@@ -139,14 +139,6 @@ static krb5_error_code krb5_dbe_update_tl_data_new ( krb5_context context, krb5_
 #define ADMIN_LIFETIME 60*60*3 /* 3 hours */
 #define CHANGEPW_LIFETIME 60*5 /* 5 minutes */
 
-#ifdef HAVE_EDIRECTORY
-#define FREE_DN_LIST(dnlist)    if (dnlist != NULL) {   \
-        for (idx=0; dnlist[idx] != NULL; idx++)         \
-            free(dnlist[idx]);                          \
-        free(dnlist);                                   \
-    }
-#endif
-
 static int
 get_ticket_policy(krb5_ldap_realm_params *rparams, int *i, char *argv[],
                   int argc)
@@ -331,9 +323,6 @@ kdb5_ldap_create(int argc, char *argv[])
     int i = 0;
     int mask = 0, ret_mask = 0;
     char **list = NULL;
-#ifdef HAVE_EDIRECTORY
-    int rightsmask = 0;
-#endif
 
     memset(&master_keyblock, 0, sizeof(master_keyblock));
 
@@ -414,54 +403,6 @@ kdb5_ldap_create(int argc, char *argv[])
             }
             mask |= LDAP_REALM_SEARCHSCOPE;
         }
-#ifdef HAVE_EDIRECTORY
-        else if (!strcmp(argv[i], "-kdcdn")) {
-            if (++i > argc-1)
-                goto err_usage;
-            rparams->kdcservers = (char **)malloc(
-                sizeof(char *) * MAX_LIST_ENTRIES);
-            if (rparams->kdcservers == NULL) {
-                retval = ENOMEM;
-                goto cleanup;
-            }
-            memset(rparams->kdcservers, 0, sizeof(char*)*MAX_LIST_ENTRIES);
-            if ((retval = krb5_parse_list(argv[i], LIST_DELIMITER,
-                                          rparams->kdcservers))) {
-                goto cleanup;
-            }
-            mask |= LDAP_REALM_KDCSERVERS;
-        } else if (!strcmp(argv[i], "-admindn")) {
-            if (++i > argc-1)
-                goto err_usage;
-            rparams->adminservers = (char **)malloc(
-                sizeof(char *) * MAX_LIST_ENTRIES);
-            if (rparams->adminservers == NULL) {
-                retval = ENOMEM;
-                goto cleanup;
-            }
-            memset(rparams->adminservers, 0, sizeof(char*)*MAX_LIST_ENTRIES);
-            if ((retval = krb5_parse_list(argv[i], LIST_DELIMITER,
-                                          rparams->adminservers))) {
-                goto cleanup;
-            }
-            mask |= LDAP_REALM_ADMINSERVERS;
-        } else if (!strcmp(argv[i], "-pwddn")) {
-            if (++i > argc-1)
-                goto err_usage;
-            rparams->passwdservers = (char **)malloc(
-                sizeof(char *) * MAX_LIST_ENTRIES);
-            if (rparams->passwdservers == NULL) {
-                retval = ENOMEM;
-                goto cleanup;
-            }
-            memset(rparams->passwdservers, 0, sizeof(char*)*MAX_LIST_ENTRIES);
-            if ((retval = krb5_parse_list(argv[i], LIST_DELIMITER,
-                                          rparams->passwdservers))) {
-                goto cleanup;
-            }
-            mask |= LDAP_REALM_PASSWDSERVERS;
-        }
-#endif
         else if (!strcmp(argv[i], "-s")) {
             do_stash = 1;
         } else if ((ret_mask= get_ticket_policy(rparams,&i,argv,argc)) !=0) {
@@ -526,74 +467,35 @@ kdb5_ldap_create(int argc, char *argv[])
     }
 
     /* read the kerberos container */
-    if ((retval=krb5_ldap_read_krbcontainer_params (util_context,
-                                                    &(ldap_context->krbcontainer))) == KRB5_KDB_NOENTRY) {
+    retval = krb5_ldap_read_krbcontainer_dn(util_context,
+                                            &ldap_context->container_dn);
+    if (retval) {
         /* Prompt the user for entering the DN of Kerberos container */
         char krb_location[MAX_KRB_CONTAINER_LEN];
-        krb5_ldap_krbcontainer_params kparams;
         int krb_location_len = 0;
-        memset(&kparams, 0, sizeof(kparams));
 
-        /* Read the kerberos container location from configuration file */
-        if (ldap_context->conf_section) {
-            if ((retval=profile_get_string(util_context->profile,
-                                           KDB_MODULE_SECTION, ldap_context->conf_section,
-                                           KRB5_CONF_LDAP_KERBEROS_CONTAINER_DN, NULL,
-                                           &kparams.DN)) != 0) {
+        printf(_("Enter DN of Kerberos container: "));
+        if (fgets(krb_location, MAX_KRB_CONTAINER_LEN, stdin) != NULL) {
+            /* Remove the newline character at the end */
+            krb_location_len = strlen(krb_location);
+            if ((krb_location[krb_location_len - 1] == '\n') ||
+                (krb_location[krb_location_len - 1] == '\r')) {
+                krb_location[krb_location_len - 1] = '\0';
+                krb_location_len--;
+            }
+            ldap_context->container_dn = strdup(krb_location);
+            if (ldap_context->container_dn == NULL) {
+                retval = ENOMEM;
                 goto cleanup;
             }
         }
-        if (kparams.DN == NULL) {
-            if ((retval=profile_get_string(util_context->profile,
-                                           KDB_MODULE_DEF_SECTION,
-                                           KRB5_CONF_LDAP_KERBEROS_CONTAINER_DN, NULL,
-                                           NULL, &kparams.DN)) != 0) {
-                goto cleanup;
-            }
-        }
-
-        printf(_("\nKerberos container is missing. Creating now...\n"));
-        if (kparams.DN == NULL) {
-#ifdef HAVE_EDIRECTORY
-            printf("Enter DN of Kerberos container [cn=Kerberos,cn=Security]: ");
-#else
-            printf(_("Enter DN of Kerberos container: "));
-#endif
-            if (fgets(krb_location, MAX_KRB_CONTAINER_LEN, stdin) != NULL) {
-                /* Remove the newline character at the end */
-                krb_location_len = strlen(krb_location);
-                if ((krb_location[krb_location_len - 1] == '\n') ||
-                    (krb_location[krb_location_len - 1] == '\r')) {
-                    krb_location[krb_location_len - 1] = '\0';
-                    krb_location_len--;
-                }
-                /* If the user has not given any input, take the default location */
-                else if (krb_location[0] == '\0')
-                    kparams.DN = NULL;
-                else
-                    kparams.DN = krb_location;
-            } else
-                kparams.DN = NULL;
-        }
-
-        /* create the kerberos container */
-        retval = krb5_ldap_create_krbcontainer(util_context,
-                                               ((kparams.DN != NULL) ? &kparams : NULL));
-        if (retval)
-            goto cleanup;
-
-        retval = krb5_ldap_read_krbcontainer_params(util_context,
-                                                    &(ldap_context->krbcontainer));
-        if (retval) {
-            com_err(progname, retval,
-                    _("while reading kerberos container information"));
-            goto cleanup;
-        }
-    } else if (retval) {
-        com_err(progname, retval,
-                _("while reading kerberos container information"));
-        goto cleanup;
     }
+
+    /* create the kerberos container if it doesn't exist */
+    retval = krb5_ldap_create_krbcontainer(util_context,
+                                           ldap_context->container_dn);
+    if (retval)
+        goto cleanup;
 
     if ((retval = krb5_ldap_create_realm(util_context,
                                          /* global_params.realm, */ rparams, mask))) {
@@ -792,67 +694,6 @@ kdb5_ldap_create(int argc, char *argv[])
         }
     }
 
-#ifdef HAVE_EDIRECTORY
-    if ((mask & LDAP_REALM_KDCSERVERS) || (mask & LDAP_REALM_ADMINSERVERS) ||
-        (mask & LDAP_REALM_PASSWDSERVERS)) {
-
-        printf(_("Changing rights for the service object. Please wait ... "));
-        fflush(stdout);
-
-        rightsmask =0;
-        rightsmask |= LDAP_REALM_RIGHTS;
-        rightsmask |= LDAP_SUBTREE_RIGHTS;
-        if ((rparams != NULL) && (rparams->kdcservers != NULL)) {
-            for (i=0; (rparams->kdcservers[i] != NULL); i++) {
-                if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                         LDAP_KDC_SERVICE, rparams->kdcservers[i],
-                                                         rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                    printf(_("failed\n"));
-                    com_err(progname, retval,
-                            _("while assigning rights to '%s'"),
-                            rparams->realm_name);
-                    goto err_nomsg;
-                }
-            }
-        }
-
-        rightsmask = 0;
-        rightsmask |= LDAP_REALM_RIGHTS;
-        rightsmask |= LDAP_SUBTREE_RIGHTS;
-        if ((rparams != NULL) && (rparams->adminservers != NULL)) {
-            for (i=0; (rparams->adminservers[i] != NULL); i++) {
-                if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                         LDAP_ADMIN_SERVICE, rparams->adminservers[i],
-                                                         rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                    printf(_("failed\n"));
-                    com_err(progname, retval,
-                            _("while assigning rights to '%s'"),
-                            rparams->realm_name);
-                    goto err_nomsg;
-                }
-            }
-        }
-
-        rightsmask = 0;
-        rightsmask |= LDAP_REALM_RIGHTS;
-        rightsmask |= LDAP_SUBTREE_RIGHTS;
-        if ((rparams != NULL) && (rparams->passwdservers != NULL)) {
-            for (i=0; (rparams->passwdservers[i] != NULL); i++) {
-                if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                         LDAP_PASSWD_SERVICE, rparams->passwdservers[i],
-                                                         rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                    printf(_("failed\n"));
-                    com_err(progname, retval,
-                            _("while assigning rights to '%s'"),
-                            rparams->realm_name);
-                    goto err_nomsg;
-                }
-            }
-        }
-
-        printf(_("done\n"));
-    }
-#endif
     /* The Realm creation is completed. Here is the end of transaction */
     create_complete = TRUE;
 
@@ -928,24 +769,6 @@ kdb5_ldap_modify(int argc, char *argv[])
     int i = 0;
     int mask = 0, rmask = 0, ret_mask = 0;
     char **slist = {NULL};
-#ifdef HAVE_EDIRECTORY
-    int j = 0, idx = 0;
-    char *list[MAX_LIST_ENTRIES];
-    int existing_entries = 0, list_entries = 0;
-    int newkdcdn = 0, newadmindn = 0, newpwddn = 0;
-    char **tempstr = NULL;
-    char **oldkdcdns = NULL;
-    char **oldadmindns = NULL;
-    char **oldpwddns = NULL;
-    char **newkdcdns = NULL;
-    char **newsubtrees = NULL;
-    char **newadmindns = NULL;
-    char **newpwddns = NULL;
-    char **oldsubtrees = NULL;
-    char *oldcontainerref = NULL;
-    int rightsmask = 0;
-    int subtree_changed = 0;
-#endif
 
     dal_handle = util_context->dal_handle;
     ldap_context = (krb5_ldap_context *) dal_handle->db_context;
@@ -954,8 +777,9 @@ kdb5_ldap_modify(int argc, char *argv[])
         goto cleanup;
     }
 
-    if ((retval = krb5_ldap_read_krbcontainer_params(util_context,
-                                                     &(ldap_context->krbcontainer)))) {
+    retval = krb5_ldap_read_krbcontainer_dn(util_context,
+                                            &ldap_context->container_dn);
+    if (retval) {
         com_err(progname, retval,
                 _("while reading Kerberos container information"));
         goto err_nomsg;
@@ -974,20 +798,6 @@ kdb5_ldap_modify(int argc, char *argv[])
 
             if (rmask & LDAP_REALM_SUBTREE) {
                 if (rparams->subtree) {
-#ifdef HAVE_EDIRECTORY
-                    oldsubtrees =  (char **) calloc(rparams->subtreecount+1, sizeof(char *));
-                    if (oldsubtrees == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-                    for (k=0; rparams->subtree[k]!=NULL && rparams->subtreecount; k++) {
-                        oldsubtrees[k] = strdup(rparams->subtree[k]);
-                        if (oldsubtrees[k] == NULL) {
-                            retval = ENOMEM;
-                            goto cleanup;
-                        }
-                    }
-#endif
                     for (k=0; k<rparams->subtreecount && rparams->subtree[k]; k++)
                         free(rparams->subtree[k]);
                     rparams->subtreecount=0;
@@ -1028,11 +838,6 @@ kdb5_ldap_modify(int argc, char *argv[])
                         global_params.realm);
                 goto err_nomsg;
             }
-#ifdef HAVE_EDIRECTORY
-            if (rparams->containerref != NULL) {
-                oldcontainerref = rparams->containerref;
-            }
-#endif
             rparams->containerref = strdup(argv[i]);
             if (rparams->containerref == NULL) {
                 retval = ENOMEM;
@@ -1063,380 +868,6 @@ kdb5_ldap_modify(int argc, char *argv[])
             }
             mask |= LDAP_REALM_SEARCHSCOPE;
         }
-#ifdef HAVE_EDIRECTORY
-        else if (!strcmp(argv[i], "-kdcdn")) {
-            if (++i > argc-1)
-                goto err_usage;
-
-            if ((rmask & LDAP_REALM_KDCSERVERS) && (rparams->kdcservers)) {
-                if (!oldkdcdns) {
-                    /* Store the old kdc dns list for removing rights */
-                    oldkdcdns = (char**) calloc(MAX_LIST_ENTRIES, sizeof(char*));
-                    if (oldkdcdns == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-
-                    for (j=0; rparams->kdcservers[j] != NULL; j++) {
-                        oldkdcdns[j] = strdup(rparams->kdcservers[j]);
-                        if (oldkdcdns[j] == NULL) {
-                            retval = ENOMEM;
-                            goto cleanup;
-                        }
-                    }
-                    oldkdcdns[j] = NULL;
-                }
-
-                krb5_free_list_entries(rparams->kdcservers);
-                free(rparams->kdcservers);
-            }
-
-            rparams->kdcservers = (char **)malloc(
-                sizeof(char *) * MAX_LIST_ENTRIES);
-            if (rparams->kdcservers == NULL) {
-                retval = ENOMEM;
-                goto cleanup;
-            }
-            memset(rparams->kdcservers, 0, sizeof(char *)*MAX_LIST_ENTRIES);
-            if ((retval = krb5_parse_list(argv[i], LIST_DELIMITER,
-                                          rparams->kdcservers))) {
-                goto cleanup;
-            }
-            mask |= LDAP_REALM_KDCSERVERS;
-            /* Going to replace the existing value by this new value. Hence
-             * setting flag indicating that add or clear options will be ignored
-             */
-            newkdcdn = 1;
-        } else if (!strcmp(argv[i], "-clearkdcdn")) {
-            if (++i > argc-1)
-                goto err_usage;
-            if ((!newkdcdn) && (rmask & LDAP_REALM_KDCSERVERS) && (rparams->kdcservers)) {
-                if (!oldkdcdns) {
-                    /* Store the old kdc dns list for removing rights */
-                    oldkdcdns = (char**) calloc(MAX_LIST_ENTRIES, sizeof(char*));
-                    if (oldkdcdns == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-
-                    for (j=0; rparams->kdcservers[j] != NULL; j++) {
-                        oldkdcdns[j] = strdup(rparams->kdcservers[j]);
-                        if (oldkdcdns[j] == NULL) {
-                            retval = ENOMEM;
-                            goto cleanup;
-                        }
-                    }
-                    oldkdcdns[j] = NULL;
-                }
-
-                memset(list, 0, sizeof(char *) * MAX_LIST_ENTRIES);
-                if ((retval = krb5_parse_list(argv[i], LIST_DELIMITER, list))) {
-                    goto cleanup;
-                }
-                list_modify_str_array(&rparams->kdcservers, (const char **)list,
-                                      LIST_MODE_DELETE);
-                mask |= LDAP_REALM_KDCSERVERS;
-                krb5_free_list_entries(list);
-            }
-        } else if (!strcmp(argv[i], "-addkdcdn")) {
-            if (++i > argc-1)
-                goto err_usage;
-            if (!newkdcdn) {
-                if ((rmask & LDAP_REALM_KDCSERVERS) && (rparams->kdcservers) && (!oldkdcdns)) {
-                    /* Store the old kdc dns list for removing rights */
-                    oldkdcdns = (char**) calloc(MAX_LIST_ENTRIES, sizeof(char*));
-                    if (oldkdcdns == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-
-                    for (j = 0; rparams->kdcservers[j] != NULL; j++) {
-                        oldkdcdns[j] = strdup(rparams->kdcservers[j]);
-                        if (oldkdcdns[j] == NULL) {
-                            retval = ENOMEM;
-                            goto cleanup;
-                        }
-                    }
-                    oldkdcdns[j] = NULL;
-                }
-
-                memset(list, 0, sizeof(char *) * MAX_LIST_ENTRIES);
-                if ((retval = krb5_parse_list(argv[i], LIST_DELIMITER, list))) {
-                    goto cleanup;
-                }
-                existing_entries = list_count_str_array(rparams->kdcservers);
-                list_entries = list_count_str_array(list);
-                if (rmask & LDAP_REALM_KDCSERVERS) {
-                    tempstr = (char **)realloc(
-                        rparams->kdcservers,
-                        sizeof(char *) * (existing_entries+list_entries+1));
-                    if (tempstr == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-                    rparams->kdcservers = tempstr;
-                } else {
-                    rparams->kdcservers = (char **)malloc(sizeof(char *) * (list_entries+1));
-                    if (rparams->kdcservers == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-                    memset(rparams->kdcservers, 0, sizeof(char *) * (list_entries+1));
-                }
-                list_modify_str_array(&rparams->kdcservers, (const char **)list,
-                                      LIST_MODE_ADD);
-                mask |= LDAP_REALM_KDCSERVERS;
-            }
-        } else if (!strcmp(argv[i], "-admindn")) {
-            if (++i > argc-1)
-                goto err_usage;
-
-            if ((rmask & LDAP_REALM_ADMINSERVERS) && (rparams->adminservers)) {
-                if (!oldadmindns) {
-                    /* Store the old admin dns list for removing rights */
-                    oldadmindns = (char**) calloc(MAX_LIST_ENTRIES, sizeof(char*));
-                    if (oldadmindns == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-
-                    for (j=0; rparams->adminservers[j] != NULL; j++) {
-                        oldadmindns[j] = strdup(rparams->adminservers[j]);
-                        if (oldadmindns[j] == NULL) {
-                            retval = ENOMEM;
-                            goto cleanup;
-                        }
-                    }
-                    oldadmindns[j] = NULL;
-                }
-
-                krb5_free_list_entries(rparams->adminservers);
-                free(rparams->adminservers);
-            }
-
-            rparams->adminservers = (char **)malloc(
-                sizeof(char *) * MAX_LIST_ENTRIES);
-            if (rparams->adminservers == NULL) {
-                retval = ENOMEM;
-                goto cleanup;
-            }
-            memset(rparams->adminservers, 0, sizeof(char *)*MAX_LIST_ENTRIES);
-            if ((retval = krb5_parse_list(argv[i], LIST_DELIMITER,
-                                          rparams->adminservers))) {
-                goto cleanup;
-            }
-            mask |= LDAP_REALM_ADMINSERVERS;
-            /* Going to replace the existing value by this new value. Hence
-             * setting flag indicating that add or clear options will be ignored
-             */
-            newadmindn = 1;
-        } else if (!strcmp(argv[i], "-clearadmindn")) {
-            if (++i > argc-1)
-                goto err_usage;
-
-            if ((!newadmindn) && (rmask & LDAP_REALM_ADMINSERVERS) && (rparams->adminservers)) {
-                if (!oldadmindns) {
-                    /* Store the old admin dns list for removing rights */
-                    oldadmindns = (char**) calloc(MAX_LIST_ENTRIES, sizeof(char*));
-                    if (oldadmindns == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-
-                    for (j=0; rparams->adminservers[j] != NULL; j++) {
-                        oldadmindns[j] = strdup(rparams->adminservers[j]);
-                        if (oldadmindns[j] == NULL) {
-                            retval = ENOMEM;
-                            goto cleanup;
-                        }
-                    }
-                    oldadmindns[j] = NULL;
-                }
-
-                memset(list, 0, sizeof(char *) * MAX_LIST_ENTRIES);
-                if ((retval = krb5_parse_list(argv[i], LIST_DELIMITER, list))) {
-                    goto cleanup;
-                }
-                list_modify_str_array(&rparams->adminservers, (const char **)list,
-                                      LIST_MODE_DELETE);
-                mask |= LDAP_REALM_ADMINSERVERS;
-                krb5_free_list_entries(list);
-            }
-        } else if (!strcmp(argv[i], "-addadmindn")) {
-            if (++i > argc-1)
-                goto err_usage;
-            if (!newadmindn) {
-                if ((rmask & LDAP_REALM_ADMINSERVERS) && (rparams->adminservers) && (!oldadmindns)) {
-                    /* Store the old admin dns list for removing rights */
-                    oldadmindns = (char**) calloc(MAX_LIST_ENTRIES, sizeof(char*));
-                    if (oldadmindns == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-
-                    for (j=0; rparams->adminservers[j] != NULL; j++) {
-                        oldadmindns[j] = strdup(rparams->adminservers[j]);
-                        if (oldadmindns[j] == NULL) {
-                            retval = ENOMEM;
-                            goto cleanup;
-                        }
-                    }
-                    oldadmindns[j] = NULL;
-                }
-
-                memset(list, 0, sizeof(char *) * MAX_LIST_ENTRIES);
-                if ((retval = krb5_parse_list(argv[i], LIST_DELIMITER, list))) {
-                    goto cleanup;
-                }
-                existing_entries = list_count_str_array(rparams->adminservers);
-                list_entries = list_count_str_array(list);
-                if (rmask & LDAP_REALM_ADMINSERVERS) {
-                    tempstr = (char **)realloc(
-                        rparams->adminservers,
-                        sizeof(char *) * (existing_entries+list_entries+1));
-                    if (tempstr == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-                    rparams->adminservers = tempstr;
-                } else {
-                    rparams->adminservers = (char **)malloc(sizeof(char *) * (list_entries+1));
-                    if (rparams->adminservers == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-                    memset(rparams->adminservers, 0, sizeof(char *) * (list_entries+1));
-                }
-                list_modify_str_array(&rparams->adminservers, (const char **)list,
-                                      LIST_MODE_ADD);
-                mask |= LDAP_REALM_ADMINSERVERS;
-            }
-        } else if (!strcmp(argv[i], "-pwddn")) {
-            if (++i > argc-1)
-                goto err_usage;
-
-            if ((rmask & LDAP_REALM_PASSWDSERVERS) && (rparams->passwdservers)) {
-                if (!oldpwddns) {
-                    /* Store the old pwd dns list for removing rights */
-                    oldpwddns = (char**) calloc(MAX_LIST_ENTRIES, sizeof(char*));
-                    if (oldpwddns == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-
-                    for (j=0; rparams->passwdservers[j] != NULL; j++) {
-                        oldpwddns[j] = strdup(rparams->passwdservers[j]);
-                        if (oldpwddns[j] == NULL) {
-                            retval = ENOMEM;
-                            goto cleanup;
-                        }
-                    }
-                    oldpwddns[j] = NULL;
-                }
-
-                krb5_free_list_entries(rparams->passwdservers);
-                free(rparams->passwdservers);
-            }
-
-            rparams->passwdservers = (char **)malloc(
-                sizeof(char *) * MAX_LIST_ENTRIES);
-            if (rparams->passwdservers == NULL) {
-                retval = ENOMEM;
-                goto cleanup;
-            }
-            memset(rparams->passwdservers, 0, sizeof(char *)*MAX_LIST_ENTRIES);
-            if ((retval = krb5_parse_list(argv[i], LIST_DELIMITER,
-                                          rparams->passwdservers))) {
-                goto cleanup;
-            }
-            mask |= LDAP_REALM_PASSWDSERVERS;
-            /* Going to replace the existing value by this new value. Hence
-             * setting flag indicating that add or clear options will be ignored
-             */
-            newpwddn = 1;
-        } else if (!strcmp(argv[i], "-clearpwddn")) {
-            if (++i > argc-1)
-                goto err_usage;
-
-            if ((!newpwddn) && (rmask & LDAP_REALM_PASSWDSERVERS) && (rparams->passwdservers)) {
-                if (!oldpwddns) {
-                    /* Store the old pwd dns list for removing rights */
-                    oldpwddns = (char**) calloc(MAX_LIST_ENTRIES, sizeof(char*));
-                    if (oldpwddns == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-
-                    for (j=0; rparams->passwdservers[j] != NULL; j++) {
-                        oldpwddns[j] = strdup(rparams->passwdservers[j]);
-                        if (oldpwddns[j] == NULL) {
-                            retval = ENOMEM;
-                            goto cleanup;
-                        }
-                    }
-                    oldpwddns[j] = NULL;
-                }
-
-                memset(list, 0, sizeof(char *) * MAX_LIST_ENTRIES);
-                if ((retval = krb5_parse_list(argv[i], LIST_DELIMITER, list))) {
-                    goto cleanup;
-                }
-                list_modify_str_array(&rparams->passwdservers, (const char**)list,
-                                      LIST_MODE_DELETE);
-                mask |= LDAP_REALM_PASSWDSERVERS;
-                krb5_free_list_entries(list);
-            }
-        } else if (!strcmp(argv[i], "-addpwddn")) {
-            if (++i > argc-1)
-                goto err_usage;
-            if (!newpwddn) {
-                if ((rmask & LDAP_REALM_PASSWDSERVERS) && (rparams->passwdservers) && (!oldpwddns)) {
-                    /* Store the old pwd dns list for removing rights */
-                    oldpwddns = (char**) calloc(MAX_LIST_ENTRIES, sizeof(char*));
-                    if (oldpwddns == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-
-                    for (j=0; rparams->passwdservers[j] != NULL; j++) {
-                        oldpwddns[j] = strdup(rparams->passwdservers[j]);
-                        if (oldpwddns[j] == NULL) {
-                            retval = ENOMEM;
-                            goto cleanup;
-                        }
-                    }
-                    oldpwddns[j] = NULL;
-                }
-
-                memset(list, 0, sizeof(char *) * MAX_LIST_ENTRIES);
-                if ((retval = krb5_parse_list(argv[i], LIST_DELIMITER, list))) {
-                    goto cleanup;
-                }
-                existing_entries = list_count_str_array(rparams->passwdservers);
-                list_entries = list_count_str_array(list);
-                if (rmask & LDAP_REALM_PASSWDSERVERS) {
-                    tempstr = (char **)realloc(
-                        rparams->passwdservers,
-                        sizeof(char *) * (existing_entries+list_entries+1));
-                    if (tempstr == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-                    rparams->passwdservers = tempstr;
-                } else {
-                    rparams->passwdservers = (char **)malloc(sizeof(char *) * (list_entries+1));
-                    if (rparams->passwdservers == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-                    memset(rparams->passwdservers, 0, sizeof(char *) * (list_entries+1));
-                }
-                list_modify_str_array(&rparams->passwdservers, (const char**)list,
-                                      LIST_MODE_ADD);
-                mask |= LDAP_REALM_PASSWDSERVERS;
-            }
-        }
-#endif
         else if ((ret_mask= get_ticket_policy(rparams,&i,argv,argc)) !=0) {
             mask|=ret_mask;
         } else {
@@ -1450,443 +881,6 @@ kdb5_ldap_modify(int argc, char *argv[])
         goto cleanup;
     }
 
-#ifdef HAVE_EDIRECTORY
-    if ((mask & LDAP_REALM_SUBTREE) || (mask & LDAP_REALM_CONTREF) || (mask & LDAP_REALM_KDCSERVERS) ||
-        (mask & LDAP_REALM_ADMINSERVERS) || (mask & LDAP_REALM_PASSWDSERVERS)) {
-
-        printf(_("Changing rights for the service object. Please wait ... "));
-        fflush(stdout);
-
-        if ((mask & LDAP_REALM_SUBTREE) || (mask & LDAP_REALM_CONTREF)) {
-            subtree_changed = 1;
-        }
-
-        if ((subtree_changed) || (mask & LDAP_REALM_KDCSERVERS)) {
-
-            if (!(mask & LDAP_REALM_KDCSERVERS)) {
-                if (rparams->kdcservers != NULL) {
-                    char **kdcdns = rparams->kdcservers;
-                    /* Only subtree and/or container ref has changed */
-                    rightsmask =0;
-                    /*  KDCSERVERS have not changed. Realm rights need not be changed */;
-                    rightsmask |= LDAP_SUBTREE_RIGHTS;
-                    if ((oldsubtrees != NULL) || (oldcontainerref != NULL)) {
-                        /* Remove the rights on the old subtrees */
-                        for (i=0; (kdcdns[i] != NULL); i++) {
-                            if ((retval=krb5_ldap_delete_service_rights(util_context,
-                                                                        LDAP_KDC_SERVICE, kdcdns[i],
-                                                                        rparams->realm_name, oldsubtrees, oldcontainerref, rightsmask)) != 0) {
-                                printf(_("failed\n"));
-                                com_err(progname, retval,
-                                        _("while assigning rights '%s'"),
-                                        rparams->realm_name);
-                                goto err_nomsg;
-                            }
-                        }
-                    }
-                    for (i=0; (kdcdns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                                 LDAP_KDC_SERVICE, kdcdns[i],
-                                                                 rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            goto err_nomsg;
-                        }
-                    }
-                }
-            }
-
-            if (!subtree_changed) {
-                char **newdns = NULL;
-                /* Only kdc servers have changed */
-                rightsmask =0;
-                rightsmask = LDAP_REALM_RIGHTS;
-                rightsmask |= LDAP_SUBTREE_RIGHTS;
-                if (oldkdcdns != NULL) {
-                    newdns = (char**) calloc(MAX_LIST_ENTRIES, sizeof(char*));
-                    if (newdns == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-
-                    if ((rparams != NULL) && (rparams->kdcservers != NULL)) {
-                        for (j=0;  rparams->kdcservers[j]!= NULL; j++) {
-                            newdns[j] = strdup(rparams->kdcservers[j]);
-                            if (newdns[j] == NULL) {
-                                FREE_DN_LIST(newdns);
-                                retval = ENOMEM;
-                                goto cleanup;
-                            }
-                        }
-                        newdns[j] = NULL;
-                    }
-
-                    disjoint_members(oldkdcdns, newdns);
-
-                    for (i=0; (oldkdcdns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_delete_service_rights(util_context,
-                                                                    LDAP_KDC_SERVICE, oldkdcdns[i],
-                                                                    rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            FREE_DN_LIST(newdns);
-                            goto err_nomsg;
-                        }
-                    }
-                    for (i=0; (newdns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                                 LDAP_KDC_SERVICE, newdns[i],
-                                                                 rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            FREE_DN_LIST(newdns);
-                            goto err_nomsg;
-                        }
-                    }
-                    for (i=0; (newdns[i] != NULL); i++) {
-                        free(newdns[i]);
-                    }
-                    free(newdns);
-                } else {
-                    newdns = rparams->kdcservers;
-                    for (i=0; (newdns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                                 LDAP_KDC_SERVICE, newdns[i],
-                                                                 rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            goto err_nomsg;
-                        }
-                    }
-                }
-            }
-
-            if (subtree_changed && (mask & LDAP_REALM_KDCSERVERS)) {
-                char **newdns = rparams->kdcservers;
-
-                rightsmask =0;
-                rightsmask = LDAP_REALM_RIGHTS;
-                rightsmask |= LDAP_SUBTREE_RIGHTS;
-                if (oldkdcdns != NULL) {
-                    for (i=0; (oldkdcdns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_delete_service_rights(util_context,
-                                                                    LDAP_KDC_SERVICE, oldkdcdns[i],
-                                                                    rparams->realm_name, oldsubtrees, oldcontainerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            goto err_nomsg;
-                        }
-                    }
-                }
-                for (i=0; (newdns[i] != NULL); i++) {
-                    if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                             LDAP_KDC_SERVICE, newdns[i],
-                                                             rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                        printf(_("failed\n"));
-                        com_err(progname, retval,
-                                _("while assigning rights '%s'"),
-                                rparams->realm_name);
-                        goto err_nomsg;
-                    }
-                }
-            }
-        }
-
-        if (subtree_changed || (mask & LDAP_REALM_ADMINSERVERS)) {
-
-            if (!(mask & LDAP_REALM_ADMINSERVERS)) {
-                if (rparams->adminservers != NULL) {
-                    char **admindns = rparams->adminservers;
-                    /* Only subtree and/or container ref has changed */
-                    rightsmask =0;
-                    /*  KADMINSERVERS have not changed. Realm rights need not be changed */;
-                    rightsmask |= LDAP_SUBTREE_RIGHTS;
-                    if ((oldsubtrees != NULL) || (oldcontainerref != NULL)) {
-                        /* Remove the rights on the old subtrees */
-                        for (i=0; (admindns[i] != NULL); i++) {
-                            if ((retval=krb5_ldap_delete_service_rights(util_context,
-                                                                        LDAP_ADMIN_SERVICE, admindns[i],
-                                                                        rparams->realm_name, oldsubtrees, oldcontainerref, rightsmask)) != 0) {
-                                printf(_("failed\n"));
-                                com_err(progname, retval,
-                                        _("while assigning rights '%s'"),
-                                        rparams->realm_name);
-                                goto err_nomsg;
-                            }
-                        }
-                    }
-                    for (i=0; (admindns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                                 LDAP_ADMIN_SERVICE, admindns[i],
-                                                                 rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            goto err_nomsg;
-                        }
-                    }
-                }
-            }
-
-            if (!subtree_changed) {
-                char **newdns = NULL;
-                /* Only admin servers have changed */
-                rightsmask =0;
-                rightsmask = LDAP_REALM_RIGHTS;
-                rightsmask |= LDAP_SUBTREE_RIGHTS;
-                if (oldadmindns != NULL) {
-                    newdns = (char**) calloc(MAX_LIST_ENTRIES, sizeof(char*));
-                    if (newdns == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-
-                    if ((rparams != NULL) && (rparams->adminservers != NULL)) {
-                        for (j=0;  rparams->adminservers[j]!= NULL; j++) {
-                            newdns[j] = strdup(rparams->adminservers[j]);
-                            if (newdns[j] == NULL) {
-                                FREE_DN_LIST(newdns);
-                                retval = ENOMEM;
-                                goto cleanup;
-                            }
-                        }
-                        newdns[j] = NULL;
-                    }
-
-                    disjoint_members(oldadmindns, newdns);
-
-                    for (i=0; (oldadmindns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_delete_service_rights(util_context,
-                                                                    LDAP_ADMIN_SERVICE, oldadmindns[i],
-                                                                    rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            FREE_DN_LIST(newdns);
-                            goto err_nomsg;
-                        }
-                    }
-                    for (i=0; (newdns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                                 LDAP_ADMIN_SERVICE, newdns[i],
-                                                                 rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            FREE_DN_LIST(newdns);
-                            goto err_nomsg;
-                        }
-                    }
-                    for (i=0; (newdns[i] != NULL); i++) {
-                        free(newdns[i]);
-                    }
-                    free(newdns);
-                } else {
-                    newdns = rparams->adminservers;
-                    for (i=0; (newdns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                                 LDAP_ADMIN_SERVICE, newdns[i],
-                                                                 rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            goto err_nomsg;
-                        }
-                    }
-                }
-            }
-
-            if (subtree_changed && (mask & LDAP_REALM_ADMINSERVERS)) {
-                char **newdns = rparams->adminservers;
-
-                rightsmask = 0;
-                rightsmask = LDAP_REALM_RIGHTS;
-                rightsmask |= LDAP_SUBTREE_RIGHTS;
-                if (oldadmindns != NULL) {
-                    for (i=0; (oldadmindns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_delete_service_rights(util_context,
-                                                                    LDAP_ADMIN_SERVICE, oldadmindns[i],
-                                                                    rparams->realm_name, oldsubtrees, oldcontainerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            goto err_nomsg;
-                        }
-                    }
-                }
-                for (i=0; (newdns[i] != NULL); i++) {
-                    if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                             LDAP_ADMIN_SERVICE, newdns[i],
-                                                             rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                        printf(_("failed\n"));
-                        com_err(progname, retval,
-                                _("while assigning rights '%s'"),
-                                rparams->realm_name);
-                        goto err_nomsg;
-                    }
-                }
-            }
-        }
-
-        if (subtree_changed || (mask & LDAP_REALM_PASSWDSERVERS)) {
-
-            if (!(mask & LDAP_REALM_PASSWDSERVERS)) {
-                if (rparams->passwdservers != NULL) {
-                    char **passwddns = rparams->passwdservers;
-                    /* Only subtree and/or container ref has changed */
-                    rightsmask = 0;
-                    /*  KPASSWDSERVERS have not changed. Realm rights need not be changed */;
-                    rightsmask |= LDAP_SUBTREE_RIGHTS;
-                    if ((oldsubtrees != NULL) || (oldcontainerref != NULL)) {
-                        /* Remove the rights on the old subtrees */
-                        for (i=0; (passwddns[i] != NULL); i++) {
-                            if ((retval=krb5_ldap_delete_service_rights(util_context,
-                                                                        LDAP_PASSWD_SERVICE, passwddns[i],
-                                                                        rparams->realm_name, oldsubtrees, oldcontainerref, rightsmask)) != 0) {
-                                printf(_("failed\n"));
-                                com_err(progname, retval,
-                                        _("while assigning rights '%s'"),
-                                        rparams->realm_name);
-                                goto err_nomsg;
-                            }
-                        }
-                    }
-                    for (i=0; (passwddns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                                 LDAP_PASSWD_SERVICE, passwddns[i],
-                                                                 rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            goto err_nomsg;
-                        }
-                    }
-                }
-            }
-
-            if (!subtree_changed) {
-                char **newdns = NULL;
-                /* Only passwd servers have changed */
-                rightsmask =0;
-                rightsmask = LDAP_REALM_RIGHTS;
-                rightsmask |= LDAP_SUBTREE_RIGHTS;
-                if (oldpwddns != NULL) {
-                    newdns = (char**) calloc(MAX_LIST_ENTRIES, sizeof(char*));
-                    if (newdns == NULL) {
-                        retval = ENOMEM;
-                        goto cleanup;
-                    }
-
-                    if ((rparams != NULL) && (rparams->passwdservers != NULL)) {
-                        for (j=0;  rparams->passwdservers[j]!= NULL; j++) {
-                            newdns[j] = strdup(rparams->passwdservers[j]);
-                            if (newdns[j] == NULL) {
-                                FREE_DN_LIST(newdns);
-                                retval = ENOMEM;
-                                goto cleanup;
-                            }
-                        }
-                        newdns[j] = NULL;
-                    }
-
-                    disjoint_members(oldpwddns, newdns);
-
-                    for (i=0; (oldpwddns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_delete_service_rights(util_context,
-                                                                    LDAP_PASSWD_SERVICE, oldpwddns[i],
-                                                                    rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            FREE_DN_LIST(newdns);
-                            goto err_nomsg;
-                        }
-                    }
-                    for (i=0; (newdns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                                 LDAP_PASSWD_SERVICE, newdns[i],
-                                                                 rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            FREE_DN_LIST(newdns);
-                            goto err_nomsg;
-                        }
-                    }
-                    for (i=0; (newdns[i] != NULL); i++) {
-                        free(newdns[i]);
-                    }
-                    free(newdns);
-                } else {
-                    newdns = rparams->passwdservers;
-                    for (i=0; (newdns[i] != NULL); i++) {
-                        if ((retval=krb5_ldap_add_service_rights(util_context,
-                                                                 LDAP_PASSWD_SERVICE, newdns[i],
-                                                                 rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            goto err_nomsg;
-                        }
-                    }
-                }
-            }
-
-            if (subtree_changed && (mask & LDAP_REALM_PASSWDSERVERS)) {
-                char **newdns = rparams->passwdservers;
-
-                rightsmask =0;
-                rightsmask = LDAP_REALM_RIGHTS;
-                rightsmask |= LDAP_SUBTREE_RIGHTS;
-                if (oldpwddns != NULL) {
-                    for (i=0; (oldpwddns[i] != NULL); i++) {
-                        if ((retval = krb5_ldap_delete_service_rights(util_context,
-                                                                      LDAP_PASSWD_SERVICE, oldpwddns[i],
-                                                                      rparams->realm_name, oldsubtrees, oldcontainerref, rightsmask)) != 0) {
-                            printf(_("failed\n"));
-                            com_err(progname, retval,
-                                    _("while assigning rights '%s'"),
-                                    rparams->realm_name);
-                            goto err_nomsg;
-                        }
-                    }
-                }
-                for (i=0; (newdns[i] != NULL); i++) {
-                    if ((retval = krb5_ldap_add_service_rights(util_context,
-                                                               LDAP_PASSWD_SERVICE, newdns[i],
-                                                               rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                        printf(_("failed\n"));
-                        com_err(progname, retval,
-                                _("while assigning rights '%s'"),
-                                rparams->realm_name);
-                        goto err_nomsg;
-                    }
-                }
-            }
-        }
-        printf(_("done\n"));
-    }
-#endif
-
     goto cleanup;
 
 err_usage:
@@ -1898,49 +892,6 @@ err_nomsg:
 cleanup:
     krb5_ldap_free_realm_params(rparams);
 
-
-#ifdef HAVE_EDIRECTORY
-    if (oldkdcdns) {
-        for (i=0; oldkdcdns[i] != NULL; i++)
-            free(oldkdcdns[i]);
-        free(oldkdcdns);
-    }
-    if (oldpwddns) {
-        for (i=0; oldpwddns[i] != NULL; i++)
-            free(oldpwddns[i]);
-        free(oldpwddns);
-    }
-    if (oldadmindns) {
-        for (i=0; oldadmindns[i] != NULL; i++)
-            free(oldadmindns[i]);
-        free(oldadmindns);
-    }
-    if (newkdcdns) {
-        for (i=0; newkdcdns[i] != NULL; i++)
-            free(newkdcdns[i]);
-        free(newkdcdns);
-    }
-    if (newpwddns) {
-        for (i=0; newpwddns[i] != NULL; i++)
-            free(newpwddns[i]);
-        free(newpwddns);
-    }
-    if (newadmindns) {
-        for (i=0; newadmindns[i] != NULL; i++)
-            free(newadmindns[i]);
-        free(newadmindns);
-    }
-    if (oldsubtrees) {
-        for (i=0;oldsubtrees[i]!=NULL; i++)
-            free(oldsubtrees[i]);
-        free(oldsubtrees);
-    }
-    if (newsubtrees) {
-        for (i=0;newsubtrees[i]!=NULL; i++)
-            free(newsubtrees[i]);
-        free(oldsubtrees);
-    }
-#endif
     if (print_usage) {
         db_usage(MODIFY_REALM);
     }
@@ -1980,8 +931,9 @@ kdb5_ldap_view(int argc, char *argv[])
     }
 
     /* Read the kerberos container information */
-    if ((retval = krb5_ldap_read_krbcontainer_params(util_context,
-                                                     &(ldap_context->krbcontainer))) != 0) {
+    retval = krb5_ldap_read_krbcontainer_dn(util_context,
+                                            &ldap_context->container_dn);
+    if (retval) {
         com_err(progname, retval,
                 _("while reading kerberos container information"));
         exit_status++;
@@ -2180,8 +1132,9 @@ kdb5_ldap_list(int argc, char *argv[])
     }
 
     /* Read the kerberos container information */
-    if ((retval = krb5_ldap_read_krbcontainer_params(util_context,
-                                                     &(ldap_context->krbcontainer))) != 0) {
+    retval = krb5_ldap_read_krbcontainer_dn(util_context,
+                                            &ldap_context->container_dn);
+    if (retval) {
         com_err(progname, retval,
                 _("while reading kerberos container information"));
         exit_status++;
@@ -2190,24 +1143,17 @@ kdb5_ldap_list(int argc, char *argv[])
 
     retval = krb5_ldap_list_realm(util_context, &list);
     if (retval != 0) {
-        krb5_ldap_free_krbcontainer_params(ldap_context->krbcontainer);
-        ldap_context->krbcontainer = NULL;
         com_err(progname, retval, _("while listing realms"));
         exit_status++;
         return;
     }
     /* This is to handle the case of realm not present */
-    if (list == NULL) {
-        krb5_ldap_free_krbcontainer_params(ldap_context->krbcontainer);
-        ldap_context->krbcontainer = NULL;
+    if (list == NULL)
         return;
-    }
 
     for (plist = list; *plist != NULL; plist++) {
         printf("%s\n", *plist);
     }
-    krb5_ldap_free_krbcontainer_params(ldap_context->krbcontainer);
-    ldap_context->krbcontainer = NULL;
     krb5_free_list_entries(list);
     free(list);
 
@@ -2398,6 +1344,8 @@ kdb_ldap_create_principal(krb5_context context, krb5_principal princ,
     krb5_timestamp now;
     krb5_actkvno_node     actkvno;
 
+    memset(&entry, 0, sizeof(entry));
+
     if ((pblock == NULL) || (context == NULL)) {
         retval = EINVAL;
         goto cleanup;
@@ -2408,8 +1356,6 @@ kdb_ldap_create_principal(krb5_context context, krb5_principal princ,
         retval = EINVAL;
         goto cleanup;
     }
-
-    memset(&entry, 0, sizeof(entry));
 
     tl_data = malloc(sizeof(*tl_data));
     if (tl_data == NULL) {
@@ -2566,10 +1512,6 @@ kdb5_ldap_destroy(int argc, char *argv[])
     int mask = 0;
     kdb5_dal_handle *dal_handle = NULL;
     krb5_ldap_context *ldap_context = NULL;
-#ifdef HAVE_EDIRECTORY
-    int i = 0, rightsmask = 0;
-    krb5_ldap_realm_params *rparams = NULL;
-#endif
 
     optind = 1;
     while ((optchar = getopt(argc, argv, "f")) != -1) {
@@ -2608,9 +1550,10 @@ kdb5_ldap_destroy(int argc, char *argv[])
         return;
     }
 
-    /* Read the kerberos container from the LDAP Server */
-    if ((retval = krb5_ldap_read_krbcontainer_params(util_context,
-                                                     &(ldap_context->krbcontainer))) != 0) {
+    /* Read the kerberos container DN */
+    retval = krb5_ldap_read_krbcontainer_dn(util_context,
+                                            &ldap_context->container_dn);
+    if (retval) {
         com_err(progname, retval,
                 _("while reading kerberos container information"));
         exit_status++;
@@ -2625,65 +1568,6 @@ kdb5_ldap_destroy(int argc, char *argv[])
         return;
     }
 
-#ifdef HAVE_EDIRECTORY
-    if ((mask & LDAP_REALM_KDCSERVERS) || (mask & LDAP_REALM_ADMINSERVERS) ||
-        (mask & LDAP_REALM_PASSWDSERVERS)) {
-
-        printf(_("Changing rights for the service object. Please wait ... "));
-        fflush(stdout);
-
-        rparams = ldap_context->lrparams;
-        rightsmask = 0;
-        rightsmask |= LDAP_REALM_RIGHTS;
-        rightsmask |= LDAP_SUBTREE_RIGHTS;
-        if ((rparams != NULL) && (rparams->kdcservers != NULL)) {
-            for (i=0; (rparams->kdcservers[i] != NULL); i++) {
-                if ((retval = krb5_ldap_delete_service_rights(util_context,
-                                                              LDAP_KDC_SERVICE, rparams->kdcservers[i],
-                                                              rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                    printf(_("failed\n"));
-                    com_err(progname, retval,
-                            _("while assigning rights to '%s'"),
-                            rparams->realm_name);
-                    return;
-                }
-            }
-        }
-        rightsmask = 0;
-        rightsmask |= LDAP_REALM_RIGHTS;
-        rightsmask |= LDAP_SUBTREE_RIGHTS;
-        if ((rparams != NULL) && (rparams->adminservers != NULL)) {
-            for (i=0; (rparams->adminservers[i] != NULL); i++) {
-                if ((retval = krb5_ldap_delete_service_rights(util_context,
-                                                              LDAP_ADMIN_SERVICE, rparams->adminservers[i],
-                                                              rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                    printf(_("failed\n"));
-                    com_err(progname, retval,
-                            _("while assigning rights to '%s'"),
-                            rparams->realm_name);
-                    return;
-                }
-            }
-        }
-        rightsmask = 0;
-        rightsmask |= LDAP_REALM_RIGHTS;
-        rightsmask |= LDAP_SUBTREE_RIGHTS;
-        if ((rparams != NULL) && (rparams->passwdservers != NULL)) {
-            for (i=0; (rparams->passwdservers[i] != NULL); i++) {
-                if ((retval = krb5_ldap_delete_service_rights(util_context,
-                                                              LDAP_PASSWD_SERVICE, rparams->passwdservers[i],
-                                                              rparams->realm_name, rparams->subtree, rparams->containerref, rightsmask)) != 0) {
-                    printf(_("failed\n"));
-                    com_err(progname, retval,
-                            _("while assigning rights to '%s'"),
-                            rparams->realm_name);
-                    return;
-                }
-            }
-        }
-        printf("done\n");
-    }
-#endif
     /* Delete the realm container and all the associated principals */
     retval = krb5_ldap_delete_realm(util_context, global_params.realm);
     if (retval) {

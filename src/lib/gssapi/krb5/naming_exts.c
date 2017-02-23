@@ -119,15 +119,10 @@ kg_duplicate_name(krb5_context context,
 {
     krb5_error_code code;
 
-    code = k5_mutex_lock(&src->lock);
-    if (code != 0)
-        return code;
-
+    k5_mutex_lock(&src->lock);
     code = kg_init_name(context, src->princ, src->service, src->host,
                         src->ad_context, 0, dst);
-
     k5_mutex_unlock(&src->lock);
-
     return code;
 }
 
@@ -162,11 +157,9 @@ kg_acceptor_princ(krb5_context context, krb5_gss_name_t name,
         /* If a host was given, we have to use the canonicalized form of it (as
          * given by krb5_sname_to_principal) for backward compatibility. */
         const krb5_data *d = &name->princ->data[1];
-        tmp = k5alloc(d->length + 1, &code);
+        tmp = k5memdup0(d->data, d->length, &code);
         if (tmp == NULL)
             return ENOMEM;
-        memcpy(tmp, d->data, d->length);
-        tmp[d->length] = '\0';
         host = tmp;
     } else                      /* No host was given; use an empty string. */
         host = "";
@@ -284,11 +277,7 @@ krb5_gss_inquire_name(OM_uint32 *minor_status,
 
     kname = (krb5_gss_name_t)name;
 
-    code = k5_mutex_lock(&kname->lock);
-    if (code != 0) {
-        *minor_status = code;
-        return GSS_S_FAILURE;
-    }
+    k5_mutex_lock(&kname->lock);
 
     if (kname->ad_context == NULL) {
         code = krb5_authdata_context_init(context, &kname->ad_context);
@@ -345,13 +334,7 @@ krb5_gss_get_name_attribute(OM_uint32 *minor_status,
     }
 
     kname = (krb5_gss_name_t)name;
-
-    code = k5_mutex_lock(&kname->lock);
-    if (code != 0) {
-        *minor_status = code;
-        krb5_free_context(context);
-        return GSS_S_FAILURE;
-    }
+    k5_mutex_lock(&kname->lock);
 
     if (kname->ad_context == NULL) {
         code = krb5_authdata_context_init(context, &kname->ad_context);
@@ -387,7 +370,7 @@ krb5_gss_get_name_attribute(OM_uint32 *minor_status,
             *complete = kcomplete;
 
         if (display_value != NULL) {
-            if (code != 0)
+            if (code == 0)
                 code = data_to_gss(&kdisplay_value, display_value);
             else
                 free(kdisplay_value.data);
@@ -423,12 +406,7 @@ krb5_gss_set_name_attribute(OM_uint32 *minor_status,
     }
 
     kname = (krb5_gss_name_t)name;
-
-    code = k5_mutex_lock(&kname->lock);
-    if (code != 0) {
-        *minor_status = code;
-        return GSS_S_FAILURE;
-    }
+    k5_mutex_lock(&kname->lock);
 
     if (kname->ad_context == NULL) {
         code = krb5_authdata_context_init(context, &kname->ad_context);
@@ -478,12 +456,7 @@ krb5_gss_delete_name_attribute(OM_uint32 *minor_status,
     }
 
     kname = (krb5_gss_name_t)name;
-
-    code = k5_mutex_lock(&kname->lock);
-    if (code != 0) {
-        *minor_status = code;
-        return GSS_S_FAILURE;
-    }
+    k5_mutex_lock(&kname->lock);
 
     if (kname->ad_context == NULL) {
         code = krb5_authdata_context_init(context, &kname->ad_context);
@@ -530,12 +503,7 @@ krb5_gss_map_name_to_any(OM_uint32 *minor_status,
     }
 
     kname = (krb5_gss_name_t)name;
-
-    code = k5_mutex_lock(&kname->lock);
-    if (code != 0) {
-        *minor_status = code;
-        return GSS_S_FAILURE;
-    }
+    k5_mutex_lock(&kname->lock);
 
     if (kname->ad_context == NULL) {
         code = krb5_authdata_context_init(context, &kname->ad_context);
@@ -587,12 +555,7 @@ krb5_gss_release_any_name_mapping(OM_uint32 *minor_status,
     }
 
     kname = (krb5_gss_name_t)name;
-
-    code = k5_mutex_lock(&kname->lock);
-    if (code != 0) {
-        *minor_status = code;
-        return GSS_S_FAILURE;
-    }
+    k5_mutex_lock(&kname->lock);
 
     if (kname->ad_context == NULL) {
         code = krb5_authdata_context_init(context, &kname->ad_context);
@@ -648,12 +611,7 @@ krb5_gss_export_name_composite(OM_uint32 *minor_status,
     }
 
     kname = (krb5_gss_name_t)name;
-
-    code = k5_mutex_lock(&kname->lock);
-    if (code != 0) {
-        *minor_status = code;
-        return GSS_S_FAILURE;
-    }
+    k5_mutex_lock(&kname->lock);
 
     code = krb5_unparse_name(context, kname->princ, &princstr);
     if (code != 0)
@@ -673,8 +631,9 @@ krb5_gss_export_name_composite(OM_uint32 *minor_status,
     /* 04 02 OID Name AuthData */
 
     exp_composite_name->length = 10 + gss_mech_krb5->length + princlen;
+    exp_composite_name->length += 4; /* length of encoded attributes */
     if (attrs != NULL)
-        exp_composite_name->length += 4 + attrs->length;
+        exp_composite_name->length += attrs->length;
     exp_composite_name->value = malloc(exp_composite_name->length);
     if (exp_composite_name->value == NULL) {
         code = ENOMEM;
@@ -685,10 +644,7 @@ krb5_gss_export_name_composite(OM_uint32 *minor_status,
 
     /* Note: we assume the OID will be less than 128 bytes... */
     *cp++ = 0x04;
-    if (attrs != NULL)
-        *cp++ = 0x02;
-    else
-        *cp++ = 0x01;
+    *cp++ = 0x02;
 
     store_16_be(gss_mech_krb5->length + 2, cp);
     cp += 2;
@@ -702,9 +658,10 @@ krb5_gss_export_name_composite(OM_uint32 *minor_status,
     memcpy(cp, princstr, princlen);
     cp += princlen;
 
+    store_32_be(attrs != NULL ? attrs->length : 0, cp);
+    cp += 4;
+
     if (attrs != NULL) {
-        store_32_be(attrs->length, cp);
-        cp += 4;
         memcpy(cp, attrs->data, attrs->length);
         cp += attrs->length;
     }

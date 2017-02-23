@@ -22,34 +22,8 @@
  * this software for any purpose.  It is provided "as is" without express
  * or implied warranty.
  */
-/*
- * Copyright (c) 2006-2008, Novell, Inc.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- *   * Redistributions of source code must retain the above copyright notice,
- *       this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *   * The copyright holder's name is not used to endorse or promote products
- *       derived from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
 
+#include <locale.h>
 #include <stdio.h>
 #include <syslog.h>
 #include <signal.h>
@@ -61,9 +35,10 @@
 
 #include "k5-int.h"
 #include "com_err.h"
-#include "adm.h"
+#include <kadm5/admin.h>
 #include "adm_proto.h"
 #include "kdc_util.h"
+#include "kdc_audit.h"
 #include "extern.h"
 #include "kdc5_err.h"
 #include "kdb_kt.h"
@@ -86,6 +61,7 @@ static void finish_realms (void);
 
 static int nofork = 0;
 static int workers = 0;
+static int time_offset = 0;
 static const char *pid_file = NULL;
 static int rkey_init_done = 0;
 static volatile int signal_received = 0;
@@ -93,8 +69,13 @@ static volatile int sighup_received = 0;
 
 #define KRB5_KDC_MAX_REALMS     32
 
-static krb5_context kdc_err_context;
 static const char *kdc_progname;
+
+/*
+ * Static server_handle for this file.  Other code will get access to
+ * it through the application handle that net-server.c uses.
+ */
+static struct server_handle shandle;
 
 /*
  * We use krb5_klog_init to set up a com_err callback to log error
@@ -112,7 +93,7 @@ kdc_err(krb5_context call_context, errcode_t code, const char *fmt, ...)
     va_list ap;
 
     if (call_context)
-        krb5_copy_error_message(kdc_err_context, call_context);
+        krb5_copy_error_message(shandle.kdc_err_context, call_context);
     va_start(ap, fmt);
     com_err_va(kdc_progname, code, fmt, ap);
     va_end(ap);
@@ -122,9 +103,12 @@ kdc_err(krb5_context call_context, errcode_t code, const char *fmt, ...)
  * Find the realm entry for a given realm.
  */
 kdc_realm_t *
-find_realm_data(char *rname, krb5_ui_4 rsize)
+find_realm_data(struct server_handle *handle, char *rname, krb5_ui_4 rsize)
 {
     int i;
+    kdc_realm_t **kdc_realmlist = handle->kdc_realmlist;
+    int kdc_numrealms = handle->kdc_numrealms;
+
     for (i=0; i<kdc_numrealms; i++) {
         if ((rsize == strlen(kdc_realmlist[i]->realm_name)) &&
             !strncmp(rname, kdc_realmlist[i]->realm_name, rsize))
@@ -133,23 +117,25 @@ find_realm_data(char *rname, krb5_ui_4 rsize)
     return((kdc_realm_t *) NULL);
 }
 
-krb5_error_code
-setup_server_realm(krb5_principal sprinc)
+kdc_realm_t *
+setup_server_realm(struct server_handle *handle, krb5_principal sprinc)
 {
-    krb5_error_code     kret;
     kdc_realm_t         *newrealm;
+    kdc_realm_t **kdc_realmlist = handle->kdc_realmlist;
+    int kdc_numrealms = handle->kdc_numrealms;
 
-    kret = 0;
+    if (sprinc == NULL)
+        return NULL;
+
     if (kdc_numrealms > 1) {
-        if (!(newrealm = find_realm_data(sprinc->realm.data,
+        if (!(newrealm = find_realm_data(handle, sprinc->realm.data,
                                          (krb5_ui_4) sprinc->realm.length)))
-            kret = ENOENT;
+            return NULL;
         else
-            kdc_active_realm = newrealm;
+            return newrealm;
     }
     else
-        kdc_active_realm = kdc_realmlist[0];
-    return(kret);
+        return kdc_realmlist[0];
 }
 
 static void
@@ -167,10 +153,10 @@ finish_realm(kdc_realm_t *rdp)
         free(rdp->realm_tcp_ports);
     if (rdp->realm_keytab)
         krb5_kt_close(rdp->realm_context, rdp->realm_keytab);
-    if (rdp->realm_host_based_services)
-        free(rdp->realm_host_based_services);
-    if (rdp->realm_no_host_referral)
-        free(rdp->realm_no_host_referral);
+    if (rdp->realm_hostbased)
+        free(rdp->realm_hostbased);
+    if (rdp->realm_no_referral)
+        free(rdp->realm_no_referral);
     if (rdp->realm_context) {
         if (rdp->realm_mprinc)
             krb5_free_principal(rdp->realm_context, rdp->realm_mprinc);
@@ -179,8 +165,6 @@ finish_realm(kdc_realm_t *rdp)
             memset(rdp->realm_mkey.contents, 0, rdp->realm_mkey.length);
             free(rdp->realm_mkey.contents);
         }
-        if (rdp->mkey_list)
-            krb5_dbe_free_key_list(rdp->realm_context, rdp->mkey_list);
         krb5_db_fini(rdp->realm_context);
         if (rdp->realm_tgsprinc)
             krb5_free_principal(rdp->realm_context, rdp->realm_tgsprinc);
@@ -190,74 +174,24 @@ finish_realm(kdc_realm_t *rdp)
     free(rdp);
 }
 
+/* Set *val_out to an allocated string containing val1 and/or val2, separated
+ * by a space if both are set, or NULL if neither is set. */
 static krb5_error_code
-handle_referral_params(krb5_realm_params *rparams,
-                       char *no_refrls, char *host_based_srvcs,
-                       kdc_realm_t *rdp )
+combine(const char *val1, const char *val2, char **val_out)
 {
-    krb5_error_code retval = 0;
-    if (no_refrls && krb5_match_config_pattern(no_refrls, KRB5_CONF_ASTERISK) == TRUE) {
-        rdp->realm_no_host_referral = strdup(KRB5_CONF_ASTERISK);
-        if (!rdp->realm_no_host_referral)
-            retval = ENOMEM;
+    if (val1 == NULL && val2 == NULL) {
+        *val_out = NULL;
+    } else if (val1 != NULL && val2 != NULL) {
+        if (asprintf(val_out, "%s %s", val1, val2) < 0) {
+            *val_out = NULL;
+            return ENOMEM;
+        }
     } else {
-        if (rparams && rparams->realm_no_host_referral) {
-            if (krb5_match_config_pattern(rparams->realm_no_host_referral,
-                                          KRB5_CONF_ASTERISK) == TRUE) {
-                rdp->realm_no_host_referral = strdup(KRB5_CONF_ASTERISK);
-                if (!rdp->realm_no_host_referral)
-                    retval = ENOMEM;
-            } else if  (no_refrls && (asprintf(&(rdp->realm_no_host_referral),
-                                               "%s%s%s%s%s", " ", no_refrls," ",
-                                               rparams->realm_no_host_referral, " ") < 0))
-                retval = ENOMEM;
-            else if (asprintf(&(rdp->realm_no_host_referral),"%s%s%s", " ",
-                              rparams->realm_no_host_referral, " ") < 0)
-                retval = ENOMEM;
-        } else if( no_refrls != NULL) {
-            if ( asprintf(&(rdp->realm_no_host_referral),
-                          "%s%s%s", " ", no_refrls, " ") < 0)
-                retval = ENOMEM;
-        } else
-            rdp->realm_no_host_referral = NULL;
+        *val_out = strdup((val1 != NULL) ? val1 : val2);
+        if (*val_out == NULL)
+            return ENOMEM;
     }
-
-    if (rdp->realm_no_host_referral &&
-        krb5_match_config_pattern(rdp->realm_no_host_referral,
-                                  KRB5_CONF_ASTERISK) == TRUE) {
-        rdp->realm_host_based_services = NULL;
-        return 0;
-    }
-
-    if (host_based_srvcs &&
-        (krb5_match_config_pattern(host_based_srvcs, KRB5_CONF_ASTERISK) == TRUE)) {
-        rdp->realm_host_based_services = strdup(KRB5_CONF_ASTERISK);
-        if (!rdp->realm_host_based_services)
-            retval = ENOMEM;
-    } else {
-        if (rparams && rparams->realm_host_based_services) {
-            if (krb5_match_config_pattern(rparams->realm_host_based_services,
-                                          KRB5_CONF_ASTERISK) == TRUE) {
-                rdp->realm_host_based_services = strdup(KRB5_CONF_ASTERISK);
-                if (!rdp->realm_host_based_services)
-                    retval = ENOMEM;
-            } else if (host_based_srvcs) {
-                if (asprintf(&(rdp->realm_host_based_services), "%s%s%s%s%s",
-                             " ", host_based_srvcs," ",
-                             rparams->realm_host_based_services, " ") < 0)
-                    retval = ENOMEM;
-            } else if (asprintf(&(rdp->realm_host_based_services),"%s%s%s", " ",
-                                rparams->realm_host_based_services, " ") < 0)
-                retval = ENOMEM;
-        } else if (host_based_srvcs) {
-            if (asprintf(&(rdp->realm_host_based_services),"%s%s%s", " ",
-                         host_based_srvcs, " ") < 0)
-                retval = ENOMEM;
-        } else
-            rdp->realm_host_based_services = NULL;
-    }
-
-    return retval;
+    return 0;
 }
 
 /*
@@ -268,15 +202,16 @@ handle_referral_params(krb5_realm_params *rparams,
  * realm data and we should be all set to begin operation for that realm.
  */
 static krb5_error_code
-init_realm(kdc_realm_t *rdp, char *realm, char *def_mpname,
+init_realm(kdc_realm_t *rdp, krb5_pointer aprof, char *realm, char *def_mpname,
            krb5_enctype def_enctype, char *def_udp_ports, char *def_tcp_ports,
            krb5_boolean def_manual, krb5_boolean def_restrict_anon,
-           char **db_args, char *no_refrls, char *host_based_srvcs)
+           char **db_args, char *no_referral, char *hostbased)
 {
     krb5_error_code     kret;
     krb5_boolean        manual;
-    krb5_realm_params   *rparams;
     int                 kdb_open_flags;
+    char                *svalue = NULL;
+    const char          *hierarchy[4];
     krb5_kvno       mkvno = IGNORE_VNO;
 
     memset(rdp, 0, sizeof(kdc_realm_t));
@@ -284,6 +219,9 @@ init_realm(kdc_realm_t *rdp, char *realm, char *def_mpname,
         kret = EINVAL;
         goto whoops;
     }
+    hierarchy[0] = KRB5_CONF_REALMS;
+    hierarchy[1] = realm;
+    hierarchy[3] = NULL;
 
     rdp->realm_name = strdup(realm);
     if (rdp->realm_name == NULL) {
@@ -295,94 +233,93 @@ init_realm(kdc_realm_t *rdp, char *realm, char *def_mpname,
         kdc_err(NULL, kret, _("while getting context for realm %s"), realm);
         goto whoops;
     }
-
-    kret = krb5_read_realm_params(rdp->realm_context, rdp->realm_name,
-                                  &rparams);
-    if (kret) {
-        kdc_err(rdp->realm_context, kret, _("while reading realm parameters"));
-        goto whoops;
-    }
-
-    /* Handle profile file name */
-    if (rparams && rparams->realm_profile) {
-        rdp->realm_profile = strdup(rparams->realm_profile);
-        if (!rdp->realm_profile) {
-            kret = ENOMEM;
-            goto whoops;
-        }
-    }
+    if (time_offset != 0)
+        (void)krb5_set_time_offsets(rdp->realm_context, time_offset, 0);
 
     /* Handle master key name */
-    if (rparams && rparams->realm_mkey_name)
-        rdp->realm_mpname = strdup(rparams->realm_mkey_name);
-    else
+    hierarchy[2] = KRB5_CONF_MASTER_KEY_NAME;
+    if (krb5_aprof_get_string(aprof, hierarchy, TRUE, &rdp->realm_mpname)) {
         rdp->realm_mpname = (def_mpname) ? strdup(def_mpname) :
             strdup(KRB5_KDB_M_NAME);
+    }
     if (!rdp->realm_mpname) {
         kret = ENOMEM;
         goto whoops;
     }
 
     /* Handle KDC ports */
-    if (rparams && rparams->realm_kdc_ports)
-        rdp->realm_ports = strdup(rparams->realm_kdc_ports);
-    else
+    hierarchy[2] = KRB5_CONF_KDC_PORTS;
+    if (krb5_aprof_get_string(aprof, hierarchy, TRUE, &rdp->realm_ports))
         rdp->realm_ports = strdup(def_udp_ports);
     if (!rdp->realm_ports) {
         kret = ENOMEM;
         goto whoops;
     }
-    if (rparams && rparams->realm_kdc_tcp_ports)
-        rdp->realm_tcp_ports = strdup(rparams->realm_kdc_tcp_ports);
-    else
+    hierarchy[2] = KRB5_CONF_KDC_TCP_PORTS;
+    if (krb5_aprof_get_string(aprof, hierarchy, TRUE, &rdp->realm_tcp_ports))
         rdp->realm_tcp_ports = strdup(def_tcp_ports);
     if (!rdp->realm_tcp_ports) {
         kret = ENOMEM;
         goto whoops;
     }
     /* Handle stash file */
-    if (rparams && rparams->realm_stash_file) {
-        rdp->realm_stash = strdup(rparams->realm_stash_file);
-        if (!rdp->realm_stash) {
-            kret = ENOMEM;
-            goto whoops;
-        }
-        manual = FALSE;
-    } else
+    hierarchy[2] = KRB5_CONF_KEY_STASH_FILE;
+    if (krb5_aprof_get_string(aprof, hierarchy, TRUE, &rdp->realm_stash))
         manual = def_manual;
-
-    if (rparams && rparams->realm_restrict_anon_valid)
-        rdp->realm_restrict_anon = rparams->realm_restrict_anon;
     else
+        manual = FALSE;
+
+    hierarchy[2] = KRB5_CONF_RESTRICT_ANONYMOUS_TO_TGT;
+    if (krb5_aprof_get_boolean(aprof, hierarchy, TRUE,
+                               &rdp->realm_restrict_anon))
         rdp->realm_restrict_anon = def_restrict_anon;
 
     /* Handle master key type */
-    if (rparams && rparams->realm_enctype_valid)
-        rdp->realm_mkey.enctype = (krb5_enctype) rparams->realm_enctype;
-    else
+    hierarchy[2] = KRB5_CONF_MASTER_KEY_TYPE;
+    if (krb5_aprof_get_string(aprof, hierarchy, TRUE, &svalue) ||
+        krb5_string_to_enctype(svalue, &rdp->realm_mkey.enctype))
         rdp->realm_mkey.enctype = manual ? def_enctype : ENCTYPE_UNKNOWN;
+    free(svalue);
+    svalue = NULL;
 
     /* Handle reject-bad-transit flag */
-    if (rparams && rparams->realm_reject_bad_transit_valid)
-        rdp->realm_reject_bad_transit = rparams->realm_reject_bad_transit;
-    else
-        rdp->realm_reject_bad_transit = 1;
+    hierarchy[2] = KRB5_CONF_REJECT_BAD_TRANSIT;
+    if (krb5_aprof_get_boolean(aprof, hierarchy, TRUE,
+                                &rdp->realm_reject_bad_transit))
+        rdp->realm_reject_bad_transit = TRUE;
+
+    /* Handle assume des-cbc-crc is supported for session keys */
+    hierarchy[2] = KRB5_CONF_ASSUME_DES_CRC_SESSION;
+    if (krb5_aprof_get_boolean(aprof, hierarchy, TRUE,
+                               &rdp->realm_assume_des_crc_sess))
+        rdp->realm_assume_des_crc_sess = TRUE;
 
     /* Handle ticket maximum life */
-    rdp->realm_maxlife = (rparams && rparams->realm_max_life_valid) ?
-        rparams->realm_max_life : KRB5_KDB_MAX_LIFE;
+    hierarchy[2] = KRB5_CONF_MAX_LIFE;
+    if (krb5_aprof_get_deltat(aprof, hierarchy, TRUE, &rdp->realm_maxlife))
+        rdp->realm_maxlife = KRB5_KDB_MAX_LIFE;
 
     /* Handle ticket renewable maximum life */
-    rdp->realm_maxrlife = (rparams && rparams->realm_max_rlife_valid) ?
-        rparams->realm_max_rlife : KRB5_KDB_MAX_RLIFE;
+    hierarchy[2] = KRB5_CONF_MAX_RENEWABLE_LIFE;
+    if (krb5_aprof_get_deltat(aprof, hierarchy, TRUE, &rdp->realm_maxrlife))
+        rdp->realm_maxrlife = KRB5_KDB_MAX_RLIFE;
 
     /* Handle KDC referrals */
-    kret = handle_referral_params(rparams, no_refrls, host_based_srvcs, rdp);
-    if (kret == ENOMEM)
+    hierarchy[2] = KRB5_CONF_NO_HOST_REFERRAL;
+    (void)krb5_aprof_get_string_all(aprof, hierarchy, &svalue);
+    kret = combine(no_referral, svalue, &rdp->realm_no_referral);
+    if (kret)
         goto whoops;
+    free(svalue);
+    svalue = NULL;
 
-    if (rparams)
-        krb5_free_realm_params(rdp->realm_context, rparams);
+    hierarchy[2] = KRB5_CONF_HOST_BASED_SERVICES;
+    (void)krb5_aprof_get_string_all(aprof, hierarchy, &svalue);
+    kret = combine(hostbased, svalue, &rdp->realm_hostbased);
+    if (kret)
+        goto whoops;
+    free(svalue);
+    svalue = NULL;
 
     /*
      * We've got our parameters, now go and setup our realm context.
@@ -427,7 +364,7 @@ init_realm(kdc_realm_t *rdp, char *realm, char *def_mpname,
     }
 
     if ((kret = krb5_db_fetch_mkey_list(rdp->realm_context, rdp->realm_mprinc,
-                                        &rdp->realm_mkey, mkvno, &rdp->mkey_list))) {
+                                        &rdp->realm_mkey))) {
         kdc_err(rdp->realm_context, kret,
                 _("while fetching master keys list for realm %s"), realm);
         goto whoops;
@@ -572,12 +509,13 @@ create_workers(verto_ctx *ctx, int num)
     for (i = 0; i < num; i++) {
         pid = fork();
         if (pid == 0) {
+            free(pids);
             if (!verto_reinitialize(ctx)) {
                 krb5_klog_syslog(LOG_ERR,
                                  _("Unable to reinitialize main loop"));
                 return ENOMEM;
             }
-            retval = loop_setup_signals(ctx, NULL, reset_for_hangup);
+            retval = loop_setup_signals(ctx, &shandle, reset_for_hangup);
             if (retval) {
                 krb5_klog_syslog(LOG_ERR, _("Unable to initialize signal "
                                             "handlers in pid %d"), pid);
@@ -589,7 +527,6 @@ create_workers(verto_ctx *ctx, int num)
                 exit(0);
 
             /* Return control to main() in the new worker process. */
-            free(pids);
             return 0;
         }
         if (pid == -1) {
@@ -645,7 +582,8 @@ create_workers(verto_ctx *ctx, int num)
 static krb5_error_code
 setup_sam(void)
 {
-    return krb5_c_make_random_key(kdc_context, ENCTYPE_DES_CBC_MD5, &psr_key);
+    krb5_context ctx = shandle.kdc_err_context;
+    return krb5_c_make_random_key(ctx, ENCTYPE_DES_CBC_MD5, &psr_key);
 }
 
 static void
@@ -679,10 +617,10 @@ initialize_realms(krb5_context kcontext, int argc, char **argv)
     krb5_boolean        def_restrict_anon;
     char                *default_udp_ports = 0;
     char                *default_tcp_ports = 0;
-    krb5_pointer        aprof;
+    krb5_pointer        aprof = NULL;
     const char          *hierarchy[3];
-    char                *no_refrls = NULL;
-    char                *host_based_srvcs = NULL;
+    char                *no_referral = NULL;
+    char                *hostbased = NULL;
     int                  db_args_size = 0;
     char                **db_args = NULL;
 
@@ -704,16 +642,11 @@ initialize_realms(krb5_context kcontext, int argc, char **argv)
         if (krb5_aprof_get_boolean(aprof, hierarchy, TRUE, &def_restrict_anon))
             def_restrict_anon = FALSE;
         hierarchy[1] = KRB5_CONF_NO_HOST_REFERRAL;
-        if (krb5_aprof_get_string_all(aprof, hierarchy, &no_refrls))
-            no_refrls = 0;
-        if (!no_refrls ||
-            krb5_match_config_pattern(no_refrls, KRB5_CONF_ASTERISK) == FALSE) {
-            hierarchy[1] = KRB5_CONF_HOST_BASED_SERVICES;
-            if (krb5_aprof_get_string_all(aprof, hierarchy, &host_based_srvcs))
-                host_based_srvcs = 0;
-        }
-
-        krb5_aprof_finish(aprof);
+        if (krb5_aprof_get_string_all(aprof, hierarchy, &no_referral))
+            no_referral = 0;
+        hierarchy[1] = KRB5_CONF_HOST_BASED_SERVICES;
+        if (krb5_aprof_get_string_all(aprof, hierarchy, &hostbased))
+            hostbased = 0;
     }
 
     if (default_udp_ports == 0) {
@@ -735,7 +668,7 @@ initialize_realms(krb5_context kcontext, int argc, char **argv)
      * Loop through the option list.  Each time we encounter a realm name,
      * use the previously scanned options to fill in for defaults.
      */
-    while ((c = getopt(argc, argv, "x:r:d:mM:k:R:e:P:p:s:nw:4:X3")) != -1) {
+    while ((c = getopt(argc, argv, "x:r:d:mM:k:R:e:P:p:s:nw:4:T:X3")) != -1) {
         switch(c) {
         case 'x':
             db_args_size++;
@@ -755,20 +688,21 @@ initialize_realms(krb5_context kcontext, int argc, char **argv)
             break;
 
         case 'r':                       /* realm name for db */
-            if (!find_realm_data(optarg, (krb5_ui_4) strlen(optarg))) {
+            if (!find_realm_data(&shandle, optarg, (krb5_ui_4) strlen(optarg))) {
                 if ((rdatap = (kdc_realm_t *) malloc(sizeof(kdc_realm_t)))) {
-                    if ((retval = init_realm(rdatap, optarg, mkey_name,
-                                             menctype, default_udp_ports,
-                                             default_tcp_ports, manual,
-                                             def_restrict_anon, db_args,
-                                             no_refrls, host_based_srvcs))) {
+                    retval = init_realm(rdatap, aprof, optarg, mkey_name,
+                                        menctype, default_udp_ports,
+                                        default_tcp_ports, manual,
+                                        def_restrict_anon, db_args,
+                                        no_referral, hostbased);
+                    if (retval) {
                         fprintf(stderr, _("%s: cannot initialize realm %s - "
                                           "see log file for details\n"),
                                 argv[0], optarg);
                         exit(1);
                     }
-                    kdc_realmlist[kdc_numrealms] = rdatap;
-                    kdc_numrealms++;
+                    shandle.kdc_realmlist[shandle.kdc_numrealms] = rdatap;
+                    shandle.kdc_numrealms++;
                     free(db_args), db_args=NULL, db_args_size = 0;
                 }
                 else
@@ -847,6 +781,9 @@ initialize_realms(krb5_context kcontext, int argc, char **argv)
             default_tcp_ports = strdup(optarg);
 #endif
             break;
+        case 'T':
+            time_offset = atoi(optarg);
+            break;
         case '4':
             break;
         case 'X':
@@ -860,7 +797,7 @@ initialize_realms(krb5_context kcontext, int argc, char **argv)
     /*
      * Check to see if we processed any realms.
      */
-    if (kdc_numrealms == 0) {
+    if (shandle.kdc_numrealms == 0) {
         /* no realm specified, use default realm */
         if ((retval = krb5_get_default_realm(kcontext, &lrealm))) {
             com_err(argv[0], retval,
@@ -871,22 +808,21 @@ initialize_realms(krb5_context kcontext, int argc, char **argv)
             exit(1);
         }
         if ((rdatap = (kdc_realm_t *) malloc(sizeof(kdc_realm_t)))) {
-            if ((retval = init_realm(rdatap, lrealm, mkey_name, menctype,
-                                     default_udp_ports, default_tcp_ports,
-                                     manual, def_restrict_anon, db_args,
-                                     no_refrls, host_based_srvcs))) {
+            retval = init_realm(rdatap, aprof, lrealm, mkey_name, menctype,
+                                default_udp_ports, default_tcp_ports, manual,
+                                def_restrict_anon, db_args, no_referral,
+                                hostbased);
+            if (retval) {
                 fprintf(stderr, _("%s: cannot initialize realm %s - see log "
                                   "file for details\n"), argv[0], lrealm);
                 exit(1);
             }
-            kdc_realmlist[0] = rdatap;
-            kdc_numrealms++;
+            shandle.kdc_realmlist[0] = rdatap;
+            shandle.kdc_numrealms++;
         }
         krb5_free_default_realm(kcontext, lrealm);
     }
 
-    /* Ensure that this is set for our first request. */
-    kdc_active_realm = kdc_realmlist[0];
     if (default_udp_ports)
         free(default_udp_ports);
     if (default_tcp_ports)
@@ -895,10 +831,12 @@ initialize_realms(krb5_context kcontext, int argc, char **argv)
         free(db_args);
     if (db_name)
         free(db_name);
-    if (host_based_srvcs)
-        free(host_based_srvcs);
-    if (no_refrls)
-        free(no_refrls);
+    if (hostbased)
+        free(hostbased);
+    if (no_referral)
+        free(no_referral);
+    if (aprof)
+        krb5_aprof_finish(aprof);
 
     return;
 }
@@ -923,11 +861,11 @@ finish_realms()
 {
     int i;
 
-    for (i = 0; i < kdc_numrealms; i++) {
-        finish_realm(kdc_realmlist[i]);
-        kdc_realmlist[i] = 0;
+    for (i = 0; i < shandle.kdc_numrealms; i++) {
+        finish_realm(shandle.kdc_realmlist[i]);
+        shandle.kdc_realmlist[i] = 0;
     }
-    kdc_numrealms = 0;
+    shandle.kdc_numrealms = 0;
 }
 
 /*
@@ -964,16 +902,17 @@ int main(int argc, char **argv)
     int errout = 0;
     int i;
 
-    setlocale(LC_MESSAGES, "");
+    setlocale(LC_ALL, "");
     if (strrchr(argv[0], '/'))
         argv[0] = strrchr(argv[0], '/')+1;
 
-    if (!(kdc_realmlist = (kdc_realm_t **) malloc(sizeof(kdc_realm_t *) *
-                                                  KRB5_KDC_MAX_REALMS))) {
+    shandle.kdc_realmlist = malloc(sizeof(kdc_realm_t *) *
+                                   KRB5_KDC_MAX_REALMS);
+    if (shandle.kdc_realmlist == NULL) {
         fprintf(stderr, _("%s: cannot get memory for realm list\n"), argv[0]);
         exit(1);
     }
-    memset(kdc_realmlist, 0,
+    memset(shandle.kdc_realmlist, 0,
            (size_t) (sizeof(kdc_realm_t *) * KRB5_KDC_MAX_REALMS));
 
     /*
@@ -988,7 +927,7 @@ int main(int argc, char **argv)
         exit(1);
     }
     krb5_klog_init(kcontext, "kdc", argv[0], 1);
-    kdc_err_context = kcontext;
+    shandle.kdc_err_context = kcontext;
     kdc_progname = argv[0];
     /* N.B.: After this point, com_err sends output to the KDC log
        file, and not to stderr.  We use the kdc_err wrapper around
@@ -1002,6 +941,15 @@ int main(int argc, char **argv)
      */
     initialize_realms(kcontext, argc, argv);
 
+#ifndef NOCACHE
+    retval = kdc_init_lookaside(kcontext);
+    if (retval) {
+        kdc_err(kcontext, retval, _("while initializing lookaside cache"));
+        finish_realms();
+        return 1;
+    }
+#endif
+
     ctx = loop_init(VERTO_EV_TYPE_NONE);
     if (!ctx) {
         kdc_err(kcontext, ENOMEM, _("while creating main loop"));
@@ -1009,7 +957,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    load_preauth_plugins(kcontext);
+    load_preauth_plugins(&shandle, kcontext, ctx);
     load_authdata_plugins(kcontext);
 
     retval = setup_sam();
@@ -1020,8 +968,8 @@ int main(int argc, char **argv)
     }
 
     /* Handle each realm's ports */
-    for (i=0; i<kdc_numrealms; i++) {
-        char *cp = kdc_realmlist[i]->realm_ports;
+    for (i=0; i< shandle.kdc_numrealms; i++) {
+        char *cp = shandle.kdc_realmlist[i]->realm_ports;
         int port;
         while (cp && *cp) {
             if (*cp == ',' || isspace((int) *cp)) {
@@ -1036,7 +984,7 @@ int main(int argc, char **argv)
                 goto net_init_error;
         }
 
-        cp = kdc_realmlist[i]->realm_tcp_ports;
+        cp = shandle.kdc_realmlist[i]->realm_tcp_ports;
         while (cp && *cp) {
             if (*cp == ',' || isspace((int) *cp)) {
                 cp++;
@@ -1058,20 +1006,20 @@ int main(int argc, char **argv)
      * platform has pktinfo support and doesn't need reconfigs.
      */
     if (workers == 0) {
-        retval = loop_setup_routing_socket(ctx, NULL, kdc_progname);
+        retval = loop_setup_routing_socket(ctx, &shandle, kdc_progname);
         if (retval) {
             kdc_err(kcontext, retval, _("while initializing routing socket"));
             finish_realms();
             return 1;
         }
-        retval = loop_setup_signals(ctx, NULL, reset_for_hangup);
+        retval = loop_setup_signals(ctx, &shandle, reset_for_hangup);
         if (retval) {
             kdc_err(kcontext, retval, _("while initializing signal handlers"));
             finish_realms();
             return 1;
         }
     }
-    if ((retval = loop_setup_network(ctx, NULL, kdc_progname))) {
+    if ((retval = loop_setup_network(ctx, &shandle, kdc_progname))) {
     net_init_error:
         kdc_err(kcontext, retval, _("while initializing network"));
         finish_realms();
@@ -1100,19 +1048,30 @@ int main(int argc, char **argv)
         /* We get here only in a worker child process; re-initialize realms. */
         initialize_realms(kcontext, argc, argv);
     }
+
+    /* Initialize audit system and audit KDC startup. */
+    retval = load_audit_modules(kcontext);
+    if (retval) {
+        kdc_err(kcontext, retval, _("while loading audit plugin module(s)"));
+        finish_realms();
+        return 1;
+    }
     krb5_klog_syslog(LOG_INFO, _("commencing operation"));
     if (nofork)
         fprintf(stderr, _("%s: starting...\n"), kdc_progname);
+    kau_kdc_start(kcontext, TRUE);
 
     verto_run(ctx);
     loop_free(ctx);
+    kau_kdc_stop(kcontext, TRUE);
     krb5_klog_syslog(LOG_INFO, _("shutting down"));
     unload_preauth_plugins(kcontext);
     unload_authdata_plugins(kcontext);
-    krb5_klog_close(kdc_context);
+    unload_audit_modules(kcontext);
+    krb5_klog_close(kcontext);
     finish_realms();
-    if (kdc_realmlist)
-        free(kdc_realmlist);
+    if (shandle.kdc_realmlist)
+        free(shandle.kdc_realmlist);
 #ifndef NOCACHE
     kdc_free_lookaside(kcontext);
 #endif

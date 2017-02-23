@@ -197,7 +197,7 @@ init_any(krb5_context context, char *client_name, enum init_type init_type,
     handle->destroy_cache = 0;
     handle->context = 0;
     *handle->lhandle = *handle;
-    handle->lhandle->api_version = KADM5_API_VERSION_3;
+    handle->lhandle->api_version = KADM5_API_VERSION_4;
     handle->lhandle->struct_version = KADM5_STRUCT_VERSION;
     handle->lhandle->lhandle = handle->lhandle;
 
@@ -236,8 +236,7 @@ init_any(krb5_context context, char *client_name, enum init_type init_type,
 #define ILLEGAL_PARAMS (KADM5_CONFIG_DBNAME | KADM5_CONFIG_ADBNAME |    \
                         KADM5_CONFIG_ADB_LOCKFILE |                     \
                         KADM5_CONFIG_ACL_FILE | KADM5_CONFIG_DICT_FILE  \
-                        | KADM5_CONFIG_ADMIN_KEYTAB |                   \
-                        KADM5_CONFIG_STASH_FILE |                       \
+                        | KADM5_CONFIG_STASH_FILE |                     \
                         KADM5_CONFIG_MKEY_NAME | KADM5_CONFIG_ENCTYPE   \
                         | KADM5_CONFIG_MAX_LIFE |                       \
                         KADM5_CONFIG_MAX_RLIFE |                        \
@@ -337,6 +336,16 @@ init_any(krb5_context context, char *client_name, enum init_type init_type,
         clnt_perror(handle->clnt, "init_2 null resp");
 #endif
         goto error;
+    }
+    /* Drop down to v3 wire protocol if server does not support v4 */
+    if (r->code == KADM5_NEW_SERVER_API_VERSION &&
+        handle->api_version == KADM5_API_VERSION_4) {
+        handle->api_version = KADM5_API_VERSION_3;
+        r = init_2(&handle->api_version, handle->clnt);
+        if (r == NULL) {
+            code = KADM5_RPC_ERROR;
+            goto error;
+        }
     }
     /* Drop down to v2 wire protocol if server does not support v3 */
     if (r->code == KADM5_NEW_SERVER_API_VERSION &&
@@ -604,7 +613,6 @@ static kadm5_ret_t
 setup_gss(kadm5_server_handle_t handle, kadm5_config_params *params_in,
           char *client_name, char *full_svcname)
 {
-    kadm5_ret_t code;
     OM_uint32 gssstat, minor_stat;
     gss_buffer_desc buf;
     gss_name_t gss_client;
@@ -613,7 +621,6 @@ setup_gss(kadm5_server_handle_t handle, kadm5_config_params *params_in,
     const char *c_ccname_orig;
     char *ccname_orig;
 
-    code = KADM5_GSS_ERROR;
     gss_client_creds = GSS_C_NO_CREDENTIAL;
     ccname_orig = NULL;
     gss_client = gss_target = GSS_C_NO_NAME;
@@ -621,10 +628,8 @@ setup_gss(kadm5_server_handle_t handle, kadm5_config_params *params_in,
     /* Temporarily use the kadm5 cache. */
     gssstat = gss_krb5_ccache_name(&minor_stat, handle->cache_name,
                                    &c_ccname_orig);
-    if (gssstat != GSS_S_COMPLETE) {
-        code = KADM5_GSS_ERROR;
+    if (gssstat != GSS_S_COMPLETE)
         goto error;
-    }
     if (c_ccname_orig)
         ccname_orig = strdup(c_ccname_orig);
     else
@@ -634,10 +639,8 @@ setup_gss(kadm5_server_handle_t handle, kadm5_config_params *params_in,
     buf.length = strlen((char *)buf.value) + 1;
     gssstat = gss_import_name(&minor_stat, &buf,
                               (gss_OID) gss_nt_krb5_name, &gss_target);
-    if (gssstat != GSS_S_COMPLETE) {
-        code = KADM5_GSS_ERROR;
+    if (gssstat != GSS_S_COMPLETE)
         goto error;
-    }
 
     if (client_name) {
         buf.value = client_name;
@@ -646,16 +649,13 @@ setup_gss(kadm5_server_handle_t handle, kadm5_config_params *params_in,
                                   (gss_OID) gss_nt_krb5_name, &gss_client);
     } else gss_client = GSS_C_NO_NAME;
 
-    if (gssstat != GSS_S_COMPLETE) {
-        code = KADM5_GSS_ERROR;
+    if (gssstat != GSS_S_COMPLETE)
         goto error;
-    }
 
     gssstat = gss_acquire_cred(&minor_stat, gss_client, 0,
                                GSS_C_NULL_OID_SET, GSS_C_INITIATE,
                                &gss_client_creds, NULL, NULL);
     if (gssstat != GSS_S_COMPLETE) {
-        code = KADM5_GSS_ERROR;
 #if 0 /* for debugging only */
         {
             OM_uint32 maj_status, min_status, message_context = 0;
@@ -753,7 +753,7 @@ rpc_auth(kadm5_server_handle_t handle, kadm5_config_params *params_in,
     /* Use RPCSEC_GSS by default. */
     if (params_in == NULL ||
         !(params_in->mask & KADM5_CONFIG_OLD_AUTH_GSSAPI)) {
-        sec.mech = gss_mech_krb5;
+        sec.mech = (gss_OID)gss_mech_krb5;
         sec.qop = GSS_C_QOP_DEFAULT;
         sec.svc = RPCSEC_GSS_SVC_PRIVACY;
         sec.cred = gss_client_creds;

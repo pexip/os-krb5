@@ -70,6 +70,7 @@ krb5_auth_con_free(krb5_context context, krb5_auth_context auth_context)
         krb5_k_free_key(context, auth_context->send_subkey);
     if (auth_context->recv_subkey)
         krb5_k_free_key(context, auth_context->recv_subkey);
+    zapfree(auth_context->cstate.data, auth_context->cstate.length);
     if (auth_context->rcache)
         krb5_rc_close(context, auth_context->rcache);
     if (auth_context->permitted_etypes)
@@ -317,31 +318,42 @@ krb5_auth_con_initivector(krb5_context context, krb5_auth_context auth_context)
     krb5_error_code ret;
     krb5_enctype enctype;
 
-    if (auth_context->key) {
-        size_t blocksize;
+    if (auth_context->key == NULL)
+        return EINVAL;
+    ret = krb5_c_init_state(context, &auth_context->key->keyblock,
+                            KRB5_KEYUSAGE_KRB_PRIV_ENCPART,
+                            &auth_context->cstate);
+    if (ret)
+        return ret;
 
-        enctype = krb5_k_key_enctype(context, auth_context->key);
-        if ((ret = krb5_c_block_size(context, enctype, &blocksize)))
-            return(ret);
-        if ((auth_context->i_vector = (krb5_pointer)calloc(1,blocksize))) {
-            return 0;
-        }
-        return ENOMEM;
-    }
-    return EINVAL; /* XXX need an error for no keyblock */
+    /*
+     * Historically we used a zero-filled buffer of the enctype block size.
+     * This matches every existing enctype except RC4 (which has a block size
+     * of 1) and des-cbc-crc (which uses the key instead of a zero-filled
+     * buffer).  Special-case des-cbc-crc to remain interoperable.
+     */
+    enctype = krb5_k_key_enctype(context, auth_context->key);
+    if (enctype == ENCTYPE_DES_CBC_CRC)
+        zap(auth_context->cstate.data, auth_context->cstate.length);
+
+    return 0;
 }
 
 krb5_error_code
 krb5_auth_con_setivector(krb5_context context, krb5_auth_context auth_context, krb5_pointer ivector)
 {
-    auth_context->i_vector = ivector;
-    return 0;
+    /*
+     * This function was part of the pre-1.2.2 API.  Because it aliased the
+     * caller's memory into auth_context, and doesn't provide the size of the
+     * cipher state, it's inconvenient to support now, so return an error.
+     */
+    return EINVAL;
 }
 
 krb5_error_code
 krb5_auth_con_getivector(krb5_context context, krb5_auth_context auth_context, krb5_pointer *ivector)
 {
-    *ivector = auth_context->i_vector;
+    *ivector = auth_context->cstate.data;
     return 0;
 }
 
@@ -381,7 +393,7 @@ krb5_auth_con_setpermetypes(krb5_context context,
     krb5_enctype *newpe;
     krb5_error_code ret;
 
-    ret = krb5int_copy_etypes(permetypes, &newpe);
+    ret = k5_copy_etypes(permetypes, &newpe);
     if (ret != 0)
         return ret;
 
@@ -398,7 +410,7 @@ krb5_auth_con_getpermetypes(krb5_context context,
     *permetypes = NULL;
     if (auth_context->permitted_etypes == NULL)
         return 0;
-    return krb5int_copy_etypes(auth_context->permitted_etypes, permetypes);
+    return k5_copy_etypes(auth_context->permitted_etypes, permetypes);
 }
 
 krb5_error_code KRB5_CALLCONV
