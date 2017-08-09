@@ -160,6 +160,7 @@ gss_inquire_attrs_for_mech(
     gss_OID_set       *known_mech_attrs)
 {
     OM_uint32       status, tmpMinor;
+    gss_OID         selected_mech, public_mech;
     gss_mechanism   mech;
 
     if (minor == NULL)
@@ -173,29 +174,25 @@ gss_inquire_attrs_for_mech(
     if (known_mech_attrs != NULL)
         *known_mech_attrs = GSS_C_NO_OID_SET;
 
-    mech = gssint_get_mechanism((gss_OID)mech_oid);
-    if (mech != NULL && mech->gss_inquire_attrs_for_mech != NULL) {
-        status = mech->gss_inquire_attrs_for_mech(minor,
-                                                  mech_oid,
-                                                  mech_attrs,
-                                                  known_mech_attrs);
-        if (GSS_ERROR(status))
-            return status;
-    }
+    status = gssint_select_mech_type(minor, mech_oid, &selected_mech);
+    if (status != GSS_S_COMPLETE)
+        return status;
 
-    if (mech_attrs != NULL && mech != gssint_get_mechanism(NULL)) {
-        if (*mech_attrs == GSS_C_NO_OID_SET) {
-            status = generic_gss_create_empty_oid_set(minor, mech_attrs);
-            if (GSS_ERROR(status))
-                return status;
-        }
+    mech = gssint_get_mechanism(selected_mech);
+    if (mech == NULL)
+        return GSS_S_BAD_MECH;
 
-        status = generic_gss_add_oid_set_member(minor, GSS_C_MA_NOT_DFLT_MECH,
-                                                mech_attrs);
-        if (GSS_ERROR(status)) {
-            gss_release_oid_set(&tmpMinor, mech_attrs);
-            return status;
-        }
+    /* If the mech does not implement RFC 5587, return success with an empty
+     * mech_attrs and known_mech_attrs. */
+    if (mech->gss_inquire_attrs_for_mech == NULL)
+        return GSS_S_COMPLETE;
+
+    public_mech = gssint_get_public_oid(selected_mech);
+    status = mech->gss_inquire_attrs_for_mech(minor, public_mech, mech_attrs,
+                                              known_mech_attrs);
+    if (GSS_ERROR(status)) {
+        map_error(minor, mech);
+        return status;
     }
 
     if (known_mech_attrs != NULL && *known_mech_attrs == GSS_C_NO_OID_SET) {

@@ -325,12 +325,6 @@ kg_accept_dce(minor_status, context_handle, verifier_cred_handle,
         goto fail;
     }
 
-    if (ctx->krb_times.endtime < now) {
-        code = 0;
-        major_status = GSS_S_CREDENTIALS_EXPIRED;
-        goto fail;
-    }
-
     ap_rep.data = input_token->value;
     ap_rep.length = input_token->length;
 
@@ -358,12 +352,12 @@ kg_accept_dce(minor_status, context_handle, verifier_cred_handle,
         *mech_type = ctx->mech_used;
 
     if (time_rec)
-        *time_rec = ctx->krb_times.endtime - now;
+        *time_rec = ctx->krb_times.endtime + ctx->k5_context->clockskew - now;
 
+    /* Never return GSS_C_DELEG_FLAG since we don't support DCE credential
+     * delegation yet. */
     if (ret_flags)
-        *ret_flags = ctx->gss_flags;
-
-    /* XXX no support for delegated credentials yet */
+        *ret_flags = (ctx->gss_flags & ~GSS_C_DELEG_FLAG);
 
     *minor_status = 0;
 
@@ -467,6 +461,7 @@ kg_accept_krb5(minor_status, context_handle,
     krb5int_access kaccess;
     int cred_rcache = 0;
     int no_encap = 0;
+    int token_deleg_flag = 0;
     krb5_flags ap_req_options = 0;
     krb5_enctype negotiated_etype;
     krb5_authdata_context ad_context = NULL;
@@ -607,6 +602,7 @@ kg_accept_krb5(minor_status, context_handle,
         major_status = GSS_S_FAILURE;
         goto done;
     }
+    ticket = request->ticket;
 
     /* decode the message */
 
@@ -644,7 +640,7 @@ kg_accept_krb5(minor_status, context_handle,
     }
 
     code = krb5_rd_req_decoded(context, &auth_context, request, accprinc,
-                               cred->keytab, &ap_req_options, &ticket);
+                               cred->keytab, &ap_req_options, NULL);
 
     krb5_free_principal(context, accprinc);
     if (code) {
@@ -668,13 +664,15 @@ kg_accept_krb5(minor_status, context_handle,
 #endif
 
     if (authdat->checksum == NULL) {
-        /* missing checksum counts as "inappropriate type" */
-        code = KRB5KRB_AP_ERR_INAPP_CKSUM;
-        major_status = GSS_S_FAILURE;
-        goto fail;
-    }
-
-    if (authdat->checksum->checksum_type != CKSUMTYPE_KG_CB) {
+        /*
+         * Some SMB client implementations use handcrafted GSSAPI code that
+         * does not provide a checksum.  MS-KILE documents that the Microsoft
+         * implementation considers a missing checksum acceptable; the server
+         * assumes all flags are unset in this case, and does not check channel
+         * bindings.
+         */
+        gss_flags = 0;
+    } else if (authdat->checksum->checksum_type != CKSUMTYPE_KG_CB) {
         /* Samba does not send 0x8003 GSS-API checksums */
         krb5_boolean valid;
         krb5_key subkey;
@@ -701,7 +699,10 @@ kg_accept_krb5(minor_status, context_handle,
             goto fail;
         }
 
-        gss_flags = GSS_C_MUTUAL_FLAG | GSS_C_REPLAY_FLAG | GSS_C_SEQUENCE_FLAG;
+        /* Use ap_options from the request to guess the mutual flag. */
+        gss_flags = GSS_C_REPLAY_FLAG | GSS_C_SEQUENCE_FLAG;
+        if (ap_req_options & AP_OPTS_MUTUAL_REQUIRED)
+            gss_flags |= GSS_C_MUTUAL_FLAG;
     } else {
         /* gss krb5 v1 */
 
@@ -775,23 +776,22 @@ kg_accept_krb5(minor_status, context_handle,
         xfree(reqcksum.contents);
         reqcksum.contents = 0;
 
+        /* Read the token flags.  Remember if GSS_C_DELEG_FLAG was set, but
+         * mask it out until we actually read a delegated credential. */
         TREAD_INT(ptr, gss_flags, 0);
-#if 0
-        gss_flags &= ~GSS_C_DELEG_FLAG; /* mask out the delegation flag; if
-                                           there's a delegation, we'll set
-                                           it below */
-#endif
+        token_deleg_flag = (gss_flags & GSS_C_DELEG_FLAG);
+        gss_flags &= ~GSS_C_DELEG_FLAG;
 
         /* if the checksum length > 24, there are options to process */
 
         i = authdat->checksum->length - 24;
-        if (i && (gss_flags & GSS_C_DELEG_FLAG)) {
+        if (i && token_deleg_flag) {
             if (i >= 4) {
                 TREAD_INT16(ptr, option_id, 0);
                 TREAD_INT16(ptr, option.length, 0);
                 i -= 4;
 
-                if (i < option.length || option.length < 0) {
+                if (i < option.length) {
                     code = KG_BAD_LENGTH;
                     major_status = GSS_S_FAILURE;
                     goto fail;
@@ -820,6 +820,7 @@ kg_accept_krb5(minor_status, context_handle,
                     goto fail;
                 }
 
+                gss_flags |= GSS_C_DELEG_FLAG;
             } /* if i >= 4 */
             /* ignore any additional trailing data, for now */
         }
@@ -968,8 +969,6 @@ kg_accept_krb5(minor_status, context_handle,
         ctx->gss_flags |= GSS_C_DELEG_FLAG;
     }
 
-    krb5_free_ticket(context, ticket); /* Done with ticket */
-
     {
         krb5_int32 seq_temp;
         krb5_auth_con_getremoteseqnumber(context, auth_context, &seq_temp);
@@ -981,15 +980,14 @@ kg_accept_krb5(minor_status, context_handle,
         goto fail;
     }
 
-    if (ctx->krb_times.endtime < now) {
-        code = 0;
-        major_status = GSS_S_CREDENTIALS_EXPIRED;
+    code = g_seqstate_init(&ctx->seqstate, ctx->seq_recv,
+                           (ctx->gss_flags & GSS_C_REPLAY_FLAG) != 0,
+                           (ctx->gss_flags & GSS_C_SEQUENCE_FLAG) != 0,
+                           ctx->proto);
+    if (code) {
+        major_status = GSS_S_FAILURE;
         goto fail;
     }
-
-    g_order_init(&(ctx->seqstate), ctx->seq_recv,
-                 (ctx->gss_flags & GSS_C_REPLAY_FLAG) != 0,
-                 (ctx->gss_flags & GSS_C_SEQUENCE_FLAG) != 0, ctx->proto);
 
     /* DCE_STYLE implies mutual authentication */
     if (ctx->gss_flags & GSS_C_DCE_STYLE)
@@ -1145,8 +1143,10 @@ kg_accept_krb5(minor_status, context_handle,
     if (mech_type)
         *mech_type = (gss_OID) mech_used;
 
+    /* Add the maximum allowable clock skew as a grace period for context
+     * expiration, just as we do for the ticket. */
     if (time_rec)
-        *time_rec = ctx->krb_times.endtime - now;
+        *time_rec = ctx->krb_times.endtime + context->clockskew - now;
 
     if (ret_flags)
         *ret_flags = ctx->gss_flags;
@@ -1229,7 +1229,7 @@ fail:
         (void) krb5_us_timeofday(context, &krb_error_data.stime,
                                  &krb_error_data.susec);
 
-        krb_error_data.server = request->ticket->server;
+        krb_error_data.server = ticket->server;
         code = krb5_mk_error(context, &krb_error_data, &scratch);
         if (code)
             goto done;
@@ -1238,7 +1238,7 @@ fail:
         toktype = KG_TOK_CTX_ERROR;
 
         token.length = g_token_size(mech_used, tmsglen);
-        token.value = (unsigned char *) xmalloc(token.length);
+        token.value = gssalloc_malloc(token.length);
         if (!token.value)
             goto done;
 

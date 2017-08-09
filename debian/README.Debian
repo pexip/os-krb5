@@ -10,10 +10,7 @@ Kerberos Package Roadmap
   libpam-krb5.
 
   To log on to other systems using Kerberos authentication, most sites
-  will find a Kerberos-enabled sshd the most convenient.  Either
-  the openssh-client and openssh-server packages version 1:4.2p1-2 or
-  later (preferrable) or openssh-krb5 (for older Debian releases) will
-  work.  See the ssh documentation for information on enabling GSSAPI
+  will find a Kerberos-enabled sshd the most convenient. See the ssh documentation for information on enabling GSSAPI
   authentication (which is how Kerberos authentication is done over the
   ssh protocol).
 
@@ -78,4 +75,4 @@ Debian-Specific Information
   This will cause an empty .k5login file to be put in the home directory
   of newly created users.
 
- -- Russ Allbery <rra@debian.org>, Fri Dec  2 21:05:05 2005
+ -- Sam Hartman <hartmans@debian.org>, Wed,  2 Nov 2016 23:18:47 -0400

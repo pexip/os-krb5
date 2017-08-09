@@ -27,6 +27,9 @@
 #include <io.h>
 #define HAVE_STAT
 #define stat _stat
+#ifndef S_ISDIR
+#define S_ISDIR(x) (((x) & S_IFMT) == S_IFDIR)
+#endif
 #endif
 
 #include "k5-platform.h"
@@ -249,6 +252,7 @@ errcode_t profile_open_file(const_profile_filespec_t filespec,
     }
     if (data) {
         data->refcount++;
+        data->last_stat = 0;    /* Make sure to stat when updating. */
         k5_mutex_unlock(&g_shared_trees_mutex);
         retval = profile_update_file_data(data, NULL);
         free(expanded_filename);
@@ -306,6 +310,7 @@ errcode_t profile_update_file_data_locked(prf_data_t data, char **ret_modspec)
     time_t now;
 #endif
     FILE *f;
+    int isdir = 0;
 
 #ifdef HAVE_STAT
     now = time(0);
@@ -344,19 +349,27 @@ errcode_t profile_update_file_data_locked(prf_data_t data, char **ret_modspec)
         return 0;
     }
 #endif
-    errno = 0;
-    f = fopen(data->filespec, "r");
-    if (f == NULL) {
-        retval = errno;
-        if (retval == 0)
-            retval = ENOENT;
-        return retval;
+
+#ifdef HAVE_STAT
+    isdir = S_ISDIR(st.st_mode);
+#endif
+    if (!isdir) {
+        errno = 0;
+        f = fopen(data->filespec, "r");
+        if (f == NULL)
+            return (errno != 0) ? errno : ENOENT;
+        set_cloexec_file(f);
     }
-    set_cloexec_file(f);
+
     data->upd_serial++;
     data->flags &= PROFILE_FILE_SHARED;  /* FIXME same as '=' operator */
-    retval = profile_parse_file(f, &data->root, ret_modspec);
-    fclose(f);
+
+    if (isdir) {
+        retval = profile_process_directory(data->filespec, &data->root);
+    } else {
+        retval = profile_parse_file(f, &data->root, ret_modspec);
+        (void)fclose(f);
+    }
     if (retval) {
         return retval;
     }
@@ -460,7 +473,6 @@ static errcode_t write_data_to_file(prf_data_t data, const char *outfile,
         }
     }
 
-    data->flags = 0;
     retval = 0;
 
 errout:
@@ -496,6 +508,7 @@ errcode_t profile_flush_file_data(prf_data_t data)
     }
 
     retval = write_data_to_file(data, data->filespec, 0);
+    data->flags &= ~PROFILE_FILE_DIRTY;
     k5_mutex_unlock(&data->lock);
     return retval;
 }

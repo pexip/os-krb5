@@ -7,6 +7,7 @@ DOXYGEN=doxygen
 
 docsrc=$(top_srcdir)/../doc
 localstatedir=@localstatedir@
+runstatedir=@runstatedir@
 sysconfdir=@sysconfdir@
 DEFCCNAME=@DEFCCNAME@
 DEFKTNAME=@DEFKTNAME@
@@ -20,6 +21,7 @@ RST_SOURCES= _static \
 	appdev \
 	basic \
 	build \
+	formats \
 	plugindev \
 	user \
 	about.rst \
@@ -91,8 +93,8 @@ pdf: $(PDFDIR)
 composite: Doxyfile $(docsrc)/version.py
 	rm -rf doxy rst_apiref rst_composite
 	$(DOXYGEN)
-	cwd=`pwd`; cd $(docsrc)/tools && \
-		$(PYTHON) doxy.py -i $$cwd/doxy/xml -o $$cwd/rst_apiref
+	(cwd=`pwd`; cd $(docsrc)/tools && \
+		$(PYTHON) doxy.py -i $$cwd/doxy/xml -o $$cwd/rst_apiref)
 	mkdir -p rst_composite
 	do_subdirs="$(RST_SOURCES)" ; \
 	for i in $$do_subdirs; do \
@@ -113,6 +115,7 @@ paths.py:
 	echo 'sbindir = "``$(SERVER_BINDIR)``"' >> $@
 	echo 'libdir = "``$(KRB5_LIBDIR)``"' >> $@
 	echo 'localstatedir = "``$(localstatedir)``"' >> $@
+	echo 'runstatedir = "``$(runstatedir)``"' >> $@
 	echo 'sysconfdir = "``$(sysconfdir)``"' >> $@
 	echo 'ccache = "``$(DEFCCNAME)``"' >> $@
 	echo 'keytab = "``$(DEFKTNAME)``"' >> $@
@@ -125,7 +128,7 @@ $(docsrc)/version.py: $(top_srcdir)/patchlevel.h $(srcdir)/version.py.in
 	rm -f $@
 	$(CC) -E -I$(top_srcdir) - < $(srcdir)/version.py.in > $@
 
-clean::
+clean:
 	rm -rf doxy rst_apiref rst_composite rst_notice html_subst \
 		Doxyfile paths.py $(docsrc)/version.py notice.txt \
 		$(docsrc)/html/.doctrees $(docsrc)/pdf/.doctrees \

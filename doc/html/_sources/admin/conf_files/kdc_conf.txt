@@ -43,13 +43,15 @@ The kdc.conf file may contain the following sections:
 [kdcdefaults]
 ~~~~~~~~~~~~~
 
-With one exception, relations in the [kdcdefaults] section specify
+With two exceptions, relations in the [kdcdefaults] section specify
 default values for realm variables, to be used if the [realms]
 subsection does not contain a relation for the tag.  See the
 :ref:`kdc_realms` section for the definitions of these relations.
 
 * **host_based_services**
+* **kdc_listen**
 * **kdc_ports**
+* **kdc_tcp_listen**
 * **kdc_tcp_ports**
 * **no_host_referral**
 * **restrict_anonymous_to_tgt**
@@ -57,6 +59,11 @@ subsection does not contain a relation for the tag.  See the
 **kdc_max_dgram_reply_size**
     Specifies the maximum packet size that can be sent over UDP.  The
     default value is 4096 bytes.
+
+**kdc_tcp_listen_backlog**
+    (Integer.)  Set the size of the listen queue length for the KDC
+    daemon.  The value may be limited by OS settings.  The default
+    value is 5.
 
 
 .. _kdc_realms:
@@ -202,18 +209,34 @@ The following tags may be specified in a [realms] subsection:
 
 **iprop_master_ulogsize**
     (Integer.)  Specifies the maximum number of log entries to be
-    retained for incremental propagation.  The maximum value is 2500;
-    the default value is 1000.
+    retained for incremental propagation.  The default value is 1000.
+    Prior to release 1.11, the maximum value was 2500.
 
 **iprop_slave_poll**
     (Delta time string.)  Specifies how often the slave KDC polls for
     new updates from the master.  The default value is ``2m`` (that
     is, two minutes).
 
+**iprop_listen**
+    (Whitespace- or comma-separated list.)  Specifies the iprop RPC
+    listening addresses and/or ports for the :ref:`kadmind(8)` daemon.
+    Each entry may be an interface address, a port number, or an
+    address and port number separated by a colon.  If the address
+    contains colons, enclose it in square brackets.  If no address is
+    specified, the wildcard address is used.  If kadmind fails to bind
+    to any of the specified addresses, it will fail to start.  The
+    default (when **iprop_enable** is true) is to bind to the wildcard
+    address at the port specified in **iprop_port**.  New in release
+    1.15.
+
 **iprop_port**
     (Port number.)  Specifies the port number to be used for
-    incremental propagation.  This is required in both master and
-    slave configuration files.
+    incremental propagation.  When **iprop_enable** is true, this
+    relation is required in the slave configuration file, and this
+    relation or **iprop_listen** is required in the master
+    configuration file, as there is no default port number.  Port
+    numbers specified in **iprop_listen** entries will override this
+    port number for the :ref:`kadmind(8)` daemon.
 
 **iprop_resync_timeout**
     (Delta time string.)  Specifies the amount of time to wait for a
@@ -232,33 +255,85 @@ The following tags may be specified in a [realms] subsection:
     **database_name** is used.  Determination of the **iprop_logfile**
     default value will not use values from the [dbmodules] section.)
 
+**kadmind_listen**
+    (Whitespace- or comma-separated list.)  Specifies the kadmin RPC
+    listening addresses and/or ports for the :ref:`kadmind(8)` daemon.
+    Each entry may be an interface address, a port number, or an
+    address and port number separated by a colon.  If the address
+    contains colons, enclose it in square brackets.  If no address is
+    specified, the wildcard address is used.  If kadmind fails to bind
+    to any of the specified addresses, it will fail to start.  The
+    default is to bind to the wildcard address at the port specified
+    in **kadmind_port**, or the standard kadmin port (749).  New in
+    release 1.15.
+
 **kadmind_port**
     (Port number.)  Specifies the port on which the :ref:`kadmind(8)`
-    daemon is to listen for this realm.  The assigned port for kadmind
-    is 749, which is used by default.
+    daemon is to listen for this realm.  Port numbers specified in
+    **kadmind_listen** entries will override this port number.  The
+    assigned port for kadmind is 749, which is used by default.
 
 **key_stash_file**
     (String.)  Specifies the location where the master key has been
     stored (via kdb5_util stash).  The default is |kdcdir|\
     ``/.k5.REALM``, where *REALM* is the Kerberos realm.
 
+**kdc_listen**
+    (Whitespace- or comma-separated list.)  Specifies the UDP
+    listening addresses and/or ports for the :ref:`krb5kdc(8)` daemon.
+    Each entry may be an interface address, a port number, or an
+    address and port number separated by a colon.  If the address
+    contains colons, enclose it in square brackets.  If no address is
+    specified, the wildcard address is used.  If no port is specified,
+    the standard port (88) is used.  If the KDC daemon fails to bind
+    to any of the specified addresses, it will fail to start.  The
+    default is to bind to the wildcard address on the standard port.
+    New in release 1.15.
+
 **kdc_ports**
-    (Whitespace- or comma-separated list.)  Lists the ports on which
-    the Kerberos server should listen for UDP requests, as a
-    comma-separated list of integers.  The default value is
-    ``88,750``, which are the assigned Kerberos port and the port
-    historically used by Kerberos V4.
+    (Whitespace- or comma-separated list, deprecated.)  Prior to
+    release 1.15, this relation lists the ports for the
+    :ref:`krb5kdc(8)` daemon to listen on for UDP requests.  In
+    release 1.15 and later, it has the same meaning as **kdc_listen**
+    if that relation is not defined.
+
+**kdc_tcp_listen**
+    (Whitespace- or comma-separated list.)  Specifies the TCP
+    listening addresses and/or ports for the :ref:`krb5kdc(8)` daemon.
+    Each entry may be an interface address, a port number, or an
+    address and port number separated by a colon.  If the address
+    contains colons, enclose it in square brackets.  If no address is
+    specified, the wildcard address is used.  If no port is specified,
+    the standard port (88) is used.  To disable listening on TCP, set
+    this relation to the empty string with ``kdc_tcp_listen = ""``.
+    If the KDC daemon fails to bind to any of the specified addresses,
+    it will fail to start.  The default is to bind to the wildcard
+    address on the standard port.  New in release 1.15.
 
 **kdc_tcp_ports**
-    (Whitespace- or comma-separated list.)  Lists the ports on which
-    the Kerberos server should listen for TCP connections, as a
-    comma-separated list of integers.  If this relation is not
-    specified, the compiled-in default is not to listen for TCP
-    connections at all.
+    (Whitespace- or comma-separated list, deprecated.)  Prior to
+    release 1.15, this relation lists the ports for the
+    :ref:`krb5kdc(8)` daemon to listen on for UDP requests.  In
+    release 1.15 and later, it has the same meaning as
+    **kdc_tcp_listen** if that relation is not defined.
 
-    If you wish to change this (note that the current implementation
-    has little protection against denial-of-service attacks), the
-    standard port number assigned for Kerberos TCP traffic is port 88.
+**kpasswd_listen**
+    (Comma-separated list.)  Specifies the kpasswd listening addresses
+    and/or ports for the :ref:`kadmind(8)` daemon.  Each entry may be
+    an interface address, a port number, or an address and port number
+    separated by a colon.  If the address contains colons, enclose it
+    in square brackets.  If no address is specified, the wildcard
+    address is used.  If kadmind fails to bind to any of the specified
+    addresses, it will fail to start.  The default is to bind to the
+    wildcard address at the port specified in **kpasswd_port**, or the
+    standard kpasswd port (464).  New in release 1.15.
+
+**kpasswd_port**
+    (Port number.)  Specifies the port on which the :ref:`kadmind(8)`
+    daemon is to listen for password change requests for this realm.
+    Port numbers specified in **kpasswd_listen** entries will override
+    this port number.  The assigned port for password change requests
+    is 464, which is used by default.
 
 **master_key_name**
     (String.)  Specifies the name of the principal associated with the
@@ -342,7 +417,15 @@ definitions of these relations.
 
 * **ldap_kerberos_container_dn**
 * **ldap_kdc_dn**
+* **ldap_kdc_sasl_authcid**
+* **ldap_kdc_sasl_authzid**
+* **ldap_kdc_sasl_mech**
+* **ldap_kdc_sasl_realm**
 * **ldap_kadmind_dn**
+* **ldap_kadmind_sasl_authcid**
+* **ldap_kadmind_sasl_authzid**
+* **ldap_kadmind_sasl_mech**
+* **ldap_kadmind_sasl_realm**
 * **ldap_service_password_file**
 * **ldap_servers**
 * **ldap_conns_per_server**
@@ -394,18 +477,41 @@ The following tags may be specified in a [dbmodules] subsection:
     This LDAP-specific tag indicates the number of connections to be
     maintained per LDAP server.
 
-**ldap_kadmind_dn**
-    This LDAP-specific tag indicates the default bind DN for the
-    :ref:`kadmind(8)` daemon.  kadmind does a login to the directory
-    as this object.  This object should have the rights to read and
-    write the Kerberos data in the LDAP database.
+**ldap_kdc_dn** and **ldap_kadmind_dn**
+    These LDAP-specific tags indicate the default DN for binding to
+    the LDAP server.  The :ref:`krb5kdc(8)` daemon uses
+    **ldap_kdc_dn**, while the :ref:`kadmind(8)` daemon and other
+    administrative programs use **ldap_kadmind_dn**.  The kadmind DN
+    must have the rights to read and write the Kerberos data in the
+    LDAP database.  The KDC DN must have the same rights, unless
+    **disable_lockout** and **disable_last_success** are true, in
+    which case it only needs to have rights to read the Kerberos data.
+    These tags are ignored if a SASL mechanism is set with
+    **ldap_kdc_sasl_mech** or **ldap_kadmind_sasl_mech**.
 
-**ldap_kdc_dn**
-    This LDAP-specific tag indicates the default bind DN for the
-    :ref:`krb5kdc(8)` daemon.  The KDC does a login to the directory
-    as this object.  This object should have the rights to read the
-    Kerberos data in the LDAP database, and to write data unless
-    **disable_lockout** and **disable_last_success** are true.
+**ldap_kdc_sasl_mech** and **ldap_kadmind_sasl_mech**
+    These LDAP-specific tags specify the SASL mechanism (such as
+    ``EXTERNAL``) to use when binding to the LDAP server.  New in
+    release 1.13.
+
+**ldap_kdc_sasl_authcid** and **ldap_kadmind_sasl_authcid**
+    These LDAP-specific tags specify the SASL authentication identity
+    to use when binding to the LDAP server.  Not all SASL mechanisms
+    require an authentication identity.  If the SASL mechanism
+    requires a secret (such as the password for ``DIGEST-MD5``), these
+    tags also determine the name within the
+    **ldap_service_password_file** where the secret is stashed.  New
+    in release 1.13.
+
+**ldap_kdc_sasl_authzid** and **ldap_kadmind_sasl_authzid**
+    These LDAP-specific tags specify the SASL authorization identity
+    to use when binding to the LDAP server.  In most circumstances
+    they do not need to be specified.  New in release 1.13.
+
+**ldap_kdc_sasl_realm** and **ldap_kadmind_sasl_realm**
+    These LDAP-specific tags specify the SASL realm to use when
+    binding to the LDAP server.  In most circumstances they do not
+    need to be set.  New in release 1.13.
 
 **ldap_kerberos_container_dn**
     This LDAP-specific tag indicates the DN of the container object
@@ -421,8 +527,16 @@ The following tags may be specified in a [dbmodules] subsection:
 **ldap_service_password_file**
     This LDAP-specific tag indicates the file containing the stashed
     passwords (created by ``kdb5_ldap_util stashsrvpw``) for the
-    **ldap_kadmind_dn** and **ldap_kdc_dn** objects.  This file must
-    be kept secure.
+    **ldap_kdc_dn** and **ldap_kadmind_dn** objects, or for the
+    **ldap_kdc_sasl_authcid** or **ldap_kadmind_sasl_authcid** names
+    for SASL authentication.  This file must be kept secure.
+
+**unlockiter**
+    If set to ``true``, this DB2-specific tag causes iteration
+    operations to release the database lock while processing each
+    principal.  Setting this flag to ``true`` can prevent extended
+    blocking of KDC or kadmin operations when dumps of large databases
+    are in progress.  First introduced in release 1.13.
 
 The following tag may be specified directly in the [dbmodules]
 section to control where database modules are loaded from:
@@ -437,8 +551,8 @@ section to control where database modules are loaded from:
 ~~~~~~~~~
 
 The [logging] section indicates how :ref:`krb5kdc(8)` and
-:ref:`kadmind(8)` perform logging.  The keys in this section are
-daemon names, which may be one of:
+:ref:`kadmind(8)` perform logging.  It may contain the following
+relations:
 
 **admin_server**
     Specifies how :ref:`kadmind(8)` performs logging.
@@ -450,7 +564,14 @@ daemon names, which may be one of:
     Specifies how either daemon performs logging in the absence of
     relations specific to the daemon.
 
-Values are of the following forms:
+**debug**
+    (Boolean value.)  Specifies whether debugging messages are
+    included in log outputs other than SYSLOG.  Debugging messages are
+    always included in the system log output because syslog performs
+    its own priority filtering.  The default value is false.  New in
+    release 1.15.
+
+Logging specifications may have the following forms:
 
 **FILE=**\ *filename* or **FILE:**\ *filename*
     This value causes the daemon's logging messages to go to the
@@ -491,9 +612,7 @@ In the following example, the logging messages from the KDC will go to
 the console and to the system log under the facility LOG_DAEMON with
 default severity of LOG_INFO; and the logging messages from the
 administrative server will be appended to the file
-``/var/adm/kadmin.log`` and sent to the device ``/dev/tty04``.
-
- ::
+``/var/adm/kadmin.log`` and sent to the device ``/dev/tty04``. ::
 
     [logging]
         kdc = CONSOLE
@@ -543,9 +662,12 @@ For each token type, the following tags may be specified:
     passed to the RADIUS server.  Otherwise, the realm will be
     included.  The default value is ``true``.
 
-In the following example, requests are sent to a remote server via UDP.
+**indicator**
+    This tag specifies an authentication indicator to be included in
+    the ticket if this token type is used to authenticate.  This
+    option may be specified multiple times.  (New in release 1.14.)
 
- ::
+In the following example, requests are sent to a remote server via UDP::
 
     [otp]
         MyRemoteTokenType = {
@@ -559,9 +681,7 @@ In the following example, requests are sent to a remote server via UDP.
 An implicit default token type named ``DEFAULT`` is defined for when
 the per-principal configuration does not specify a token type.  Its
 configuration is shown below.  You may override this token type to
-something applicable for your situation.
-
- ::
+something applicable for your situation::
 
     [otp]
         DEFAULT = {
@@ -579,18 +699,14 @@ PKINIT options
           realm-specific value over-rides, does not add to, a generic
           [kdcdefaults] specification.  The search order is:
 
-1. realm-specific subsection of [realms],
-
-    ::
+1. realm-specific subsection of [realms]::
 
        [realms]
            EXAMPLE.COM = {
                pkinit_anchors = FILE:/usr/local/example.com.crt
            }
 
-2. generic value in the [kdcdefaults] section.
-
-    ::
+2. generic value in the [kdcdefaults] section::
 
        [kdcdefaults]
            pkinit_anchors = DIR:/usr/local/generic_trusted_cas/
@@ -644,12 +760,13 @@ For information about the syntax of some of these options, see
     Specifies the location of the KDC's X.509 identity information.
     This option is required if pkinit is to be supported by the KDC.
 
+**pkinit_indicator**
+    Specifies an authentication indicator to include in the ticket if
+    pkinit is used to authenticate.  This option may be specified
+    multiple times.  (New in release 1.14.)
+
 **pkinit_kdc_ocsp**
     Specifies the location of the KDC's OCSP.
-
-**pkinit_mapping_file**
-    Specifies the name of the ACL pkinit mapping file.  This file maps
-    principals to the certificates that they can use.
 
 **pkinit_pool**
     Specifies the location of intermediate certificates which may be
@@ -697,8 +814,10 @@ des-cbc-raw                                          DES cbc mode raw (weak)
 des3-cbc-raw                                         Triple DES cbc mode raw (weak)
 des3-cbc-sha1 des3-hmac-sha1 des3-cbc-sha1-kd        Triple DES cbc mode with HMAC/sha1
 des-hmac-sha1                                        DES with HMAC/sha1 (weak)
-aes256-cts-hmac-sha1-96 aes256-cts AES-256           CTS mode with 96-bit SHA-1 HMAC
-aes128-cts-hmac-sha1-96 aes128-cts AES-128           CTS mode with 96-bit SHA-1 HMAC
+aes256-cts-hmac-sha1-96 aes256-cts aes256-sha1       AES-256 CTS mode with 96-bit SHA-1 HMAC
+aes128-cts-hmac-sha1-96 aes128-cts aes128-sha1       AES-128 CTS mode with 96-bit SHA-1 HMAC
+aes256-cts-hmac-sha384-192 aes256-sha2               AES-256 CTS mode with 192-bit SHA-384 HMAC
+aes128-cts-hmac-sha256-128 aes128-sha2               AES-128 CTS mode with 128-bit SHA-256 HMAC
 arcfour-hmac rc4-hmac arcfour-hmac-md5               RC4 with HMAC/MD5
 arcfour-hmac-exp rc4-hmac-exp arcfour-hmac-md5-exp   Exportable RC4 with HMAC/MD5 (weak)
 camellia256-cts-cmac camellia256-cts                 Camellia-256 CTS mode with CMAC
@@ -723,8 +842,13 @@ front.
 While **aes128-cts** and **aes256-cts** are supported for all Kerberos
 operations, they are not supported by very old versions of our GSSAPI
 implementation (krb5-1.3.1 and earlier).  Services running versions of
-krb5 without AES support must not be given AES keys in the KDC
-database.
+krb5 without AES support must not be given keys of these encryption
+types in the KDC database.
+
+The **aes128-sha2** and **aes256-sha2** encryption types are new in
+release 1.15.  Services running versions of krb5 without support for
+these newer encryption types must not be given keys of these
+encryption types in the KDC database.
 
 
 .. _Keysalt_lists:
@@ -737,9 +861,7 @@ commands and configuration parameters that affect generation of keys
 take lists of enctype-salttype ("keysalt") pairs, known as *keysalt
 lists*.  Each keysalt pair is an enctype name followed by a salttype
 name, in the format *enc*:*salt*.  Individual keysalt list members are
-separated by comma (",") characters or space characters.  For example:
-
- ::
+separated by comma (",") characters or space characters.  For example::
 
     kadmin -e aes256-cts:normal,aes128-cts:normal
 
@@ -765,20 +887,18 @@ special           generate a random salt
 Sample kdc.conf File
 --------------------
 
-Here's an example of a kdc.conf file:
-
- ::
+Here's an example of a kdc.conf file::
 
     [kdcdefaults]
-        kdc_ports = 88
-
+        kdc_listen = 88
+        kdc_tcp_listen = 88
     [realms]
         ATHENA.MIT.EDU = {
             kadmind_port = 749
             max_life = 12h 0m 0s
             max_renewable_life = 7d 0h 0m 0s
-            master_key_type = des3-hmac-sha1
-            supported_enctypes = des3-hmac-sha1:normal des-cbc-crc:normal des-cbc-crc:v4
+            master_key_type = aes256-cts-hmac-sha1-96
+            supported_enctypes = aes256-cts-hmac-sha1-96:normal aes128-cts-hmac-sha1-96:normal
             database_module = openldap_ldapconf
         }
 

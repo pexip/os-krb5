@@ -41,6 +41,9 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+#ifndef _WIN32
+#include <glob.h>
+#endif
 
 #define	M_DEFAULT	"default"
 
@@ -58,6 +61,7 @@
 #ifndef MECH_CONF
 #define	MECH_CONF "/etc/gss/mech"
 #endif
+#define MECH_CONF_PATTERN MECH_CONF ".d/*.conf"
 
 /* Local functions */
 static void addConfigEntry(const char *oidStr, const char *oid,
@@ -90,8 +94,8 @@ static gss_mech_info g_mechList = NULL;
 static gss_mech_info g_mechListTail = NULL;
 static k5_mutex_t g_mechListLock = K5_MUTEX_PARTIAL_INITIALIZER;
 static time_t g_confFileModTime = (time_t)0;
+static time_t g_confLastCall = (time_t)0;
 
-static time_t g_mechSetTime = (time_t)0;
 static gss_OID_set_desc g_mechSet = { 0, NULL };
 static k5_mutex_t g_mechSetLock = K5_MUTEX_PARTIAL_INITIALIZER;
 
@@ -164,7 +168,7 @@ gss_OID *oid;
 	OM_uint32 major;
 	gss_mech_info aMech;
 
-	if (minor_status == NULL)
+	if (minor_status == NULL || oid == NULL)
 		return (GSS_S_CALL_INACCESSIBLE_WRITE);
 
 	*minor_status = gssint_mechglue_initialize_library();
@@ -198,12 +202,55 @@ gss_OID *oid;
 	return (generic_gss_release_oid(minor_status, oid));
 } /* gss_release_oid */
 
+/*
+ * Wrapper around inquire_attrs_for_mech to determine whether a mechanism has
+ * the deprecated attribute.  Must be called without g_mechSetLock since it
+ * will call into the mechglue.
+ */
+static int
+is_deprecated(gss_OID element)
+{
+	OM_uint32 major, minor;
+	gss_OID_set mech_attrs = GSS_C_NO_OID_SET;
+	int deprecated = 0;
+
+	major = gss_inquire_attrs_for_mech(&minor, element, &mech_attrs, NULL);
+	if (major == GSS_S_COMPLETE) {
+		gss_test_oid_set_member(&minor, (gss_OID)GSS_C_MA_DEPRECATED,
+					mech_attrs, &deprecated);
+	}
+
+	if (mech_attrs != GSS_C_NO_OID_SET)
+		gss_release_oid_set(&minor, &mech_attrs);
+
+	return deprecated;
+}
+
+/*
+ * Removes mechs with the deprecated attribute from an OID set.  Must be
+ * called without g_mechSetLock held since it calls into the mechglue.
+ */
+static void
+prune_deprecated(gss_OID_set mech_set)
+{
+	OM_uint32 i, j;
+
+	j = 0;
+	for (i = 0; i < mech_set->count; i++) {
+	    if (!is_deprecated(&mech_set->elements[i]))
+		mech_set->elements[j++] = mech_set->elements[i];
+	    else
+		gssalloc_free(mech_set->elements[i].elements);
+	}
+	mech_set->count = j;
+}
 
 /*
  * this function will return an oid set indicating available mechanisms.
  * The set returned is based on configuration file entries and
  * NOT on the loaded mechanisms.  This function does not check if any
  * of these can actually be loaded.
+ * Deprecated mechanisms will not be returned.
  * This routine needs direct access to the mechanism list.
  * To avoid reading the configuration file each call, we will save a
  * a mech oid set, and only update it once the file has changed.
@@ -213,8 +260,6 @@ gss_indicate_mechs(minorStatus, mechSet_out)
 OM_uint32 *minorStatus;
 gss_OID_set *mechSet_out;
 {
-	char *fileName;
-	struct stat fileInfo;
 	OM_uint32 status;
 
 	/* Initialize outputs. */
@@ -233,16 +278,6 @@ gss_OID_set *mechSet_out;
 	if (*minorStatus != 0)
 		return (GSS_S_FAILURE);
 
-	fileName = MECH_CONF;
-
-	/*
-	 * If we have already computed the mechanisms supported and if it
-	 * is still valid; make a copy and return to caller,
-	 * otherwise build it first.
-	 */
-	if ((stat(fileName, &fileInfo) == 0 &&
-		fileInfo.st_mtime > g_mechSetTime)) {
-	} /* if g_mechSet is out of date or not initialized */
 	if (build_mechSet())
 		return GSS_S_FAILURE;
 
@@ -253,6 +288,10 @@ gss_OID_set *mechSet_out;
 	k5_mutex_lock(&g_mechSetLock);
 	status = generic_gss_copy_oid_set(minorStatus, &g_mechSet, mechSet_out);
 	k5_mutex_unlock(&g_mechSetLock);
+
+	if (*mechSet_out != GSS_C_NO_OID_SET)
+		prune_deprecated(*mechSet_out);
+
 	return (status);
 } /* gss_indicate_mechs */
 
@@ -288,20 +327,6 @@ build_mechSet(void)
 	 * modified.
 	 */
 	k5_mutex_lock(&g_mechListLock);
-
-#if 0
-	/*
-	 * this checks for the case when we need to re-construct the
-	 * g_mechSet structure, but the mechanism list is upto date
-	 * (because it has been read by someone calling
-	 * gssint_get_mechanism)
-	 */
-	if (fileInfo.st_mtime > g_confFileModTime)
-	{
-		g_confFileModTime = fileInfo.st_mtime;
-		loadConfigFile(fileName);
-	}
-#endif
 
 	updateMechList();
 
@@ -410,6 +435,66 @@ const gss_OID oid;
 	return (modOptions);
 } /* gssint_get_modOptions */
 
+/* Return the mtime of filename or its eventual symlink target (if it is a
+ * symlink), whichever is larger.  Return (time_t)-1 if lstat or stat fails. */
+static time_t
+check_link_mtime(const char *filename, time_t *mtime_out)
+{
+	struct stat st1, st2;
+
+	if (lstat(filename, &st1) != 0)
+		return (time_t)-1;
+	if (!S_ISLNK(st1.st_mode))
+		return st1.st_mtime;
+	if (stat(filename, &st2) != 0)
+		return (time_t)-1;
+	return (st1.st_mtime > st2.st_mtime) ? st1.st_mtime : st2.st_mtime;
+}
+
+/* Load pathname if it is newer than last.  Update *highest to the maximum of
+ * its current value and pathname's mod time. */
+static void
+load_if_changed(const char *pathname, time_t last, time_t *highest)
+{
+	time_t mtime;
+
+	mtime = check_link_mtime(pathname, &mtime);
+	if (mtime == (time_t)-1)
+		return;
+	if (mtime > *highest)
+		*highest = mtime;
+	if (mtime > last)
+		loadConfigFile(pathname);
+}
+
+#ifndef _WIN32
+/* Try to load any config files which have changed since the last call.  Config
+ * files are MECH_CONF and any files matching MECH_CONF_PATTERN. */
+static void
+loadConfigFiles()
+{
+	glob_t globbuf;
+	time_t highest = 0, now;
+	char **path;
+
+	/* Don't glob and stat more than once per second. */
+	if (time(&now) == (time_t)-1 || now == g_confLastCall)
+		return;
+	g_confLastCall = now;
+
+	load_if_changed(MECH_CONF, g_confFileModTime, &highest);
+
+	memset(&globbuf, 0, sizeof(globbuf));
+	if (glob(MECH_CONF_PATTERN, 0, NULL, &globbuf) == 0) {
+		for (path = globbuf.gl_pathv; *path != NULL; path++)
+			load_if_changed(*path, g_confFileModTime, &highest);
+	}
+	globfree(&globbuf);
+
+	g_confFileModTime = highest;
+}
+#endif
+
 /*
  * determines if the mechList needs to be updated from file
  * and performs the update.
@@ -428,17 +513,7 @@ updateMechList(void)
 	loadConfigFromRegistry(HKEY_CURRENT_USER, MECH_KEY);
 	loadConfigFromRegistry(HKEY_LOCAL_MACHINE, MECH_KEY);
 #else /* _WIN32 */
-	char *fileName;
-	struct stat fileInfo;
-
-	fileName = MECH_CONF;
-
-	/* check if mechList needs updating */
-	if (stat(fileName, &fileInfo) != 0 ||
-	    g_confFileModTime >= fileInfo.st_mtime)
-		return;
-	g_confFileModTime = fileInfo.st_mtime;
-	loadConfigFile(fileName);
+	loadConfigFiles();
 #endif /* !_WIN32 */
 
 	/* Load any unloaded interposer mechanisms immediately, to make sure we
@@ -485,10 +560,8 @@ releaseMechInfo(gss_mech_info *pCf)
 	if (cf->mech_type != GSS_C_NO_OID &&
 	    cf->mech_type != &cf->mech->mech_type)
 		generic_gss_release_oid(&minor_status, &cf->mech_type);
-	if (cf->mech != NULL && cf->freeMech) {
-		memset(cf->mech, 0, sizeof(*cf->mech));
-		free(cf->mech);
-	}
+	if (cf->freeMech)
+		zapfree(cf->mech, sizeof(*cf->mech));
 	if (cf->dl_handle != NULL)
 		krb5int_close_plugin(cf->dl_handle);
 	if (cf->int_mech_type != GSS_C_NO_OID)
@@ -591,8 +664,10 @@ gssint_register_mechinfo(gss_mech_info template)
 		if (krb5int_get_plugin_func(_dl, \
 					    #_symbol, \
 					    (void (**)())&(_mech)->_symbol, \
-					    &errinfo) || errinfo.code) \
+					    &errinfo) || errinfo.code) {  \
 			(_mech)->_symbol = NULL; \
+			k5_clear_error(&errinfo); \
+			} \
 	} while (0)
 
 /*
@@ -680,11 +755,11 @@ build_dynamicMech(void *dl, const gss_OID mech_type)
         GSS_ADD_DYNAMIC_METHOD_NOLOOP(dl, mech, gss_inquire_mech_for_saslname);
         /* RFC 5587 */
         GSS_ADD_DYNAMIC_METHOD_NOLOOP(dl, mech, gss_inquire_attrs_for_mech);
-	GSS_ADD_DYNAMIC_METHOD(dl, mech, gss_acquire_cred_from);
-	GSS_ADD_DYNAMIC_METHOD(dl, mech, gss_store_cred_into);
+	GSS_ADD_DYNAMIC_METHOD_NOLOOP(dl, mech, gss_acquire_cred_from);
+	GSS_ADD_DYNAMIC_METHOD_NOLOOP(dl, mech, gss_store_cred_into);
 	GSS_ADD_DYNAMIC_METHOD(dl, mech, gssspi_acquire_cred_with_password);
-	GSS_ADD_DYNAMIC_METHOD(dl, mech, gss_export_cred);
-	GSS_ADD_DYNAMIC_METHOD(dl, mech, gss_import_cred);
+	GSS_ADD_DYNAMIC_METHOD_NOLOOP(dl, mech, gss_export_cred);
+	GSS_ADD_DYNAMIC_METHOD_NOLOOP(dl, mech, gss_import_cred);
 	GSS_ADD_DYNAMIC_METHOD(dl, mech, gssspi_import_sec_context_by_mech);
 	GSS_ADD_DYNAMIC_METHOD(dl, mech, gssspi_import_name_by_mech);
 	GSS_ADD_DYNAMIC_METHOD(dl, mech, gssspi_import_cred_by_mech);
@@ -704,8 +779,10 @@ build_dynamicMech(void *dl, const gss_OID mech_type)
 					    "gssi" #_nsym,		\
 					    (void (**)())&(_mech)->_psym \
 					    ## _nsym,			\
-					    &errinfo) || errinfo.code)	\
+					    &errinfo) || errinfo.code) { \
 			(_mech)->_psym ## _nsym = NULL;			\
+			k5_clear_error(&errinfo);			\
+		}							\
 	} while (0)
 
 /* Build an interposer mechanism function table from dl. */

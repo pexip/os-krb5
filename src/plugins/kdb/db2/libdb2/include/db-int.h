@@ -132,13 +132,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <errno.h>
-#ifdef HAVE_STDINT_H
 #include <stdint.h>
-#endif
-#ifdef HAVE_INTTYPES_H
-/* Tru64 5.1: int8_t is defined here, and stdint.h doesn't exist.  */
-#include <inttypes.h>
-#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>
@@ -166,11 +160,15 @@ typedef u_int32_t	recno_t;
 	((char *)&a)[3] = ((char *)&_tmp)[0];				\
 }
 #define	P_32_SWAP(a) {							\
-	u_int32_t _tmp = *(u_int32_t *)a;				\
-	((char *)a)[0] = ((char *)&_tmp)[3];				\
-	((char *)a)[1] = ((char *)&_tmp)[2];				\
-	((char *)a)[2] = ((char *)&_tmp)[1];				\
-	((char *)a)[3] = ((char *)&_tmp)[0];				\
+	char _tmp[4];							\
+	_tmp[0] = ((char *)a)[0];					\
+	_tmp[1] = ((char *)a)[1];					\
+	_tmp[2] = ((char *)a)[2];					\
+	_tmp[3] = ((char *)a)[3];					\
+	((char *)a)[0] = _tmp[3];					\
+	((char *)a)[1] = _tmp[2];					\
+	((char *)a)[2] = _tmp[1];					\
+	((char *)a)[3] = _tmp[0];					\
 }
 #define	P_32_COPY(a, b) {						\
 	((char *)&(b))[0] = ((char *)&(a))[3];				\
@@ -191,9 +189,11 @@ typedef u_int32_t	recno_t;
 	((char *)&a)[1] = ((char *)&_tmp)[0];				\
 }
 #define	P_16_SWAP(a) {							\
-	u_int16_t _tmp = *(u_int16_t *)a;				\
-	((char *)a)[0] = ((char *)&_tmp)[1];				\
-	((char *)a)[1] = ((char *)&_tmp)[0];				\
+	char _tmp[2];							\
+	_tmp[0] = ((char *)a)[0];					\
+	_tmp[1] = ((char *)a)[1];					\
+	((char *)a)[0] = _tmp[1];					\
+	((char *)a)[1] = _tmp[0];					\
 }
 #define	P_16_COPY(a, b) {						\
 	((char *)&(b))[0] = ((char *)&(a))[1];				\

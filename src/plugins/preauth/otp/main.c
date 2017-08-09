@@ -40,8 +40,12 @@ static krb5_preauthtype otp_pa_type_list[] =
   { KRB5_PADATA_OTP_REQUEST, 0 };
 
 struct request_state {
+    krb5_context context;
     krb5_kdcpreauth_verify_respond_fn respond;
     void *arg;
+    krb5_enc_tkt_part *enc_tkt_reply;
+    krb5_kdcpreauth_callbacks preauth_cb;
+    krb5_kdcpreauth_rock rock;
 };
 
 static krb5_error_code
@@ -150,14 +154,22 @@ nonce_generate(krb5_context ctx, unsigned int length, krb5_data *nonce_out)
 }
 
 static void
-on_response(void *data, krb5_error_code retval, otp_response response)
+on_response(void *data, krb5_error_code retval, otp_response response,
+            char *const *indicators)
 {
     struct request_state rs = *(struct request_state *)data;
+    char *const *ind;
 
     free(data);
 
     if (retval == 0 && response != otp_response_success)
         retval = KRB5_PREAUTH_FAILED;
+
+    if (retval == 0)
+        rs.enc_tkt_reply->flags |= TKT_FLG_PRE_AUTH;
+
+    for (ind = indicators; ind != NULL && *ind != NULL && retval == 0; ind++)
+        retval = rs.preauth_cb->add_auth_indicator(rs.context, rs.rock, *ind);
 
     rs.respond(rs.arg, retval, NULL, NULL, NULL);
 }
@@ -263,8 +275,6 @@ otp_verify(krb5_context context, krb5_data *req_pkt, krb5_kdc_req *request,
     krb5_data d, plaintext;
     char *config;
 
-    enc_tkt_reply->flags |= TKT_FLG_PRE_AUTH;
-
     /* Get the FAST armor key. */
     armor_key = cb->fast_armor(context, rock);
     if (armor_key == NULL) {
@@ -298,12 +308,17 @@ otp_verify(krb5_context context, krb5_data *req_pkt, krb5_kdc_req *request,
         goto error;
     }
 
-    /* Create the request state. */
+    /* Create the request state.  Save the response callback, and the
+     * enc_tkt_reply pointer so we can set the TKT_FLG_PRE_AUTH flag later. */
     rs = k5alloc(sizeof(struct request_state), &retval);
     if (rs == NULL)
         goto error;
+    rs->context = context;
     rs->arg = arg;
     rs->respond = respond;
+    rs->enc_tkt_reply = enc_tkt_reply;
+    rs->preauth_cb = cb;
+    rs->rock = rock;
 
     /* Get the principal's OTP configuration string. */
     retval = cb->get_string(context, rock, "otp", &config);

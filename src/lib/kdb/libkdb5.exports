@@ -24,6 +24,7 @@ krb5_db_lock
 krb5_db_mkey_list_alias
 krb5_db_put_principal
 krb5_db_refresh_config
+krb5_db_rename_principal
 krb5_db_set_context
 krb5_db_setup_mkey_name
 krb5_db_sign_authdata
@@ -58,6 +59,7 @@ krb5_dbe_lookup_mod_princ_data
 krb5_dbe_lookup_tl_data
 krb5_dbe_search_enctype
 krb5_dbe_set_string
+krb5_dbe_specialize_salt
 krb5_dbe_update_actkvno
 krb5_dbe_update_last_admin_unlock
 krb5_dbe_update_last_pwd_change
@@ -85,14 +87,20 @@ krb5_db_delete_policy
 krb5_db_free_policy
 krb5_def_store_mkey_list
 krb5_db_promote
+krb5_db_register_keytab
+ulog_add_update
 ulog_init_header
 ulog_map
 ulog_set_role
 ulog_free_entries
-ulog_sync_header
 xdr_kdb_last_t
 xdr_kdb_incr_result_t
 xdr_kdb_fullresync_result_t
+ulog_fini
 ulog_get_entries
+ulog_get_last
+ulog_get_sno_status
 ulog_replay
+ulog_set_last
 xdr_kdb_incr_update_t
+krb5_dbe_sort_key_data

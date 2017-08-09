@@ -110,7 +110,7 @@ typedef long            kadm5_ret_t;
 #define KADM5_RANDKEY_USED      0x100000
 #endif
 #define KADM5_LOAD              0x200000
-#define KADM5_NOKEY             0x400000
+#define KADM5_KEY_HIST          0x400000
 
 /* all but KEY_DATA, TL_DATA, LOAD */
 #define KADM5_PRINCIPAL_NORMAL_MASK 0x41ffff
@@ -145,7 +145,7 @@ typedef long            kadm5_ret_t;
 #define KADM5_CONFIG_ENCTYPE            0x00000200
 #define KADM5_CONFIG_ADBNAME            0x00000400
 #define KADM5_CONFIG_ADB_LOCKFILE       0x00000800
-/*#define KADM5_CONFIG_PROFILE          0x00001000*/
+#define KADM5_CONFIG_KADMIND_LISTEN     0x00001000
 #define KADM5_CONFIG_ACL_FILE           0x00002000
 #define KADM5_CONFIG_KADMIND_PORT       0x00004000
 #define KADM5_CONFIG_ENCTYPES           0x00008000
@@ -156,9 +156,7 @@ typedef long            kadm5_ret_t;
 #define KADM5_CONFIG_OLD_AUTH_GSSAPI    0x00100000
 #define KADM5_CONFIG_NO_AUTH            0x00200000
 #define KADM5_CONFIG_AUTH_NOFALLBACK    0x00400000
-#ifdef notyet /* Novell */
-#define KADM5_CONFIG_KPASSWD_SERVER     0x00800000
-#endif
+#define KADM5_CONFIG_KPASSWD_LISTEN     0x00800000
 #define KADM5_CONFIG_IPROP_ENABLED      0x01000000
 #define KADM5_CONFIG_ULOG_SIZE          0x02000000
 #define KADM5_CONFIG_POLL_TIME          0x04000000
@@ -166,6 +164,7 @@ typedef long            kadm5_ret_t;
 #define KADM5_CONFIG_IPROP_PORT         0x10000000
 #define KADM5_CONFIG_KVNO               0x20000000
 #define KADM5_CONFIG_IPROP_RESYNC_TIMEOUT   0x40000000
+#define KADM5_CONFIG_IPROP_LISTEN       0x80000000
 /*
  * permission bits
  */
@@ -277,7 +276,16 @@ typedef struct _kadm5_config_params {
 /*    char *            iprop_server;*/
     int                 iprop_port;
     int                 iprop_resync_timeout;
+    char *              kadmind_listen;
+    char *              kpasswd_listen;
+    char *              iprop_listen;
 } kadm5_config_params;
+
+typedef struct _kadm5_key_data {
+    krb5_kvno       kvno;
+    krb5_keyblock   key;
+    krb5_keysalt    salt;
+} kadm5_key_data;
 
 /*
  * functions
@@ -403,6 +411,12 @@ kadm5_ret_t    kadm5_setkey_principal_3(void *server_handle,
                                         krb5_keyblock *keyblocks,
                                         int n_keys);
 
+kadm5_ret_t    kadm5_setkey_principal_4(void *server_handle,
+                                        krb5_principal principal,
+                                        krb5_boolean keepold,
+                                        kadm5_key_data *key_data,
+                                        int n_key_data);
+
 kadm5_ret_t    kadm5_decrypt_key(void *server_handle,
                                  kadm5_principal_ent_t entry, krb5_int32
                                  ktype, krb5_int32 stype, krb5_int32
@@ -455,16 +469,11 @@ krb5_error_code kadm5_init_krb5_context (krb5_context *);
 
 krb5_error_code kadm5_init_iprop(void *server_handle, char **db_args);
 
-/*
- * kadm5_get_principal_keys is used only by kadmin.local to extract existing
- * keys from the database without changing them.  It should never be exposed
- * to the network protocol.
- */
 kadm5_ret_t    kadm5_get_principal_keys(void *server_handle,
                                         krb5_principal principal,
-                                        krb5_keyblock **keyblocks,
-                                        int *n_keys);
-
+                                        krb5_kvno kvno,
+                                        kadm5_key_data **key_data,
+                                        int *n_key_data);
 
 kadm5_ret_t    kadm5_purgekeys(void *server_handle,
                                krb5_principal principal,
@@ -483,6 +492,9 @@ kadm5_ret_t    kadm5_set_string(void *server_handle,
 kadm5_ret_t    kadm5_free_strings(void *server_handle,
                                   krb5_string_attr *strings,
                                   int count);
+
+kadm5_ret_t    kadm5_free_kadm5_key_data(krb5_context context, int n_key_data,
+                                         kadm5_key_data *key_data);
 
 KADM5INT_END_DECLS
 

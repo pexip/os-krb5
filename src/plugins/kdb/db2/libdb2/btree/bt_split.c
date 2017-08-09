@@ -215,7 +215,8 @@ __bt_split(t, sp, key, data, flags, ilen, argskip)
 		}
 
 		/* Split the parent page if necessary or shift the indices. */
-		if (h->upper - h->lower < nbytes + sizeof(indx_t)) {
+		if ((u_int32_t)h->upper - (u_int32_t)h->lower
+		    < nbytes + sizeof(indx_t)) {
 			sp = h;
 			h = h->pgno == P_ROOT ?
 			    bt_root(t, h, &l, &r, &skip, nbytes) :
@@ -237,7 +238,7 @@ __bt_split(t, sp, key, data, flags, ilen, argskip)
 			h->linp[skip] = h->upper -= nbytes;
 			dest = (char *)h + h->linp[skip];
 			memmove(dest, bi, nbytes);
-			((BINTERNAL *)dest)->pgno = rchild->pgno;
+			((BINTERNAL *)(void *)dest)->pgno = rchild->pgno;
 			break;
 		case P_BLEAF:
 			h->linp[skip] = h->upper -= nbytes;
@@ -245,9 +246,12 @@ __bt_split(t, sp, key, data, flags, ilen, argskip)
 			WR_BINTERNAL(dest, nksize ? nksize : bl->ksize,
 			    rchild->pgno, bl->flags & P_BIGKEY);
 			memmove(dest, bl->bytes, nksize ? nksize : bl->ksize);
-			if (bl->flags & P_BIGKEY &&
-			    bt_preserve(t, *(db_pgno_t *)bl->bytes) == RET_ERROR)
-				goto err1;
+			if (bl->flags & P_BIGKEY) {
+				db_pgno_t pgno;
+				memcpy(&pgno, bl->bytes, sizeof(pgno));
+				if (bt_preserve(t, pgno) == RET_ERROR)
+					goto err1;
+			}
 			break;
 		case P_RINTERNAL:
 			/*
@@ -258,14 +262,14 @@ __bt_split(t, sp, key, data, flags, ilen, argskip)
 				dest = (char *)h + h->linp[skip - 1];
 			else
 				dest = (char *)l + l->linp[NEXTINDEX(l) - 1];
-			((RINTERNAL *)dest)->nrecs = rec_total(lchild);
-			((RINTERNAL *)dest)->pgno = lchild->pgno;
+			((RINTERNAL *)(void *)dest)->nrecs = rec_total(lchild);
+			((RINTERNAL *)(void *)dest)->pgno = lchild->pgno;
 
 			/* Update the right page count. */
 			h->linp[skip] = h->upper -= nbytes;
 			dest = (char *)h + h->linp[skip];
-			((RINTERNAL *)dest)->nrecs = rec_total(rchild);
-			((RINTERNAL *)dest)->pgno = rchild->pgno;
+			((RINTERNAL *)(void *)dest)->nrecs = rec_total(rchild);
+			((RINTERNAL *)(void *)dest)->pgno = rchild->pgno;
 			break;
 		case P_RLEAF:
 			/*
@@ -276,14 +280,14 @@ __bt_split(t, sp, key, data, flags, ilen, argskip)
 				dest = (char *)h + h->linp[skip - 1];
 			else
 				dest = (char *)l + l->linp[NEXTINDEX(l) - 1];
-			((RINTERNAL *)dest)->nrecs = NEXTINDEX(lchild);
-			((RINTERNAL *)dest)->pgno = lchild->pgno;
+			((RINTERNAL *)(void *)dest)->nrecs = NEXTINDEX(lchild);
+			((RINTERNAL *)(void *)dest)->pgno = lchild->pgno;
 
 			/* Update the right page count. */
 			h->linp[skip] = h->upper -= nbytes;
 			dest = (char *)h + h->linp[skip];
-			((RINTERNAL *)dest)->nrecs = NEXTINDEX(rchild);
-			((RINTERNAL *)dest)->pgno = rchild->pgno;
+			((RINTERNAL *)(void *)dest)->nrecs = NEXTINDEX(rchild);
+			((RINTERNAL *)(void *)dest)->pgno = rchild->pgno;
 			break;
 		default:
 			abort();
@@ -568,9 +572,12 @@ bt_broot(t, h, l, r)
 		 * If the key is on an overflow page, mark the overflow chain
 		 * so it isn't deleted when the leaf copy of the key is deleted.
 		 */
-		if (bl->flags & P_BIGKEY &&
-		    bt_preserve(t, *(db_pgno_t *)bl->bytes) == RET_ERROR)
-			return (RET_ERROR);
+		if (bl->flags & P_BIGKEY) {
+			db_pgno_t pgno;
+			memcpy(&pgno, bl->bytes, sizeof(pgno));
+			if (bt_preserve(t, pgno) == RET_ERROR)
+				return (RET_ERROR);
+		}
 		break;
 	case P_BINTERNAL:
 		bi = GETBINTERNAL(r, 0);
@@ -578,7 +585,7 @@ bt_broot(t, h, l, r)
 		h->linp[1] = h->upper -= nbytes;
 		dest = (char *)h + h->upper;
 		memmove(dest, bi, nbytes);
-		((BINTERNAL *)dest)->pgno = r->pgno;
+		((BINTERNAL *)(void *)dest)->pgno = r->pgno;
 		break;
 	default:
 		abort();

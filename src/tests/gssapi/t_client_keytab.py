@@ -135,8 +135,18 @@ if bob not in out:
     fail('Authenticated as wrong principal')
 # Make sure the tickets we acquired didn't become the default
 out = realm.run([klist], expected_code=1)
-if ' not found' not in out:
+if 'No credentials cache found' not in out:
     fail('Expected error not seen')
 realm.run([kdestroy, '-A'])
+
+# Test 16: default client keytab cannot be resolved, but valid
+# credentials exist in ccache.
+conf = {'libdefaults': {'default_client_keytab_name': '%{'}}
+bad_cktname = realm.special_env('bad_cktname', False, krb5_conf=conf)
+del bad_cktname['KRB5_CLIENT_KTNAME']
+realm.kinit(realm.user_princ, password('user'))
+out = realm.run(['./t_ccselect', phost], env=bad_cktname)
+if realm.user_princ not in out:
+    fail('Expected principal not seen for bad client keytab name')
 
 success('Client keytab tests')

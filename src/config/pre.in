@@ -20,17 +20,17 @@
 WHAT = unix
 SHELL=/bin/sh
 
-all:: all-$(WHAT)
+all: all-$(WHAT)
 
-clean:: clean-$(WHAT)
+clean: clean-$(WHAT)
 
-distclean:: distclean-$(WHAT)
+distclean: distclean-$(WHAT)
 
-install:: install-$(WHAT)
+install: install-$(WHAT)
 
-check:: check-$(WHAT)
+check: check-$(WHAT)
 
-install-headers:: install-headers-$(WHAT)
+install-headers: install-headers-$(WHAT)
 
 ##############################
 # Recursion rule support
@@ -60,16 +60,16 @@ install-headers:: install-headers-$(WHAT)
 # double-colon rules.
 #
 # e.g.
-# all:: includes foo
+# all: includes foo
 # foo:
 #	echo foo
-# includes::
+# includes:
 #	echo bar
-# includes::
+# includes:
 #	echo baz
 #
 # will result in "bar", "foo", "baz" on AIX, and possibly others.
-all-unix:: all-postrecurse
+all-unix: all-postrecurse
 all-postrecurse: all-recurse
 all-recurse: all-prerecurse
 
@@ -90,21 +90,21 @@ distclean-recurse: distclean-prerecurse
 distclean-prerecurse:
 distclean-postrecurse:
 
-install-unix:: install-postrecurse
+install-unix: install-postrecurse
 install-postrecurse: install-recurse
 install-recurse: install-prerecurse
 
 install-prerecurse:
 install-postrecurse:
 
-install-headers-unix:: install-headers-postrecurse
+install-headers-unix: install-headers-postrecurse
 install-headers-postrecurse: install-headers-recurse
 install-headers-recurse: install-headers-prerecurse
 
 install-headers-prerecurse:
 install-headers-postrecurse:
 
-check-unix:: check-postrecurse
+check-unix: check-postrecurse
 check-postrecurse: check-recurse
 check-recurse: check-prerecurse
 
@@ -150,19 +150,22 @@ CONFIG_RELTOPDIR = @CONFIG_RELTOPDIR@
 # WARN_CFLAGS	user override but starts off set by configure
 # PTHREAD_CFLAGS set by configure, not included in CFLAGS so that we
 #		don't pull the pthreads library into shared libraries
+# ASAN_FLAGS    set by configure when --enable-asan is used
 ALL_CFLAGS = $(DEFS) $(DEFINES) $(KRB_INCLUDES) $(LOCALINCLUDES) \
 	-DKRB5_DEPRECATED=1 \
 	-DKRB5_PRIVATE \
-	$(CPPFLAGS) $(CFLAGS) $(WARN_CFLAGS) $(PTHREAD_CFLAGS)
+	$(CPPFLAGS) $(CFLAGS) $(WARN_CFLAGS) $(PTHREAD_CFLAGS) $(ASAN_FLAGS)
 ALL_CXXFLAGS = $(DEFS) $(DEFINES) $(KRB_INCLUDES) $(LOCALINCLUDES) \
 	-DKRB5_DEPRECATED=1 \
 	-DKRB5_PRIVATE \
-	$(CPPFLAGS) $(CXXFLAGS) $(WARN_CXXFLAGS) $(PTHREAD_CFLAGS)
+	$(CPPFLAGS) $(CXXFLAGS) $(WARN_CXXFLAGS) $(PTHREAD_CFLAGS) \
+	$(ASAN_FLAGS)
 
 CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
 WARN_CFLAGS = @WARN_CFLAGS@
 WARN_CXXFLAGS = @WARN_CXXFLAGS@
+ASAN_FLAGS = @ASAN_FLAGS@
 PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
 PTHREAD_LIBS = @PTHREAD_LIBS@
 THREAD_LINKOPTS = $(PTHREAD_CFLAGS) $(PTHREAD_LIBS)
@@ -213,6 +216,7 @@ KRB5_DB_MODULE_DIR = $(MODULE_DIR)/kdb
 KRB5_PA_MODULE_DIR = $(MODULE_DIR)/preauth
 KRB5_AD_MODULE_DIR = $(MODULE_DIR)/authdata
 KRB5_LIBKRB5_MODULE_DIR = $(MODULE_DIR)/libkrb5
+KRB5_TLS_MODULE_DIR = $(MODULE_DIR)/tls
 KRB5_LOCALEDIR = @localedir@
 GSS_MODULE_DIR = @libdir@/gss
 KRB5_INCSUBDIRS = \
@@ -225,6 +229,7 @@ KRB5_INCSUBDIRS = \
 # Macros used by the KADM5 (OV-based) unit test system.
 # XXX check which of these are actually used!
 #
+SKIPTESTS	= $(BUILDTOP)/skiptests
 TESTDIR		= $(BUILDTOP)/kadmin/testing
 STESTDIR	= $(top_srcdir)/kadmin/testing
 ENV_SETUP	= $(TESTDIR)/scripts/env-setup.sh
@@ -279,8 +284,8 @@ EXEEXT =
 # prog: foo.o bar.o $(KRB5_BASE_DEPLIBS)
 # 	$(CC_LINK) -o $@ foo.o bar.o $(KRB5_BASE_LIBS)
 
-CC_LINK=@CC_LINK@
-CXX_LINK=@CXX_LINK@
+CC_LINK=@CC_LINK@ $(ASAN_FLAGS)
+CXX_LINK=@CXX_LINK@ $(ASAN_FLAGS)
 
 # Makefile.in files which build programs can override the list of
 # directories to look for dependent libraries in (in the form -Ldir1
@@ -382,6 +387,7 @@ VERTO_LIBS	= @VERTO_LIBS@
 
 DL_LIB		= @DL_LIB@
 
+CMOCKA_LIBS	= @CMOCKA_LIBS@
 LDAP_LIBS	= @LDAP_LIBS@
 
 KRB5_LIB			= -lkrb5
@@ -411,6 +417,12 @@ APPUTILS_LIB	= -lapputils
 RUN_SETUP=@KRB5_RUN_ENV@
 RUN_VARS=@KRB5_RUN_VARS@
 
+# Appropriate command prefix for most C test programs: use libraries
+# from the build tree, avoid referencing the installed krb5.conf and
+# message catalog, and use valgrind when asked.
+RUN_TEST=$(RUN_SETUP) KRB5_CONFIG=$(top_srcdir)/config-files/krb5.conf \
+    LC_ALL=C $(VALGRIND)
+
 #
 # variables for --with-tcl=
 TCL_LIBS	= @TCL_LIBS@
@@ -427,6 +439,17 @@ PRNG_ALG	= @PRNG_ALG@
 PKINIT_CRYPTO_IMPL		= @PKINIT_CRYPTO_IMPL@
 PKINIT_CRYPTO_IMPL_CFLAGS	= @PKINIT_CRYPTO_IMPL_CFLAGS@
 PKINIT_CRYPTO_IMPL_LIBS		= @PKINIT_CRYPTO_IMPL_LIBS@
+
+# TLS implementation selection
+TLS_IMPL	= @TLS_IMPL@
+TLS_IMPL_CFLAGS = @TLS_IMPL_CFLAGS@
+TLS_IMPL_LIBS	= @TLS_IMPL_LIBS@
+
+# Whether we have the SASL header file for the LDAP KDB module
+HAVE_SASL = @HAVE_SASL@
+
+# Whether we have libresolv 1.1.5 for URI discovery tests
+HAVE_RESOLV_WRAPPER = @HAVE_RESOLV_WRAPPER@
 
 # error table rules
 #
@@ -536,6 +559,10 @@ MAKE_DYNOBJ_COMMAND=@MAKE_DYNOBJ_COMMAND@
 DYNOBJ_EXPDEPS=@DYNOBJ_EXPDEPS@
 DYNOBJ_EXPFLAGS=@DYNOBJ_EXPFLAGS@
 
+# For some platforms, a flag which causes shared library creation to
+# check for undefined symbols.  Suppressed when using --enable-asan.
+UNDEF_CHECK=@UNDEF_CHECK@
+
 # File with symbol names to be exported, both functions and data,
 # currently not distinguished.
 SHLIB_EXPORT_FILE=$(srcdir)/$(LIBPREFIX)$(LIBBASE).exports
@@ -544,6 +571,12 @@ SHLIB_EXPORT_FILE=$(srcdir)/$(LIBPREFIX)$(LIBBASE).exports
 # usually SHLIB_EXPORT_FILE, but not always, if we have to convert
 # it to another, intermediate form for the linker.
 SHLIB_EXPORT_FILE_DEP=@SHLIB_EXPORT_FILE_DEP@
+
+# Export file checker to run when building in maintainer mode on
+# Linux.  This gets included in LDCOMBINE_TAIL.
+EXPORT_CHECK_CMD = && $(PERL) -w $(top_srcdir)/util/export-check.pl \
+	$(SHLIB_EXPORT_FILE) $@
+EXPORT_CHECK = @MAINT@ $(EXPORT_CHECK_CMD)
 
 # Command to run to build a shared library.
 # In systems that require multiple commands, like AIX, it may need

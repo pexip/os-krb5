@@ -31,28 +31,13 @@
 #ifndef _PKINIT_H
 #define _PKINIT_H
 
+#include <k5-platform.h>
 #include <krb5/krb5.h>
 #include <krb5/preauth_plugin.h>
-#include <k5-platform.h>
 #include <k5-int-pkinit.h>
-#include <autoconf.h>
 #include <profile.h>
 #include "pkinit_accessor.h"
 #include "pkinit_trace.h"
-
-/*
- * It is anticipated that all the special checks currently
- * required when talking to a Longhorn server will go away
- * by the time it is officially released and all references
- * to the longhorn global can be removed and any code
- * #ifdef'd with LONGHORN_BETA_COMPAT can be removed.
- * And this #define!
- */
-#define LONGHORN_BETA_COMPAT 1
-#ifdef LONGHORN_BETA_COMPAT
-extern int longhorn;	    /* XXX Talking to a Longhorn server? */
-#endif
-
 
 #ifndef WITHOUT_PKCS11
 #include "pkcs11.h"
@@ -81,6 +66,7 @@ extern int longhorn;	    /* XXX Talking to a Longhorn server? */
 #define KRB5_CONF_REALMS                        "realms"
 #define KRB5_CONF_PKINIT_ALLOW_UPN              "pkinit_allow_upn"
 #define KRB5_CONF_PKINIT_ANCHORS                "pkinit_anchors"
+#define KRB5_CONF_PKINIT_INDICATOR              "pkinit_indicator"
 #define KRB5_CONF_PKINIT_CERT_MATCH             "pkinit_cert_match"
 #define KRB5_CONF_PKINIT_DH_MIN_BITS            "pkinit_dh_min_bits"
 #define KRB5_CONF_PKINIT_EKU_CHECKING           "pkinit_eku_checking"
@@ -88,13 +74,9 @@ extern int longhorn;	    /* XXX Talking to a Longhorn server? */
 #define KRB5_CONF_PKINIT_IDENTITY               "pkinit_identity"
 #define KRB5_CONF_PKINIT_KDC_HOSTNAME           "pkinit_kdc_hostname"
 #define KRB5_CONF_PKINIT_KDC_OCSP               "pkinit_kdc_ocsp"
-#define KRB5_CONF_PKINIT_LONGHORN               "pkinit_longhorn"
-#define KRB5_CONF_PKINIT_MAPPING_FILE           "pkinit_mapping_file"
 #define KRB5_CONF_PKINIT_POOL                   "pkinit_pool"
 #define KRB5_CONF_PKINIT_REQUIRE_CRL_CHECKING   "pkinit_require_crl_checking"
 #define KRB5_CONF_PKINIT_REVOKE                 "pkinit_revoke"
-#define KRB5_CONF_PKINIT_WIN2K                  "pkinit_win2k"
-#define KRB5_CONF_PKINIT_WIN2K_REQUIRE_BINDING  "pkinit_win2k_require_binding"
 
 /* Make pkiDebug(fmt,...) print, or not.  */
 #ifdef DEBUG
@@ -179,8 +161,6 @@ typedef struct _pkinit_req_opts {
     int require_crl_checking;
     int dh_size;	    /* initial request DH modulus size (default=1024) */
     int require_hostname_match;
-    int win2k_target;
-    int win2k_require_cksum;
 } pkinit_req_opts;
 
 /*
@@ -194,7 +174,6 @@ typedef struct _pkinit_identity_opts {
     char **intermediates;
     char **crls;
     char *ocsp;
-    char *dn_mapping_file;
     int  idtype;
     char *cert_filename;
     char *key_filename;
@@ -248,6 +227,7 @@ struct _pkinit_kdc_context {
     pkinit_identity_opts *idopts;
     char *realmname;
     unsigned int realmname_len;
+    char **auth_indicators;
 };
 typedef struct _pkinit_kdc_context *pkinit_kdc_context;
 
@@ -340,8 +320,6 @@ void init_krb5_pa_pk_as_req_draft9(krb5_pa_pk_as_req_draft9 **in);
 void init_krb5_reply_key_pack(krb5_reply_key_pack **in);
 void init_krb5_reply_key_pack_draft9(krb5_reply_key_pack_draft9 **in);
 
-void init_krb5_auth_pack(krb5_auth_pack **in);
-void init_krb5_auth_pack_draft9(krb5_auth_pack_draft9 **in);
 void init_krb5_pa_pk_as_rep(krb5_pa_pk_as_rep **in);
 void init_krb5_pa_pk_as_rep_draft9(krb5_pa_pk_as_rep_draft9 **in);
 void init_krb5_subject_pk_info(krb5_subject_pk_info **in);

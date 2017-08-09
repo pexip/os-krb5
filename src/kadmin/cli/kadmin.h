@@ -33,7 +33,8 @@
 #define __KADMIN_H__
 
 /* It would be nice if ss produced a header file we could reference */
-extern char *kadmin_startup(int argc, char *argv[]);
+extern void kadmin_startup(int argc, char *argv[], char **request_out,
+                           char ***args_out);
 extern int quit (void);
 extern void kadmin_lock(int argc, char *argv[]);
 extern void kadmin_unlock(int argc, char *argv[]);
@@ -57,6 +58,13 @@ extern void kadmin_getstrings(int argc, char *argv[]);
 extern void kadmin_setstring(int argc, char *argv[]);
 extern void kadmin_delstring(int argc, char *argv[]);
 
+#include <kdb.h>
+
+krb5_error_code
+randkey_princ(void *lhandle, krb5_principal princ, krb5_boolean keepold,
+              int n_ks, krb5_key_salt_tuple *ks, krb5_keyblock **key,
+              int *n_keys);
+
 #include "autoconf.h"
 
 #ifdef TIME_WITH_SYS_TIME
@@ -70,7 +78,7 @@ extern void kadmin_delstring(int argc, char *argv[]);
 #endif
 #endif
 
-extern time_t get_date(char *);
+extern time_t get_date_rel(char *, time_t);
 
 /* Yucky global variables */
 extern krb5_context context;

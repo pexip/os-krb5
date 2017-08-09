@@ -29,24 +29,19 @@
  * This program performs no useful function.
  */
 
+#include <k5-int.h>
+#include "com_err.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include <stdio.h>
-#include <string.h>
 #include <ctype.h>
-#include <errno.h>
-
-#include <k5-int.h>
-#include "com_err.h"
-
-#include "simple.h"
-
-#include <stdlib.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+
+#include "simple.h"
 
 /* for old Unixes and friends ... */
 #ifndef MAXHOSTNAMELEN
@@ -72,7 +67,6 @@ main(int argc, char *argv[])
     struct servent *serv;
     struct hostent *host;
     char *cp;
-    char full_hname[MAXHOSTNAMELEN];
 #ifdef BROKEN_STREAMS_SOCKETS
     char my_hostname[MAXHOSTNAMELEN];
 #endif
@@ -150,13 +144,6 @@ main(int argc, char *argv[])
         fprintf(stderr, "%s: unknown host\n", hostname);
         exit(1);
     }
-    strncpy(full_hname, host->h_name, sizeof(full_hname)-1);
-    full_hname[sizeof(full_hname)-1] = '\0';
-
-    /* lower-case to get name for "instance" part of service name */
-    for (cp = full_hname; *cp; cp++)
-        if (isupper((int) *cp))
-            *cp = tolower((int) *cp);
 
     /* Set server's address */
     (void) memset(&s_sock, 0, sizeof(s_sock));
@@ -217,7 +204,7 @@ main(int argc, char *argv[])
         exit(1);
     }
 
-    if ((retval = krb5_mk_req(context, &auth_context, 0, service, full_hname,
+    if ((retval = krb5_mk_req(context, &auth_context, 0, service, hostname,
                               &inbuf, ccdef, &packet))) {
         com_err(progname, retval, "while preparing AP_REQ");
         exit(1);

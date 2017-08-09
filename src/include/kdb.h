@@ -1,6 +1,6 @@
 /* -*- mode: c; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- * Copyright 1990,1991 by the Massachusetts Institute of Technology.
+ * Copyright 1990, 1991, 2016 by the Massachusetts Institute of Technology.
  * All Rights Reserved.
  *
  * Export of this software from the United States of America may
@@ -69,7 +69,7 @@
 
 /* This version will be incremented when incompatible changes are made to the
  * KDB API, and will be kept in sync with the libkdb major version. */
-#define KRB5_KDB_API_VERSION 7
+#define KRB5_KDB_API_VERSION 8
 
 /* Salt types */
 #define KRB5_KDB_SALTTYPE_NORMAL        0
@@ -98,6 +98,7 @@
 #define KRB5_KDB_OK_AS_DELEGATE         0x00100000
 #define KRB5_KDB_OK_TO_AUTH_AS_DELEGATE 0x00200000 /* S4U2Self OK */
 #define KRB5_KDB_NO_AUTH_DATA_REQUIRED  0x00400000
+#define KRB5_KDB_LOCKDOWN_KEYS          0x00800000
 
 /* Creation flags */
 #define KRB5_KDB_CREATE_BTREE           0x00000001
@@ -131,8 +132,14 @@
 #define KRB5_KDB_FLAGS_S4U                      ( KRB5_KDB_FLAG_PROTOCOL_TRANSITION | \
                                                   KRB5_KDB_FLAG_CONSTRAINED_DELEGATION )
 
+/* KDB iteration flags */
+#define KRB5_DB_ITER_WRITE      0x00000001
+#define KRB5_DB_ITER_REV        0x00000002
+#define KRB5_DB_ITER_RECURSE    0x00000004
+
 /* String attribute names recognized by krb5 */
 #define KRB5_KDB_SK_SESSION_ENCTYPES            "session_enctypes"
+#define KRB5_KDB_SK_REQUIRE_AUTH                "require_auth"
 
 #if !defined(_WIN32)
 
@@ -163,7 +170,7 @@ typedef struct krb5_string_attr_st {
  */
 typedef struct _krb5_key_data {
     krb5_int16            key_data_ver;         /* Version */
-    krb5_int16            key_data_kvno;        /* Key Version */
+    krb5_ui_2             key_data_kvno;        /* Key Version */
     krb5_int16            key_data_type[2];     /* Array of types */
     krb5_ui_2             key_data_length[2];   /* Array of lengths */
     krb5_octet          * key_data_contents[2]; /* Array of pointers */
@@ -204,6 +211,8 @@ typedef struct _krb5_db_entry_new {
 
     krb5_principal        princ;                /* Length, data */
     krb5_tl_data        * tl_data;              /* Linked list */
+
+    /* key_data must be sorted by kvno in descending order. */
     krb5_key_data       * key_data;             /* Array */
 } krb5_db_entry;
 
@@ -371,6 +380,9 @@ krb5_error_code krb5_db_put_principal ( krb5_context kcontext,
                                         krb5_db_entry *entry );
 krb5_error_code krb5_db_delete_principal ( krb5_context kcontext,
                                            krb5_principal search_for );
+krb5_error_code krb5_db_rename_principal ( krb5_context kcontext,
+                                           krb5_principal source,
+                                           krb5_principal target );
 
 /*
  * Iterate over principals in the KDB.  If the callback may write to the DB,
@@ -380,7 +392,7 @@ krb5_error_code krb5_db_delete_principal ( krb5_context kcontext,
 krb5_error_code krb5_db_iterate ( krb5_context kcontext,
                                   char *match_entry,
                                   int (*func) (krb5_pointer, krb5_db_entry *),
-                                  krb5_pointer func_arg );
+                                  krb5_pointer func_arg, krb5_flags iterflags );
 
 
 krb5_error_code krb5_db_store_master_key  ( krb5_context kcontext,
@@ -537,10 +549,18 @@ krb5_dbe_update_mod_princ_data( krb5_context          context,
                                 krb5_timestamp        mod_date,
                                 krb5_const_principal  mod_princ);
 
+/*
+ * These are wrappers around realloc() and free().  Applications and KDB
+ * modules can use them when manipulating principal and policy entries to
+ * ensure that they allocate and free memory in a manner compatible with the
+ * library.  Using libkrb5 or libkbd5 functions to construct values (such as
+ * krb5_copy_principal() to construct the princ field of a krb5_db_entry) is
+ * also safe.  On Unix platforms, just using malloc() and free() is safe as
+ * long as the application or module does not use a malloc replacement.
+ */
 void *krb5_db_alloc( krb5_context kcontext,
                      void *ptr,
                      size_t size );
-
 void krb5_db_free( krb5_context kcontext,
                    void *ptr);
 
@@ -593,6 +613,13 @@ krb5_error_code
 krb5_dbe_compute_salt(krb5_context context, const krb5_key_data *key,
                       krb5_const_principal princ, krb5_int16 *salttype_out,
                       krb5_data **salt_out);
+
+/*
+ * Modify the key data of entry to explicitly store salt values using the
+ * KRB5_KDB_SALTTYPE_SPECIAL salt type.
+ */
+krb5_error_code
+krb5_dbe_specialize_salt(krb5_context context, krb5_db_entry *entry);
 
 krb5_error_code
 krb5_dbe_cpw( krb5_context        kcontext,
@@ -678,6 +705,19 @@ krb5_error_code krb5_db_check_allowed_to_delegate(krb5_context kcontext,
                                                   const krb5_db_entry *server,
                                                   krb5_const_principal proxy);
 
+/**
+ * Sort an array of @a krb5_key_data keys in descending order by their kvno.
+ * Key data order within a kvno is preserved.
+ *
+ * @param key_data
+ *     The @a krb5_key_data array to sort.  This is sorted in place so the
+ *     array will be modified.
+ * @param key_data_length
+ *     The length of @a key_data.
+ */
+void
+krb5_dbe_sort_key_data(krb5_key_data *key_data, size_t key_data_length);
+
 /* default functions. Should not be directly called */
 /*
  *   Default functions prototype
@@ -738,6 +778,11 @@ krb5_dbe_def_encrypt_key_data( krb5_context             context,
                                krb5_key_data          * key_data);
 
 krb5_error_code
+krb5_db_def_rename_principal( krb5_context kcontext,
+                              krb5_const_principal source,
+                              krb5_const_principal target);
+
+krb5_error_code
 krb5_db_create_policy( krb5_context kcontext,
                        osa_policy_ent_t policy);
 
@@ -792,6 +837,13 @@ krb5_dbe_free_strings(krb5_context, krb5_string_attr *, int count);
 void
 krb5_dbe_free_string(krb5_context, char *);
 
+/*
+ * Register the KDB keytab type, allowing "KDB:" to be used as a keytab name.
+ * For this type to work, the context used for keytab operations must have an
+ * associated database handle (via krb5_db_open()).
+ */
+krb5_error_code krb5_db_register_keytab(krb5_context context);
+
 #define KRB5_KDB_DEF_FLAGS      0
 
 #define KDB_MAX_DB_NAME                 128
@@ -813,7 +865,7 @@ krb5_dbe_free_string(krb5_context, char *);
  * This number indicates the date of the last incompatible change to the DAL.
  * The maj_ver field of the module's vtable structure must match this version.
  */
-#define KRB5_KDB_DAL_MAJOR_VERSION 4
+#define KRB5_KDB_DAL_MAJOR_VERSION 6
 
 /*
  * A krb5_context can hold one database object.  Modules should use
@@ -832,6 +884,11 @@ krb5_dbe_free_string(krb5_context, char *);
  * The documentation in these comments describes the DAL as it is currently
  * implemented and used, not as it should be.  So if anything seems off, that
  * probably means the current state of things is off.
+ *
+ * Modules must allocate memory for principal entries, policy entries, and
+ * other structures using an allocator compatible with malloc() as seen by
+ * libkdb5 and libkrb5.  Modules may link against libkdb5 and call
+ * krb5_db_alloc() to be certain that the same malloc implementation is used.
  */
 
 typedef struct _kdb_vftabl {
@@ -979,14 +1036,6 @@ typedef struct _kdb_vftabl {
                                      krb5_db_entry **entry);
 
     /*
-     * Mandatory: Free a database entry.  The entry may have been constructed
-     * by the caller (using the db_alloc function to allocate associated
-     * memory); thus, a plugin must allocate each field of a principal entry
-     * separately.
-     */
-    void (*free_principal)(krb5_context kcontext, krb5_db_entry *entry);
-
-    /*
      * Optional: Create or modify a principal entry.  db_args communicates
      * command-line arguments for module-specific flags.
      *
@@ -1008,6 +1057,19 @@ typedef struct _kdb_vftabl {
                                         krb5_const_principal search_for);
 
     /*
+     * Optional with default: Rename a principal.  If the source principal does
+     * not exist, return KRB5_KDB_NOENTRY.  If the target exists, return an
+     * error.
+     *
+     * NOTE: If the module chooses to implement a custom function for renaming
+     * a principal instead of using the default, then rename operations will
+     * fail if iprop logging is enabled.
+     */
+    krb5_error_code (*rename_principal)(krb5_context kcontext,
+                                        krb5_const_principal source,
+                                        krb5_const_principal target);
+
+    /*
      * Optional: For each principal entry in the database, invoke func with the
      * argments func_arg and the entry data.  If match_entry is specified, the
      * module may narrow the iteration to principal names matching that regular
@@ -1016,7 +1078,7 @@ typedef struct _kdb_vftabl {
     krb5_error_code (*iterate)(krb5_context kcontext,
                                char *match_entry,
                                int (*func)(krb5_pointer, krb5_db_entry *),
-                               krb5_pointer func_arg);
+                               krb5_pointer func_arg, krb5_flags iterflags);
 
     /*
      * Optional: Create a password policy entry.  Return an error if the policy
@@ -1054,23 +1116,6 @@ typedef struct _kdb_vftabl {
      * an error if the entry does not exist.
      */
     krb5_error_code (*delete_policy)(krb5_context kcontext, char *policy);
-
-    /* Optional: Free a policy entry returned by db_get_policy. */
-    void (*free_policy)(krb5_context kcontext, osa_policy_ent_t val);
-
-    /*
-     * Mandatory: Has the semantics of realloc(ptr, size).  Callers use this to
-     * allocate memory for new or changed principal entries, so the module
-     * should expect to potentially see this memory in db_free_principal.
-     */
-    void *(*alloc)(krb5_context kcontext, void *ptr, size_t size);
-
-    /*
-     * Mandatory: Has the semantics of free(ptr).  Callers use this to free
-     * fields from a principal entry (such as key data) before changing it in
-     * place, and in some cases to free data they allocated with db_alloc.
-     */
-    void (*free)(krb5_context kcontext, void *ptr);
 
     /*
      * Optional with default: Retrieve a master keyblock from the stash file
@@ -1219,9 +1264,11 @@ typedef struct _kdb_vftabl {
      *
      *   server: The DB entry of the service principal.
      *
-     *   krbtgt: For TGS requests, the DB entry of the (possibly foreign)
-     *     ticket granting service of the TGT.  For AS requests, the DB entry
-     *     of the service principal.
+     *   krbtgt: For TGS requests, the DB entry of the server of the ticket in
+     *     the PA-TGS-REQ padata; this is usually a local or cross-realm krbtgt
+     *     principal, but not always.  For AS requests, the DB entry of the
+     *     service principal; this is usually a local krbtgt principal, but not
+     *     always.
      *
      *   client_key: The reply key for the KDC request, before any FAST armor
      *     is applied.  For AS requests, this may be the client's long-term key
@@ -1230,9 +1277,9 @@ typedef struct _kdb_vftabl {
      *
      *   server_key: The server key used to encrypt the returned ticket.
      *
-     *   krbtgt_key: For TGS requests, the key of the (possibly foreign) ticket
-     *     granting service of the TGT.  for AS requests, the service
-     *     principal's key.
+     *   krbtgt_key: For TGS requests, the key used to decrypt the ticket in
+     *     the PA-TGS-REQ padata.  For AS requests, the server key used to
+     *     encrypt the returned ticket.
      *
      *   session_key: The session key of the ticket being granted to the
      *     requestor.

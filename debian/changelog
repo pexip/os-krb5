@@ -1,26 +1,105 @@
-krb5 (1.12.1+dfsg-19+deb8u4) jessie; urgency=medium
-
-  * New version number; same code as deb8u3 but rebuilt to build arch all
-    packages and because dgit doesn't deal well with reusing a version
-    number when a package is rejected
-
- -- Sam Hartman <hartmans@debian.org>  Mon, 28 Aug 2017 11:55:49 -0400
-
-krb5 (1.12.1+dfsg-19+deb8u3) jessie; urgency=high
+krb5 (1.15-1+deb9u1) stretch; urgency=high
 
   * CVE-2017-11368: Remote authenticated attackers can crash the KDC,
     Closes: #869260
-  *  fix for CVE-2016-3120 (kdc crash on restrict_anon_to_tgt), Closes:
-    #832572
-  * fix for CVE-2016-3119: remote DOS with ldap for authenticated
-    attackers, Closes: #819468
-  * Prevent requires_preauth bypass (CVE-2015-2694), Closes: #783557
-  
- -- Sam Hartman <hartmans@debian.org>  Sun, 13 Aug 2017 18:02:34 -0400
+  * Upstream patches to fix startup if getaddrinfo() returns a wildcard v6
+    address, and to fix handling of explicitly specified v4 wildcard
+    address; regression over previous versions, Closes: #860767
+  * Fix SRV lookups to respect udp_preference_limit, regression over
+    previous versions with OTP, Closes: #856307
 
-krb5 (1.12.1+dfsg-19+deb8u2) jessie-security; urgency=high
+ -- Sam Hartman <hartmans@debian.org>  Wed, 09 Aug 2017 12:19:50 -0400
 
-  * Non-maintainer upload by the Security Team.
+krb5 (1.15-1) unstable; urgency=medium
+
+  [ Benjamin Kaduk ]
+  * New upstream version
+    - Make zap() more reliable and use it more consistently; the
+      previous version could be optimized out by gcc 5.1 or later
+    - Update license statement in ccapi/common/win/OldCC/autolock.hxx,
+      Closes: #846088
+  * Update Debian-HURD-compatibility.patch, Closes: #845381
+  * Bump debhelper compat level to 9
+
+  [ Sam Hartman ]
+  * Actually build and ship German translations, Closes: #842497
+
+ -- Benjamin Kaduk <kaduk@mit.edu>  Sun, 04 Dec 2016 15:37:57 -0500
+
+krb5 (1.15~beta1-1) unstable; urgency=low
+
+  [ Benjamin Kaduk ]
+  * New upstream version
+    - Upstream's tarball is now DFSG-free
+    - Builds against openssl 1.1.0, Closes: #828369
+    - Add support for the AES-SHA2 enctypes
+    - Add support to kadmin for remote extraction of current keys
+      and principal attributes to prevent such extraction
+    - Add DNS auto-discovery using URI records in addition to SRV records
+    - Improve LDAP backend to contain some features previously only
+      present in the BDB backend
+    - Use the getrandom system call on supported Linux kernels
+    - Use SHA256 instead of MD5 for hashing authenticators in the replay cache
+      * The symbol gssrpc_svcauth_gss_creds was removed upstream from
+    libgssrpc; no soname bump because this is an internal API never in a
+    public header
+  [ Sam Hartman ]
+  * Update standards version to 3.9.8
+
+ -- Benjamin Kaduk <kaduk@mit.edu>  Wed, 02 Nov 2016 00:12:46 -0400
+
+krb5 (1.14.3+dfsg-2) unstable; urgency=medium
+
+  * Fix gcc -O3, thanks Ben Kaduk/Steve Langasek, Closes: #833798
+  * Fix kdb5_util create on 32-bit platforms, thanks Greg Hudson, Closes:
+    #834035
+
+ -- Sam Hartman <hartmans@debian.org>  Mon, 05 Sep 2016 21:03:14 -0400
+
+krb5 (1.14.3+dfsg-1) unstable; urgency=medium
+
+  * New upstream version
+    - includes fix for CVE-2016-3120, Closes: #832572
+  * build-dep-indep on texlive-generic-extra to pick up iftex.sty after
+    a reshuffle, Closes: #828946
+  * Comment out supported_enctypes in kdc.conf to avoid including
+    single-DES enctypes, Closes: #806928
+  * Spell Build-Depends-Indep properly, Closes: #829196
+
+ -- Benjamin Kaduk <kaduk@mit.edu>  Sat, 30 Jul 2016 22:42:39 -0400
+
+krb5 (1.14.2+dfsg-1) unstable; urgency=low
+
+  * New upstream version
+      - Includes fix for CVE-2016-3119: remote DOS with ldap for
+    authenticated attackers, Closes: #819468
+  * Fix short descriptions capitalization, Thanks Laura Arjona Reina,
+    Closes: #821021
+  * New German translation, Thanks Chris Leick, Closes: #816548
+
+
+ -- Sam Hartman <hartmans@debian.org>  Mon, 30 May 2016 13:12:02 -0400
+
+krb5 (1.14+dfsg-1) experimental; urgency=medium
+
+  * New upstream version, Closes: #812131
+  * Apply upstream patches:
+    - upstream/0010-Fix-mechglue-gss_acquire_cred_impersonate_name.patch
+    - 0011-Correctly-use-k5_wrapmsg-in-ldap_principal2.c.patch
+    - upstream/0012-Set-TL_DATA-mask-flag-for-master-key-operations.patch
+    - upstream/0013-Check-context-handle-in-gss_export_sec_context.patch
+    - upstream/0014-Check-internal-context-on-init-context-errors.patch
+    - upstream/0015-Fix-interposed-gss_accept_sec_context.patch
+    - upstream/0016-Work-around-uninitialized-warning-in-cc_kcm.c.patch
+    - upstream/0017-Increase-hostname-length-in-ipropd_svc.c.patch
+    - upstream/0018-Make-ksu-work-with-prompting-clpreauth-modules.patch
+    - upstream/0019-Fix-memory-leak-in-SPNEGO-gss_init_sec_context.patch
+    - upstream/0020-Fix-EOF-check-in-kadm5.acl-line-processing.patch
+    - upstream/0021-Fix-iprop-server-stub-error-management.patch
+  - upstream/0022-Verify-decoded-kadmin-C-strings-CVE-2015-8629.patch
+    - upstream/0023-Check-for-null-kadm5-policy-name-CVE-2015-8630.patch
+    -upstream/0024-Fix-leaks-in-kadmin-server-stubs-CVE-2015-8631.patch
+        - Use blocking lock for db promote, Closes: #815677
   * Verify decoded kadmin C strings [CVE-2015-8629]
     CVE-2015-8629: An authenticated attacker can cause kadmind to read
     beyond the end of allocated memory by sending a string without a
@@ -37,24 +116,79 @@ krb5 (1.12.1+dfsg-19+deb8u2) jessie-security; urgency=high
     Repeating these requests will eventually cause kadmind to exhaust all
     available memory. (Closes: #813126)
 
- -- Salvatore Bonaccorso <carnil@debian.org>  Sun, 31 Jan 2016 11:48:01 +0100
+  * Remove all references to libkrb53, Closes: #708175
+  * Merge patch for kpropd service, introducing a new stub package for now
+    that will contain the binaries in stretch+1.  We don't want to move
+    the binaries now because we'd either break existing installations or
+    we'd need krb5-kdc to depend on the new package, which would cause
+    kpropd to start in cases where we don't want it, thanks  Mark Proehl
+    and Michael Weiser, Closes: #775277
 
-krb5 (1.12.1+dfsg-19+deb8u1) jessie-security; urgency=high
+ -- Sam Hartman <hartmans@debian.org>  Mon, 15 Feb 2016 15:49:06 -0500
 
-  * Import upstream patches for four CVEs:
-    - CVE-2015-2695: SPNEGO context aliasing during establishment,
-      Closes: #803083
-    - CVE-2015-2696: IAKERB context aliasing during establishment,
-      Closes: #803084
-    - CVE-2015-2697: unsafe string handling in TGS processing,
-      Closes: #803088
-    - CVE-2015-2698: regression (memory corruption) in patch for CVE-2015-2696
-  * In addition to CVE-2015-2698, the upstream patches for CVE-2015-2695
-    and CVE-2015-2696 introduced regressions preventing the use of
-    gss_import_sec_context() with contexts established using IAKERB
-    or SPNEGO; the fixes for those regressions are included here.
+krb5 (1.13.2+dfsg-4) unstable; urgency=high
 
- -- Benjamin Kaduk <kaduk@mit.edu>  Wed, 04 Nov 2015 22:05:10 -0500
+  * Import upstream patches fixing regressions in the previous upload:
+    - CVE-2015-2698: the patch for CVE-2015-2696 caused memory corruption
+      for applications calling gss_export_sec_context() on contexts
+      established using the IAKERB mechanism.
+    - Supply gss_import_sec_context implementations for SPNEGO and IAKERB,
+      which were not implemented due to the erroneous belief that the
+      exported context tokens would be tagged with the underlying
+      context's mechanism.
+
+ -- Benjamin Kaduk <kaduk@mit.edu>  Wed, 04 Nov 2015 22:47:22 -0500
+
+krb5 (1.13.2+dfsg-3) unstable; urgency=high
+
+  * Import upstream patches for three CVEs:
+    - CVE-2015-2695: SPNEGO context aliasing during establishment
+    - CVE-2015-2696: IAKERB context aliasing during establishment
+    - CVE-2015-2697: unsafe string handling in TGS processing
+
+ -- Benjamin Kaduk <kaduk@mit.edu>  Mon, 26 Oct 2015 14:03:52 -0400
+
+krb5 (1.13.2+dfsg-2) unstable; urgency=medium
+
+  * No-change rebuild to target unstable
+
+ -- Benjamin Kaduk <kaduk@mit.edu>  Thu, 25 Jun 2015 17:10:03 -0400
+
+krb5 (1.13.2+dfsg-1) experimental; urgency=medium
+
+  * New upstream release:
+    - Fix importing GSS composite export names
+    - Fix kadm5.acl wildcard matching when early lines have partial matches
+    - Disable principal renames for LDAP; they do not work properly and are
+      hard to fix
+    - Fix LDAP ticket policies on big-endian LP64 systems
+    - Fix memory leak in DB2 iteration
+    - Prevent requires_preauth bypass (CVE-2015-2694), Closes: #783557
+  * Add python to build-depends-indep, since we call it manually during
+    the documentation build, Closes: #746395
+
+ -- Benjamin Kaduk <kaduk@mit.edu>  Thu, 14 May 2015 13:38:58 -0400
+
+krb5 (1.13.1+dfsg-1) experimental; urgency=low
+
+  * New upstream release:
+    - Make the KDC default to listening on TCP (as well as UDP)
+    - Bump DAL major version for krb5_db_iterate() API change; KDB modules
+      will need to be rebuilt
+    - Let ksu use any keytab entry to verify the obtained TGT
+    - Improve kadm5_randkey_principal interop with Solaris KDCs
+    - Export symbols for some public gss interfaces
+    - Allow the logger to work with redirected stderr
+    - Remove length limit on PKINIT PKCS#12 prompts
+
+ -- Benjamin Kaduk <kaduk@mit.edu>  Mon, 16 Mar 2015 14:23:06 -0400
+
+krb5 (1.12.1+dfsg-20) unstable; urgency=high
+
+  * Import upstream patch for CVE-2015-2694, Closes: #783557
+  * Bump Standards-Version to 3.9.6 (no changes needed)
+
+ -- Benjamin Kaduk <kaduk@mit.edu>  Wed, 13 May 2015 14:40:36 -0400
 
 krb5 (1.12.1+dfsg-19) unstable; urgency=medium
 
@@ -75,7 +209,6 @@ krb5 (1.12.1+dfsg-17) unstable; urgency=high
     - CVE-2014-9421: kadmind doubly frees partial deserialization results
     - CVE-2014-9422: kadmind incorrectly validates server principal name  
       - CVE-2014-9423: libgssrpc server applications leak uninitialized bytes
-
 
  -- Sam Hartman <hartmans@debian.org>  Tue, 03 Feb 2015 10:29:35 -0500
 
@@ -134,6 +267,55 @@ krb5 (1.12.1+dfsg-10) unstable; urgency=medium
 
  -- Benjamin Kaduk <kaduk@mit.edu>  Mon, 22 Sep 2014 14:53:33 -0400
 
+krb5 (1.13~alpha1+dfsg-1) experimental; urgency=low
+
+  [ Jelmer Vernooij ]
+  * Reintroduce changes to move krb5-config into krb5-multidev:
+   + Provide -L and -I flags from krb5-config. Closes: #730837
+   + Ship krb5-config.mit binary in krb5-multidev., Closes: #745322
+   + Provide -L and -I flags from pkg-config files. Closes: #750041
+  * Use -isystem for include paths, to prevent the compiler from warning
+    about problems in them. Closes: #751760
+
+  [ Sam Hartman ]
+  * Reintroduce patches and accept proposed patches
+  * Update lintian source overrides because some of the BCP 78 hits are
+    false positives. We need to investigate cmac.c.
+
+  [ Benjamin Kaduk ]
+  * New upstream prerelease:
+    - Add support for accessing KDCs via an https proxy using the MS-KKDCP
+      protocol, using a plugin provided by the new krb5-k5tls package, which
+      uses openssl for the TLS implementation.  The openssl-using code is
+      confined to a separate, runtime-loadable, plugin module, in a separate
+      package, to ameliorate concerns about GPL code that links libkrb5 running
+      into issues with the openssl license.  The Kerberos license is both
+    GPL and OpenSSL compatible.  There might be an issue if an application
+    was GPL licensed and someone used the OpenSSL plugin with that
+    application.  Even that is probably fine provided that no one
+    distributes a combination that tends to encourage such usage.  There's
+    an existing krb5-pkinit plugin that also links to OpenSSL, but at time
+    of integration into Debian no GPLed applications in the archive called
+    APIs that would cause that plugin to be loaded.
+    - Add support for hierarchical incremental propagation.
+    - Add support to the LDAP KDB module for binding to the LDAP server
+      using SASL.
+    - Add client support for the Kerberos Cache Manager protocol, allowing
+      caches served by a Heimdal kcm daemon to be accessed using the KCM:
+      cache type.
+    - Add support for performing unlocked database dumps to the DB2 KDC
+      back end, allowing the KDC and kadmind to continue accessing the
+      database during lengthy database dumps.
+    - The default location of the socket used by the OTP plugin has moved
+      from /etc/krb5kdc to /run/krb5kdc/.
+  * Break old versions of libraries that consume libkrb5support0, which
+    had its export symbol list change in 1.12 without the dependencies
+    changing to reflect that.  Closes: #758288, Closes: #760149
+  * Fix the documentation build by explicitly mapping krb5.hin as a C file.
+    Closes: #759954
+
+ -- Sam Hartman <hartmans@debian.org>  Thu, 11 Sep 2014 18:00:35 -0400
+
 krb5 (1.12.1+dfsg-9) unstable; urgency=high
 
   [ Jelmer Vernooij ]
@@ -150,20 +332,6 @@ krb5 (1.12.1+dfsg-9) unstable; urgency=high
     false positives. We need to investigate cmac.c.
 
  -- Sam Hartman <hartmans@debian.org>  Wed, 03 Sep 2014 23:14:34 -0400
-
-krb5 (1.12.1+dfsg-8) unstable; urgency=high
-
-  [ Benjamin Kaduk ]
-  * Break old versions of libraries that consume libkrb5support0, which
-    had its export symbol list change in 1.12 without the dependencies
-    changing to reflect that.  Closes: #758288, Closes: #760149
-  * Fix the documentation build by explicitly mapping krb5.hin as a C file.
-    Closes: #759954
-
-  [ Jelmer Vernooij ]
-  * Provide -L and -I flags from pkg-config files. Closes: #750041
-
- -- Benjamin Kaduk <kaduk@mit.edu>  Tue, 02 Sep 2014 16:57:47 -0400
 
 krb5 (1.12.1+dfsg-7) unstable; urgency=high
 

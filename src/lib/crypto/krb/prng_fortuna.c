@@ -165,7 +165,7 @@ init_state(struct fortuna_state *st)
 static void
 inc_counter(struct fortuna_state *st)
 {
-    UINT64_TYPE val;
+    uint64_t val;
 
     val = load_64_le(st->counter) + 1;
     store_64_le(val, st->counter);
@@ -366,7 +366,7 @@ k5_prng_init(void)
 #else
     last_pid = getpid();
 #endif
-    if (k5_get_os_entropy(osbuf, sizeof(osbuf))) {
+    if (k5_get_os_entropy(osbuf, sizeof(osbuf), 0)) {
         generator_reseed(&main_state, osbuf, sizeof(osbuf));
         have_entropy = TRUE;
     }
@@ -423,6 +423,10 @@ krb5_c_random_make_octets(krb5_context context, krb5_data *outdata)
 
     if (!have_entropy) {
         k5_mutex_unlock(&fortuna_lock);
+        if (context != NULL) {
+            k5_set_error(&context->err, KRB5_CRYPTO_INTERNAL,
+                         _("Random number generator could not be seeded"));
+        }
         return KRB5_CRYPTO_INTERNAL;
     }
 
@@ -436,6 +440,30 @@ krb5_c_random_make_octets(krb5_context context, krb5_data *outdata)
     accumulator_output(&main_state, (unsigned char *)outdata->data,
                        outdata->length);
     k5_mutex_unlock(&fortuna_lock);
+    return 0;
+}
+
+krb5_error_code KRB5_CALLCONV
+krb5_c_random_os_entropy(krb5_context context, int strong, int *success)
+{
+    krb5_error_code ret;
+    krb5_data data;
+    uint8_t buf[64];
+    int status = 0;
+
+    if (!k5_get_os_entropy(buf, sizeof(buf), strong))
+        goto done;
+
+    data = make_data(buf, sizeof(buf));
+    ret = krb5_c_random_add_entropy(context, KRB5_C_RANDSOURCE_OSRAND, &data);
+    if (ret)
+        goto done;
+
+    status = 1;
+
+done:
+    if (success != NULL)
+        *success = status;
     return 0;
 }
 

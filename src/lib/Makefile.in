@@ -3,7 +3,7 @@ SUBDIRS=crypto krb5 gssapi rpc kdb kadm5 apputils krad
 WINSUBDIRS=crypto krb5 gssapi
 BUILDTOP=$(REL)..
 
-all-unix::
+all-unix:
 
 CLEANLIBS = libkrb5.a libkdb5.a libcrypto.a libgssapi_krb5.a libkadm.a \
 	libcom_err.a libpty.a ibss.a libgssapi.a libapputils.a libkrb5.so \
@@ -51,8 +51,18 @@ clean-windows::
 ##WIN32##KRB5RC = krb5.rc
 ##WIN32##VERSIONRC = $(BUILDTOP)\windows\version.rc
 
+##WIN32##!if defined(VISUALSTUDIOVERSION)
+##WIN32##!if $(VISUALSTUDIOVERSION:.=) >= 140
+##WIN32##!ifdef NODEBUG
+##WIN32##WINCRTEXTRA = ucrt.lib vcruntime.lib
+##WIN32##!else
+##WIN32##WINCRTEXTRA = ucrtd.lib vcruntimed.lib
+##WIN32##!endif
+##WIN32##!endif
+##WIN32##!endif
 ##WIN32##WINLIBS = kernel32.lib ws2_32.lib user32.lib shell32.lib oldnames.lib \
-##WIN32##	version.lib secur32.lib advapi32.lib gdi32.lib delayimp.lib
+##WIN32##	version.lib secur32.lib advapi32.lib gdi32.lib delayimp.lib \
+##WIN32##	$(WINCRTEXTRA)
 ##WIN32##WINDLLFLAGS = $(DLL_LINKOPTS) -base:0x1c000000 /DELAYLOAD:secur32.dll \
 ##WIN32##	/DELAYLOAD:advapi32.dll /DELAY:UNLOAD /DELAY:NOBIND
 
@@ -135,5 +145,5 @@ clean-windows::
 ##WIN32##gssapi.lib: $(GLIB)
 ##WIN32##profile.lib: $(PLIB)
 
-##WIN32##all-windows:: all-recurse lib-windows
-##WIN32##lib-windows:: krb5.lib gssapi.lib profile.lib
+##WIN32##all-windows: all-recurse lib-windows
+##WIN32##lib-windows: krb5.lib gssapi.lib profile.lib

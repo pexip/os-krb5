@@ -24,11 +24,8 @@
  * or implied warranty.
  */
 
-#include <assert.h>
-#include "k5-platform.h"        /* for 64-bit support */
-#include "k5-int.h"          /* for zap() */
+#include "k5-int.h"
 #include "gssapiP_krb5.h"
-#include <stdarg.h>
 
 static krb5_error_code
 make_seal_token_v1_iov(krb5_context context,
@@ -280,11 +277,11 @@ kg_seal_iov(OM_uint32 *minor_status,
 
     if (qop_req != 0) {
         *minor_status = (OM_uint32)G_UNKNOWN_QOP;
-        return GSS_S_FAILURE;
+        return GSS_S_BAD_QOP;
     }
 
     ctx = (krb5_gss_ctx_id_rec *)context_handle;
-    if (!ctx->established) {
+    if (ctx->terminated || !ctx->established) {
         *minor_status = KG_CTX_INCOMPLETE;
         return GSS_S_NO_CONTEXT;
     }
@@ -345,7 +342,7 @@ kg_seal_iov_length(OM_uint32 *minor_status,
 
     if (qop_req != GSS_C_QOP_DEFAULT) {
         *minor_status = (OM_uint32)G_UNKNOWN_QOP;
-        return GSS_S_FAILURE;
+        return GSS_S_BAD_QOP;
     }
 
     ctx = (krb5_gss_ctx_id_rec *)context_handle;

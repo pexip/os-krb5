@@ -55,7 +55,7 @@ static krb5_error_code
 make_seal_token_v1 (krb5_context context,
                     krb5_key enc,
                     krb5_key seq,
-                    gssint_uint64 *seqnum,
+                    uint64_t *seqnum,
                     int direction,
                     gss_buffer_t text,
                     gss_buffer_t token,
@@ -337,12 +337,12 @@ kg_seal(minor_status, context_handle, conf_req_flag, qop_req,
        them later.  */
     if (qop_req != 0) {
         *minor_status = (OM_uint32) G_UNKNOWN_QOP;
-        return GSS_S_FAILURE;
+        return GSS_S_BAD_QOP;
     }
 
     ctx = (krb5_gss_ctx_id_rec *) context_handle;
 
-    if (! ctx->established) {
+    if (ctx->terminated || !ctx->established) {
         *minor_status = KG_CTX_INCOMPLETE;
         return(GSS_S_NO_CONTEXT);
     }

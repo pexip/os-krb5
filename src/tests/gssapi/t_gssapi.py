@@ -7,6 +7,7 @@ for realm in multipass_realms():
     realm.run(['./t_spnego','p:' + realm.host_princ, realm.keytab])
     realm.run(['./t_iov', 'p:' + realm.host_princ])
     realm.run(['./t_iov', '-s', 'p:' + realm.host_princ])
+    realm.run(['./t_pcontok', 'p:' + realm.host_princ])
 
 ### Test acceptor name behavior.
 
@@ -15,15 +16,15 @@ realm = K5Realm()
 # Create some host-based principals and put most of them into the
 # keytab.  Rename one principal so that the keytab name matches the
 # key but not the client name.
-realm.run_kadminl('addprinc -randkey service1/abraham')
-realm.run_kadminl('addprinc -randkey service1/barack')
-realm.run_kadminl('addprinc -randkey service2/calvin')
-realm.run_kadminl('addprinc -randkey service2/dwight')
-realm.run_kadminl('addprinc -randkey host/-nomatch-')
-realm.run_kadminl('xst service1/abraham')
-realm.run_kadminl('xst service1/barack')
-realm.run_kadminl('xst service2/calvin')
-realm.run_kadminl('renprinc -force service1/abraham service1/andrew')
+realm.run([kadminl, 'addprinc', '-randkey', 'service1/abraham'])
+realm.run([kadminl, 'addprinc', '-randkey', 'service1/barack'])
+realm.run([kadminl, 'addprinc', '-randkey', 'service2/calvin'])
+realm.run([kadminl, 'addprinc', '-randkey', 'service2/dwight'])
+realm.run([kadminl, 'addprinc', '-randkey', 'host/-nomatch-'])
+realm.run([kadminl, 'xst', 'service1/abraham'])
+realm.run([kadminl, 'xst', 'service1/barack'])
+realm.run([kadminl, 'xst', 'service2/calvin'])
+realm.run([kadminl, 'renprinc', 'service1/abraham', 'service1/andrew'])
 
 # Test with no acceptor name, including client/keytab principal
 # mismatch (non-fatal) and missing keytab entry (fatal).
@@ -37,7 +38,7 @@ output = realm.run(['./t_accname', 'p:service2/calvin'])
 if 'service2/calvin' not in output:
     fail('Expected service1/barack in t_accname output')
 output = realm.run(['./t_accname', 'p:service2/dwight'], expected_code=1)
-if 'Wrong principal in request' not in output:
+if ' not found in keytab' not in output:
     fail('Expected error message not seen in t_accname output')
 
 # Test with acceptor name containing service only, including
@@ -48,14 +49,14 @@ if 'service1/abraham' not in output:
     fail('Expected service1/abraham in t_accname output')
 output = realm.run(['./t_accname', 'p:service1/andrew', 'h:service2'],
                    expected_code=1)
-if 'Wrong principal in request' not in output:
+if ' not found in keytab' not in output:
     fail('Expected error message not seen in t_accname output')
 output = realm.run(['./t_accname', 'p:service2/calvin', 'h:service2'])
 if 'service2/calvin' not in output:
     fail('Expected service2/calvin in t_accname output')
 output = realm.run(['./t_accname', 'p:service2/calvin', 'h:service1'],
                    expected_code=1)
-if 'Wrong principal in request' not in output:
+if ' found in keytab but does not match server principal' not in output:
     fail('Expected error message not seen in t_accname output')
 
 # Test with acceptor name containing service and host.  Use the
@@ -68,7 +69,7 @@ if realm.host_princ not in output:
 output = realm.run(['./t_accname', 'p:host/-nomatch-',
                     'h:host@%s' % socket.gethostname()],
                    expected_code=1)
-if 'Wrong principal in request' not in output:
+if ' not found in keytab' not in output:
     fail('Expected error message not seen in t_accname output')
 
 # Test krb5_gss_import_cred.
@@ -76,7 +77,7 @@ realm.run(['./t_imp_cred', 'p:service1/barack'])
 realm.run(['./t_imp_cred', 'p:service1/barack', 'service1/barack'])
 realm.run(['./t_imp_cred', 'p:service1/andrew', 'service1/abraham'])
 output = realm.run(['./t_imp_cred', 'p:service2/dwight'], expected_code=1)
-if 'Wrong principal in request' not in output:
+if ' not found in keytab' not in output:
     fail('Expected error message not seen in t_imp_cred output')
 
 # Test credential store extension.
@@ -91,6 +92,15 @@ realm.kinit(service_cs, None, ['-k', '-t', servicekeytab])
 realm.run(['./t_credstore', '-s', 'p:' + service_cs, 'ccache', storagecache,
            'keytab', servicekeytab])
 
+# Test rcache feature of cred stores.  t_credstore -r should produce a
+# replay error normally, but not with rcache set to "none:".
+output = realm.run(['./t_credstore', '-r', '-a', 'p:' + realm.host_princ],
+                   expected_code=1)
+if 'gss_accept_sec_context(2): Request is a replay' not in output:
+    fail('Expected replay error not seen in t_credstore output')
+realm.run(['./t_credstore', '-r', '-a', 'p:' + realm.host_princ,
+           'rcache', 'none:'])
+
 # Verify that we can't acquire acceptor creds without a keytab.
 os.remove(realm.keytab)
 output = realm.run(['./t_accname', 'p:abc'], expected_code=1)
@@ -104,8 +114,8 @@ realm.stop()
 # and the principal for the mismatching hostname in the keytab.
 ignore_conf = {'libdefaults': {'ignore_acceptor_hostname': 'true'}}
 realm = K5Realm(krb5_conf=ignore_conf)
-realm.run_kadminl('addprinc -randkey host/-nomatch-')
-realm.run_kadminl('xst host/-nomatch-')
+realm.run([kadminl, 'addprinc', '-randkey', 'host/-nomatch-'])
+realm.run([kadminl, 'xst', 'host/-nomatch-'])
 output = realm.run(['./t_accname', 'p:host/-nomatch-',
                     'h:host@%s' % socket.gethostname()])
 if 'host/-nomatch-' not in output:
@@ -181,6 +191,11 @@ output = realm.run(['./t_export_name', '-s', 'p:a@b'])
 if output != '0401000806062B060105050200000003614062\n':
     fail('Unexpected output from t_export_name (SPNEGO krb5 principal)')
 
+# Test that composite-export tokens can be imported.
+output = realm.run(['./t_export_name', '-c', 'p:a@b'])
+if (output != '0402000B06092A864886F7120102020000000361406200000000\n'):
+    fail('Unexpected output from t_export_name (using COMPOSITE_EXPORT)')
+
 # Test gss_inquire_mechs_for_name behavior.
 krb5_mech = '{ 1 2 840 113554 1 2 2 }'
 spnego_mech = '{ 1 3 6 1 5 5 2 }'
@@ -197,5 +212,12 @@ if krb5_mech not in out or spnego_mech not in out:
 # Test that accept_sec_context can produce an error token and
 # init_sec_context can interpret it.
 realm.run(['./t_err', 'p:' + realm.host_princ])
+
+# Test the GSS_KRB5_CRED_NO_CI_FLAGS_X cred option.
+realm.run(['./t_ciflags', 'p:' + realm.host_princ])
+
+# Test that inquire_context works properly, even on incomplete
+# contexts.
+realm.run(['./t_inq_ctx', 'user', password('user'), 'p:%s' % realm.host_princ])
 
 success('GSSAPI tests')

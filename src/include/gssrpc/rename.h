@@ -177,6 +177,7 @@
 
 #define get_myaddress		gssrpc_get_myaddress
 #define bindresvport		gssrpc_bindresvport
+#define bindresvport_sa		gssrpc_bindresvport_sa
 #define callrpc			gssrpc_callrpc
 #define getrpcport		gssrpc_getrpcport
 
@@ -255,8 +256,6 @@
 /* svc_auth_gss.c */
 
 #define svc_debug_gss		gssrpc_svc_debug_gss
-
-#define svcauth_gss_creds	gssrpc_svc_auth_gss_creds
 
 /* svc_auth_gssapi.c */
 

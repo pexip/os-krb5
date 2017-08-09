@@ -125,14 +125,9 @@ krb5_pac_free(krb5_context context,
               krb5_pac pac)
 {
     if (pac != NULL) {
-        if (pac->data.data != NULL) {
-            memset(pac->data.data, 0, pac->data.length);
-            free(pac->data.data);
-        }
-        if (pac->pac != NULL)
-            free(pac->pac);
-        memset(pac, 0, sizeof(*pac));
-        free(pac);
+        zapfree(pac->data.data, pac->data.length);
+        free(pac->pac);
+        zapfree(pac, sizeof(*pac));
     }
 }
 
@@ -375,10 +370,9 @@ krb5_pac_parse(krb5_context context,
 }
 
 static krb5_error_code
-k5_time_to_seconds_since_1970(krb5_int64 ntTime,
-                              krb5_timestamp *elapsedSeconds)
+k5_time_to_seconds_since_1970(int64_t ntTime, krb5_timestamp *elapsedSeconds)
 {
-    krb5_ui_8 abstime;
+    uint64_t abstime;
 
     ntTime /= 10000000;
 
@@ -393,8 +387,7 @@ k5_time_to_seconds_since_1970(krb5_int64 ntTime,
 }
 
 krb5_error_code
-k5_seconds_since_1970_to_time(krb5_timestamp elapsedSeconds,
-                              krb5_ui_8 *ntTime)
+k5_seconds_since_1970_to_time(krb5_timestamp elapsedSeconds, uint64_t *ntTime)
 {
     *ntTime = elapsedSeconds;
 
@@ -418,7 +411,7 @@ k5_pac_validate_client(krb5_context context,
     unsigned char *p;
     krb5_timestamp pac_authtime;
     krb5_ui_2 pac_princname_length;
-    krb5_int64 pac_nt_authtime;
+    int64_t pac_nt_authtime;
     krb5_principal pac_principal;
 
     ret = k5_pac_locate_buffer(context, pac, KRB5_PAC_CLIENT_INFO,
@@ -1235,7 +1228,7 @@ mspac_copy(krb5_context kcontext,
 
 static krb5_authdatatype mspac_ad_types[] = { KRB5_AUTHDATA_WIN2K_PAC, 0 };
 
-krb5plugin_authdata_client_ftable_v0 krb5int_mspac_authdata_client_ftable = {
+krb5plugin_authdata_client_ftable_v0 k5_mspac_ad_client_ftable = {
     "mspac",
     mspac_ad_types,
     mspac_init,

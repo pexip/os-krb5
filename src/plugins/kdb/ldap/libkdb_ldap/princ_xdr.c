@@ -98,7 +98,7 @@ ldap_xdr_krb5_key_data(XDR *xdrs, krb5_key_data *objp)
 
     if (!ldap_xdr_krb5_int16(xdrs, &objp->key_data_ver))
 	return(FALSE);
-    if (!ldap_xdr_krb5_int16(xdrs, &objp->key_data_kvno))
+    if (!ldap_xdr_krb5_ui_2(xdrs, &objp->key_data_kvno))
 	return(FALSE);
     if (!ldap_xdr_krb5_int16(xdrs, &objp->key_data_type[0]))
 	return(FALSE);
@@ -176,9 +176,8 @@ ldap_osa_free_princ_ent(osa_princ_ent_t val)
     XDR xdrs;
 
     xdrmem_create(&xdrs, NULL, 0, XDR_FREE);
-
     ldap_xdr_osa_princ_ent_rec(&xdrs, val);
-    free(val);
+    xdr_destroy(&xdrs);
 }
 
 krb5_error_code
@@ -201,20 +200,14 @@ krb5_lookup_tl_kadm_data(krb5_tl_data *tl_data, osa_princ_ent_rec *princ_entry)
 
 krb5_error_code
 krb5_update_tl_kadm_data(krb5_context context, krb5_db_entry *entry,
-			 char *policy_dn)
+			 osa_princ_ent_rec *princ_entry)
 {
     XDR xdrs;
-    osa_princ_ent_rec princ_entry;
     krb5_tl_data tl_data;
     krb5_error_code retval;
 
-    memset(&princ_entry, 0, sizeof(osa_princ_ent_rec));
-    princ_entry.admin_history_kvno = 2;
-    princ_entry.aux_attributes = KADM5_POLICY;
-    princ_entry.policy = policy_dn;
-
     xdralloc_create(&xdrs, XDR_ENCODE);
-    if (! ldap_xdr_osa_princ_ent_rec(&xdrs, &princ_entry)) {
+    if (! ldap_xdr_osa_princ_ent_rec(&xdrs, princ_entry)) {
 	xdr_destroy(&xdrs);
 	return KADM5_XDR_FAILURE;
     }

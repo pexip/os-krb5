@@ -156,42 +156,50 @@ krb5_def_store_mkey_list(krb5_context       context,
         keyfile = defkeyfile;
     }
 
-    /*
-     * XXX making the assumption that the keyfile is in a dir that requires root
-     * privilege to write to thus making timing attacks unlikely.
-     */
     if ((statrc = stat(keyfile, &stb)) >= 0) {
         /* if keyfile exists it better be a regular file */
         if (!S_ISREG(stb.st_mode)) {
             retval = EINVAL;
-            krb5_set_error_message(context, retval,
-                                   _("keyfile (%s) is not a regular file: %s"),
-                                   keyfile, error_message(retval));
+            k5_setmsg(context, retval,
+                      _("keyfile (%s) is not a regular file: %s"),
+                      keyfile, error_message(retval));
             goto out;
         }
     }
 
-    /* Use temp keytab file name in case creation of keytab fails */
-
-    /* create temp file template for use by mktemp() */
-    if ((retval = asprintf(&tmp_ktname, "WRFILE:%s_XXXXXX", keyfile)) < 0) {
-        krb5_set_error_message(context, retval,
-                               _("Could not create temp keytab file name."));
+    /*
+     * We assume the stash file is in a directory writable only by root.
+     * As such, don't worry about collisions, just do an atomic rename.
+     */
+    retval = asprintf(&tmp_ktname, "FILE:%s_tmp", keyfile);
+    if (retval < 0) {
+        k5_setmsg(context, retval,
+                  _("Could not create temp keytab file name."));
         goto out;
     }
 
     /*
-     * Set tmp_ktpath to point to the keyfile path (skip WRFILE:).  Subtracting
+     * Set tmp_ktpath to point to the keyfile path (skip FILE:).  Subtracting
      * 1 to account for NULL terminator in sizeof calculation of a string
      * constant.  Used further down.
      */
-    tmp_ktpath = tmp_ktname + (sizeof("WRFILE:") - 1);
+    tmp_ktpath = tmp_ktname + (sizeof("FILE:") - 1);
 
-    if (mktemp(tmp_ktpath) == NULL) {
+    /*
+     * This time-of-check-to-time-of-access race is fine; we care only
+     * about an administrator running the command twice, not an attacker
+     * trying to beat us to creating the file.  Per the above comment, we
+     * assume the stash file is in a directory writable only by root.
+     */
+    statrc = stat(tmp_ktpath, &stb);
+    if (statrc == -1 && errno != ENOENT) {
+        /* ENOENT is the expected case */
         retval = errno;
-        krb5_set_error_message(context, retval,
-                               _("Could not create temp stash file: %s"),
-                               error_message(errno));
+        goto out;
+    } else if (statrc == 0) {
+        retval = EEXIST;
+        k5_setmsg(context, retval,
+                  _("Temporary stash file already exists: %s."), tmp_ktpath);
         goto out;
     }
 
@@ -212,17 +220,15 @@ krb5_def_store_mkey_list(krb5_context       context,
     krb5_kt_close(context, kt);
 
     if (retval != 0) {
-        /* delete tmp keyfile if it exists and an error occurrs */
-        if (stat(keyfile, &stb) >= 0)
-            (void) unlink(tmp_ktpath);
+        /* Clean up by deleting the tmp keyfile if it exists. */
+        (void)unlink(tmp_ktpath);
     } else {
-        /* rename original keyfile to original filename */
+        /* Atomically rename temp keyfile to original filename. */
         if (rename(tmp_ktpath, keyfile) < 0) {
             retval = errno;
-            krb5_set_error_message(context, retval,
-                                   _("rename of temporary keyfile (%s) to "
-                                     "(%s) failed: %s"), tmp_ktpath, keyfile,
-                                   error_message(errno));
+            k5_setmsg(context, retval,
+                      _("rename of temporary keyfile (%s) to (%s) failed: %s"),
+                      tmp_ktpath, keyfile, error_message(errno));
         }
     }
 
@@ -244,12 +250,8 @@ krb5_db_def_fetch_mkey_stash(krb5_context   context,
     krb5_ui_4 keylength;
     FILE *kf = NULL;
 
-#ifdef ANSI_STDIO
     if (!(kf = fopen(keyfile, "rb")))
-#else
-        if (!(kf = fopen(keyfile, "r")))
-#endif
-            return KRB5_KDB_CANTREAD_STORED;
+        return KRB5_KDB_CANTREAD_STORED;
     set_cloexec_file(kf);
 
     if (fread((krb5_pointer) &enctype, 2, 1, kf) != 1) {
@@ -409,9 +411,9 @@ krb5_db_def_fetch_mkey(krb5_context   context,
      * key, but set a message indicating the actual error.
      */
     if (retval != 0) {
-        krb5_set_error_message(context, KRB5_KDB_CANTREAD_STORED,
-                               _("Can not fetch master key (error: %s)."),
-                               error_message(retval));
+        k5_setmsg(context, KRB5_KDB_CANTREAD_STORED,
+                  _("Can not fetch master key (error: %s)."),
+                  error_message(retval));
         return KRB5_KDB_CANTREAD_STORED;
     } else
         return 0;
@@ -443,6 +445,11 @@ krb5_def_fetch_mkey_list(krb5_context        context,
     if (retval)
         return (retval);
 
+    if (master_entry->n_key_data == 0) {
+        retval = KRB5_KDB_NOMASTERKEY;
+        goto clean_n_exit;
+    }
+
     /*
      * Check if the input mkey is the latest key and if it isn't then find the
      * latest mkey.
@@ -472,9 +479,9 @@ krb5_def_fetch_mkey_list(krb5_context        context,
             }
         }
         if (found_key != TRUE) {
-            krb5_set_error_message(context, KRB5_KDB_BADMASTERKEY,
-                                   _("Unable to decrypt latest master key "
-                                     "with the provided master key\n"));
+            k5_setmsg(context, KRB5_KDB_BADMASTERKEY,
+                      _("Unable to decrypt latest master key with the "
+                        "provided master key\n"));
             retval = KRB5_KDB_BADMASTERKEY;
             goto clean_n_exit;
         }
@@ -530,4 +537,43 @@ clean_n_exit:
     if (retval != 0)
         krb5_dbe_free_key_list(context, mkey_list_head);
     return retval;
+}
+
+krb5_error_code
+krb5_db_def_rename_principal(krb5_context kcontext,
+                             krb5_const_principal source,
+                             krb5_const_principal target)
+{
+    krb5_db_entry *kdb = NULL;
+    krb5_principal oldprinc;
+    krb5_error_code ret;
+
+    if (source == NULL || target == NULL)
+        return EINVAL;
+
+    ret = krb5_db_get_principal(kcontext, source, KRB5_KDB_FLAG_ALIAS_OK,
+                                &kdb);
+    if (ret)
+        goto cleanup;
+
+    /* Store salt values explicitly so that they don't depend on the principal
+     * name. */
+    ret = krb5_dbe_specialize_salt(kcontext, kdb);
+    if (ret)
+        goto cleanup;
+
+    /* Temporarily alias kdb->princ to target and put the principal entry. */
+    oldprinc = kdb->princ;
+    kdb->princ = (krb5_principal)target;
+    ret = krb5_db_put_principal(kcontext, kdb);
+    kdb->princ = oldprinc;
+    if (ret)
+        goto cleanup;
+
+    ret = krb5_db_delete_principal(kcontext, (krb5_principal)source);
+
+
+cleanup:
+    krb5_db_free_principal(kcontext, kdb);
+    return ret;
 }

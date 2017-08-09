@@ -5,10 +5,10 @@
  * $Header$
  */
 
+#include        <k5-int.h>
 #include        <sys/file.h>
 #include        <fcntl.h>
 #include        <unistd.h>
-#include        <k5-int.h>
 #include        "policy_db.h"
 #include        <stdlib.h>
 #include        <db.h>
@@ -131,6 +131,12 @@ osa_adb_init_db(osa_adb_db_t *dbp, char *filename, char *lockfilename,
             return ENOMEM;
         }
         memset(lockp, 0, sizeof(*lockp));
+        lockp->lockinfo.filename = strdup(lockfilename);
+        if (lockp->lockinfo.filename == NULL) {
+            free(lockp);
+            free(db);
+            return ENOMEM;
+        }
         lockp->next = locklist;
         locklist = lockp;
     }
@@ -146,7 +152,6 @@ osa_adb_init_db(osa_adb_db_t *dbp, char *filename, char *lockfilename,
          * needs be open read/write so that write locking can work with
          * POSIX systems
          */
-        lockp->lockinfo.filename = strdup(lockfilename);
         if ((lockp->lockinfo.lockfile = fopen(lockfilename, "r+")) == NULL) {
             /*
              * maybe someone took away write permission so we could only
@@ -324,15 +329,11 @@ osa_adb_open_and_lock(osa_adb_princ_t db, int locktype)
     db->db = dbopen(db->filename, O_RDWR, 0600, DB_BTREE, &db->btinfo);
     if (db->db != NULL)
         goto open_ok;
-    switch (errno) {
-#ifdef EFTYPE
-    case EFTYPE:
-#endif
-    case EINVAL:
+    if (IS_EFTYPE(errno)) {
         db->db = dbopen(db->filename, O_RDWR, 0600, DB_HASH, &db->info);
         if (db->db != NULL)
             goto open_ok;
-    default:
+    } else {
         (void) osa_adb_release_lock(db);
         if (errno == EINVAL)
             return OSA_ADB_BAD_DB;

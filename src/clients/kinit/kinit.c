@@ -25,7 +25,8 @@
  */
 
 #include "autoconf.h"
-#include "k5-platform.h"        /* for asprintf */
+#include <k5-int.h>
+#include "k5-platform.h"        /* for asprintf and getopt */
 #include <krb5.h>
 #include "extern.h"
 #include <locale.h>
@@ -34,23 +35,6 @@
 #include <time.h>
 #include <errno.h>
 #include <com_err.h>
-
-#ifdef GETOPT_LONG
-#include <getopt.h>
-#else
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#ifdef sun
-/* SunOS4 unistd didn't declare these; okay to make unconditional?  */
-extern int optind;
-extern char *optarg;
-#endif /* sun */
-#else
-extern int optind;
-extern char *optarg;
-extern int getopt();
-#endif /* HAVE_UNISTD_H */
-#endif /* GETOPT_LONG */
 
 #ifndef _WIN32
 #define GET_PROGNAME(x) (strrchr((x), '/') ? strrchr((x), '/')+1 : (x))
@@ -104,11 +88,13 @@ struct k_opts
 
     int forwardable;
     int proxiable;
+    int request_pac;
     int anonymous;
     int addresses;
 
     int not_forwardable;
     int not_proxiable;
+    int not_request_pac;
     int no_addresses;
 
     int verbose;
@@ -139,49 +125,25 @@ struct k5_data
     krb5_boolean switch_to_cache;
 };
 
-#ifdef GETOPT_LONG
 /* if struct[2] == NULL, then long_getopt acts as if the short flag
    struct[3] was specified.  If struct[2] != NULL, then struct[3] is
    stored in *(struct[2]), the array index which was specified is
    stored in *index, and long_getopt() returns 0. */
 
-struct option long_options[] = {
-    { "noforwardable", 0, NULL, 'F' },
-    { "noproxiable", 0, NULL, 'P' },
-    { "addresses", 0, NULL, 'a'},
-    { "forwardable", 0, NULL, 'f' },
-    { "proxiable", 0, NULL, 'p' },
-    { "noaddresses", 0, NULL, 'A' },
-    { "canonicalize", 0, NULL, 'C' },
-    { "enterprise", 0, NULL, 'E' },
-    { NULL, 0, NULL, 0 }
-};
-
-#define GETOPT(argc, argv, str) getopt_long(argc, argv, str, long_options, 0)
-#else
-#define GETOPT(argc, argv, str) getopt(argc, argv, str)
-#endif
+const char *shopts = "r:fpFPn54aAVl:s:c:kit:T:RS:vX:CEI:";
 
 static void
 usage()
 {
 #define USAGE_BREAK "\n\t"
 
-#ifdef GETOPT_LONG
 #define USAGE_LONG_FORWARDABLE  " | --forwardable | --noforwardable"
 #define USAGE_LONG_PROXIABLE    " | --proxiable | --noproxiable"
 #define USAGE_LONG_ADDRESSES    " | --addresses | --noaddresses"
 #define USAGE_LONG_CANONICALIZE " | --canonicalize"
 #define USAGE_LONG_ENTERPRISE   " | --enterprise"
+#define USAGE_LONG_REQUESTPAC   "--request-pac | --no-request-pac"
 #define USAGE_BREAK_LONG       USAGE_BREAK
-#else
-#define USAGE_LONG_FORWARDABLE  ""
-#define USAGE_LONG_PROXIABLE    ""
-#define USAGE_LONG_ADDRESSES    ""
-#define USAGE_LONG_CANONICALIZE ""
-#define USAGE_LONG_ENTERPRISE   ""
-#define USAGE_BREAK_LONG        ""
-#endif
 
     fprintf(stderr, "Usage: %s [-V] "
             "[-l lifetime] [-s start_time] "
@@ -193,6 +155,8 @@ usage()
             USAGE_BREAK_LONG
             "-n "
             "[-a | -A" USAGE_LONG_ADDRESSES "] "
+            USAGE_BREAK_LONG
+            "[" USAGE_LONG_REQUESTPAC "] "
             USAGE_BREAK_LONG
             "[-C" USAGE_LONG_CANONICALIZE "] "
             USAGE_BREAK
@@ -208,7 +172,7 @@ usage()
             "\n\n",
             progname);
 
-    fprintf(stderr, "    options:");
+    fprintf(stderr, "    options:\n");
     fprintf(stderr, _("\t-V verbose\n"));
     fprintf(stderr, _("\t-l lifetime\n"));
     fprintf(stderr, _("\t-s start time\n"));
@@ -283,12 +247,24 @@ parse_options(argc, argv, opts)
     char **argv;
     struct k_opts* opts;
 {
+    struct option long_options[] = {
+        { "noforwardable", 0, NULL, 'F' },
+        { "noproxiable", 0, NULL, 'P' },
+        { "addresses", 0, NULL, 'a'},
+        { "forwardable", 0, NULL, 'f' },
+        { "proxiable", 0, NULL, 'p' },
+        { "noaddresses", 0, NULL, 'A' },
+        { "canonicalize", 0, NULL, 'C' },
+        { "enterprise", 0, NULL, 'E' },
+        { "request-pac", 0, &opts->request_pac, 1 },
+        { "no-request-pac", 0, &opts->not_request_pac, 1 },
+        { NULL, 0, NULL, 0 }
+    };
     krb5_error_code code;
     int errflg = 0;
     int i;
 
-    while ((i = GETOPT(argc, argv,
-                       "r:fpFPn54aAVl:s:c:kit:T:RS:vX:CEI:")) != -1) {
+    while ((i = getopt_long(argc, argv, shopts, long_options, 0)) != -1) {
         switch (i) {
         case 'V':
             opts->verbose = 1;
@@ -413,6 +389,9 @@ parse_options(argc, argv, opts)
             break;
         case '5':
             break;
+        case 0:
+            /* If this option set a flag, do nothing else now. */
+            break;
         default:
             errflg++;
             break;
@@ -427,6 +406,12 @@ parse_options(argc, argv, opts)
     if (opts->proxiable && opts->not_proxiable)
     {
         fprintf(stderr, _("Only one of -p and -P allowed\n"));
+        errflg++;
+    }
+    if (opts->request_pac && opts->not_request_pac)
+    {
+        fprintf(stderr, _("Only one of --request-pac and --no-request-pac "
+                          "allowed\n"));
         errflg++;
     }
     if (opts->addresses && opts->no_addresses)
@@ -470,6 +455,7 @@ k5_begin(opts, k5)
     int flags = opts->enterprise ? KRB5_PRINCIPAL_PARSE_ENTERPRISE : 0;
     krb5_ccache defcache = NULL;
     krb5_principal defcache_princ = NULL, princ;
+    krb5_keytab keytab;
     const char *deftype = NULL;
     char *defrealm, *name;
 
@@ -531,6 +517,21 @@ k5_begin(opts, k5)
         krb5_free_default_realm(k5->ctx, defrealm);
         if (code) {
             com_err(progname, code, _("while building principal"));
+            goto cleanup;
+        }
+    } else if (opts->action == INIT_KT && opts->use_client_keytab) {
+        /* Use the first entry from the client keytab. */
+        code = krb5_kt_client_default(k5->ctx, &keytab);
+        if (code) {
+            com_err(progname, code,
+                    _("When resolving the default client keytab"));
+            goto cleanup;
+        }
+        code = k5_kt_get_principal(k5->ctx, keytab, &k5->me);
+        krb5_kt_close(k5->ctx, keytab);
+        if (code) {
+            com_err(progname, code,
+                    _("When determining client principal name from keytab"));
             goto cleanup;
         }
     } else if (opts->action == INIT_KT) {
@@ -683,9 +684,18 @@ kinit_prompter(
     krb5_prompt prompts[]
 )
 {
-    krb5_error_code rc =
-        krb5_prompter_posix(ctx, data, name, banner, num_prompts, prompts);
-    return rc;
+    krb5_boolean *pwprompt = data;
+    krb5_prompt_type *ptypes;
+    int i;
+
+    /* Make a note if we receive a password prompt. */
+    ptypes = krb5_get_prompt_types(ctx);
+    for (i = 0; i < num_prompts; i++) {
+        if (ptypes != NULL && ptypes[i] == KRB5_PROMPT_TYPE_PASSWORD)
+            *pwprompt = TRUE;
+    }
+
+    return krb5_prompter_posix(ctx, data, name, banner, num_prompts, prompts);
 }
 
 static int
@@ -698,6 +708,7 @@ k5_kinit(opts, k5)
     krb5_creds my_creds;
     krb5_error_code code = 0;
     krb5_get_init_creds_opt *options = NULL;
+    krb5_boolean pwprompt = FALSE;
     int i;
 
     memset(&my_creds, 0, sizeof(my_creds));
@@ -741,6 +752,10 @@ k5_kinit(opts, k5)
         krb5_get_init_creds_opt_set_address_list(options, NULL);
     if (opts->armor_ccache)
         krb5_get_init_creds_opt_set_fast_ccache_name(k5->ctx, options, opts->armor_ccache);
+    if (opts->request_pac)
+        krb5_get_init_creds_opt_set_pac_request(k5->ctx, options, TRUE);
+    if (opts->not_request_pac)
+        krb5_get_init_creds_opt_set_pac_request(k5->ctx, options, FALSE);
 
 
     if ((opts->action == INIT_KT) && opts->keytab_name)
@@ -802,7 +817,7 @@ k5_kinit(opts, k5)
     switch (opts->action) {
     case INIT_PW:
         code = krb5_get_init_creds_password(k5->ctx, &my_creds, k5->me,
-                                            0, kinit_prompter, 0,
+                                            0, kinit_prompter, &pwprompt,
                                             opts->starttime,
                                             opts->service_name,
                                             options);
@@ -839,11 +854,15 @@ k5_kinit(opts, k5)
             break;
         }
 
-        if (code == KRB5KRB_AP_ERR_BAD_INTEGRITY)
+        /* If reply decryption failed, or if pre-authentication failed and we
+         * were prompted for a password, assume the password was wrong. */
+        if (code == KRB5KRB_AP_ERR_BAD_INTEGRITY ||
+            (pwprompt && code == KRB5KDC_ERR_PREAUTH_FAILED)) {
             fprintf(stderr, _("%s: Password incorrect while %s\n"), progname,
                     doing);
-        else
+        } else {
             com_err(progname, code, _("while %s"), doing);
+        }
         goto cleanup;
     }
 
@@ -877,6 +896,9 @@ k5_kinit(opts, k5)
     }
 
 cleanup:
+#ifndef _WIN32
+    kinit_kdb_fini();
+#endif
     if (options)
         krb5_get_init_creds_opt_free(k5->ctx, options);
     if (my_creds.client == k5->me) {

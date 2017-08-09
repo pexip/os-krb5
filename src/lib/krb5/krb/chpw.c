@@ -2,7 +2,6 @@
 /*
 ** set password functions added by Paul W. Nelson, Thursby Software Systems, Inc.
 */
-#include <string.h>
 
 #include "k5-int.h"
 #include "k5-unicode.h"
@@ -14,7 +13,7 @@ krb5_error_code
 krb5int_mk_chpw_req(krb5_context context,
                     krb5_auth_context auth_context,
                     krb5_data *ap_req,
-                    char *passwd,
+                    const char *passwd,
                     krb5_data *packet)
 {
     krb5_error_code ret = 0;
@@ -29,8 +28,7 @@ krb5int_mk_chpw_req(krb5_context context,
                                       KRB5_AUTH_CONTEXT_DO_SEQUENCE)))
         goto cleanup;
 
-    clearpw.length = strlen(passwd);
-    clearpw.data = passwd;
+    clearpw = string2data((char *)passwd);
 
     if ((ret = krb5_mk_priv(context, auth_context,
                             &clearpw, &cipherpw, &replay)))
@@ -285,7 +283,7 @@ krb5int_mk_setpw_req(krb5_context context,
                      krb5_auth_context auth_context,
                      krb5_data *ap_req,
                      krb5_principal targprinc,
-                     char *passwd,
+                     const char *passwd,
                      krb5_data *packet)
 {
     krb5_error_code ret;
@@ -303,8 +301,7 @@ krb5int_mk_setpw_req(krb5_context context,
         return(ret);
 
     req.target = targprinc;
-    req.password.data = passwd;
-    req.password.length = strlen(passwd);
+    req.password = string2data((char *)passwd);
     ret = encode_krb5_setpw_req(&req, &encoded_setpw);
     if (ret) {
         return ret;
@@ -385,7 +382,7 @@ struct ad_policy_info {
 static void
 add_spaces(struct k5buf *buf)
 {
-    if (k5_buf_len(buf) > 0)
+    if (buf->len > 0)
         k5_buf_add(buf, "  ");
 }
 
@@ -395,7 +392,6 @@ decode_ad_policy_info(const krb5_data *data, char **msg_out)
     struct ad_policy_info policy;
     uint64_t password_days;
     const char *p;
-    char *msg;
     struct k5buf buf;
 
     *msg_out = NULL;
@@ -466,14 +462,13 @@ decode_ad_policy_info(const krb5_data *data, char **msg_out)
                        (int)password_days);
     }
 
-    msg = k5_buf_data(&buf);
-    if (msg == NULL)
+    if (k5_buf_status(&buf) != 0)
         return ENOMEM;
 
-    if (*msg != '\0')
-        *msg_out = msg;
+    if (buf.len > 0)
+        *msg_out = buf.data;
     else
-        free(msg);
+        k5_buf_free(&buf);
     return 0;
 }
 

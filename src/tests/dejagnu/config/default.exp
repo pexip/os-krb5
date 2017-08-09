@@ -189,6 +189,30 @@ set passes {
 	{dummy=[verbose -log "AES enctypes"]}
     }
     {
+	aes-sha2-only
+	mode=udp
+	des3_krbtgt=0
+	{supported_enctypes=aes256-sha2:normal}
+	{permitted_enctypes(kdc)=aes256-sha2}
+	{permitted_enctypes(slave)=aes256-sha2}
+	{permitted_enctypes(client)=aes256-sha2}
+	{permitted_enctypes(server)=aes256-sha2}
+	{default_tgs_enctypes(kdc)=aes256-sha2}
+	{default_tgs_enctypes(slave)=aes256-sha2}
+	{default_tgs_enctypes(client)=aes256-sha2}
+	{default_tgs_enctypes(server)=aes256-sha2}
+	{default_tkt_enctypes(kdc)=aes256-sha2}
+	{default_tkt_enctypes(slave)=aes256-sha2}
+	{default_tkt_enctypes(client)=aes256-sha2}
+	{default_tkt_enctypes(server)=aes256-sha2}
+	{allow_weak_crypto(kdc)=false}
+	{allow_weak_crypto(slave)=false}
+	{allow_weak_crypto(client)=false}
+	{allow_weak_crypto(server)=false}
+	{master_key_type=aes256-sha2}
+	{dummy=[verbose -log "aes256-sha2 enctype"]}
+    }
+    {
 	camellia-only
 	mode=udp
 	des3_krbtgt=0
@@ -782,8 +806,8 @@ proc setup_kerberos_files { } {
 	    || $last_passname_conf != $multipass_name } {
 	set conffile [open $tmppwd/kdc.conf w]
 	puts $conffile "\[kdcdefaults\]"
-	puts $conffile "	kdc_ports = $portbase,[expr 1 + $portbase],[expr 2 + $portbase]"
-	puts $conffile "	kdc_tcp_ports = $portbase,[expr 1 + $portbase],[expr 2 + $portbase]"
+	puts $conffile "	kdc_listen = $portbase,[expr 1 + $portbase],[expr 2 + $portbase]"
+	puts $conffile "	kdc_tcp_listen = $portbase,[expr 1 + $portbase],[expr 2 + $portbase]"
 	puts $conffile ""
 	puts $conffile "\[realms\]"
 	puts $conffile "	$REALMNAME = \{"
@@ -803,11 +827,11 @@ proc setup_kerberos_files { } {
 	    puts $conffile "		supported_enctypes = $supported_enctypes"
 	}
 	if { $mode == "tcp" } {
-	    puts $conffile "		kdc_ports = [expr 3 + $portbase]"
-	    puts $conffile "		kdc_tcp_ports = [expr 1 + $portbase],[expr 3 + $portbase]"
+	    puts $conffile "		kdc_listen = [expr 3 + $portbase]"
+	    puts $conffile "		kdc_tcp_listen = [expr 1 + $portbase],[expr 3 + $portbase]"
 	} else {
-	    puts $conffile "		kdc_ports = [expr 1 + $portbase]"
-	    puts $conffile "		kdc_tcp_ports = [expr 3 + $portbase]"
+	    puts $conffile "		kdc_listen = [expr 1 + $portbase]"
+	    puts $conffile "		kdc_tcp_listen = [expr 3 + $portbase]"
 	}
 	puts $conffile "		default_principal_expiration = 2037.12.31.23.59.59"
 	puts $conffile "		default_principal_flags = -postdateable forwardable"
@@ -830,8 +854,8 @@ proc setup_kerberos_files { } {
 	    || $last_passname_conf != $multipass_name } {
 	set conffile [open $tmppwd/slave.conf w]
 	puts $conffile "\[kdcdefaults\]"
-	puts $conffile "	kdc_ports = $portbase,[expr 1 + $portbase],[expr 2 + $portbase]"
-	puts $conffile "	kdc_tcp_ports = $portbase,[expr 1 + $portbase],[expr 2 + $portbase]"
+	puts $conffile "	kdc_listen = $portbase,[expr 1 + $portbase],[expr 2 + $portbase]"
+	puts $conffile "	kdc_tcp_listen = $portbase,[expr 1 + $portbase],[expr 2 + $portbase]"
 	puts $conffile ""
 	puts $conffile "\[realms\]"
 	puts $conffile "	$REALMNAME = \{"
@@ -851,11 +875,11 @@ proc setup_kerberos_files { } {
 	    puts $conffile "		supported_enctypes = $supported_enctypes"
 	}
 	if { $mode == "tcp" } {
-	    puts $conffile "		kdc_ports = [expr 3 + $portbase]"
-	    puts $conffile "		kdc_tcp_ports = [expr 1 + $portbase],[expr 3 + $portbase]"
+	    puts $conffile "		kdc_listen = [expr 3 + $portbase]"
+	    puts $conffile "		kdc_tcp_listen = [expr 1 + $portbase],[expr 3 + $portbase]"
 	} else {
-	    puts $conffile "		kdc_ports = [expr 1 + $portbase]"
-	    puts $conffile "		kdc_tcp_ports = [expr 3 + $portbase]"
+	    puts $conffile "		kdc_listen = [expr 1 + $portbase]"
+	    puts $conffile "		kdc_tcp_listen = [expr 3 + $portbase]"
 	}
 	puts $conffile "		default_principal_expiration = 2037.12.31.23.59.59"
 	puts $conffile "		default_principal_flags = -postdateable forwardable"
@@ -1254,7 +1278,7 @@ proc setup_kerberos_db { standalone } {
     }
 
     # Add an incremental-propagation service.
-    set test "kadmin.local ank kiprop/$hostname"
+    set test "kadmin.local ank krbtest/fast"
     set body {
 	if $failall {
 	    break
@@ -1263,18 +1287,6 @@ proc setup_kerberos_db { standalone } {
 	verbose "starting $test"
 	expect_after $def_exp_after
 
-	expect "kadmin.local: "
-	send "ank kiprop/$hostname@$REALMNAME\r"
-	# It echos...
-	expect "ank kiprop/$hostname@$REALMNAME\r"
-	expect "Enter password for principal \"kiprop/$hostname@$REALMNAME\":"
-	send "kiproppass$KEY\r"
-	expect "Re-enter password for principal \"kiprop/$hostname@$REALMNAME\":"
-	send "kiproppass$KEY\r"
-	expect {
-	    "Principal \"kiprop/$hostname@$REALMNAME\" created" { }
-	    "Principal or policy already exists while creating*" { }
-	}
 	expect "kadmin.local: "
 	send "ank +requires_preauth krbtest/fast@$REALMNAME\r"
 	expect "Enter password for principal \"krbtest/fast@$REALMNAME\":"
@@ -2205,7 +2217,7 @@ proc do_klist_err { testname } {
     spawn $KLIST -5
     # Might say "credentials cache" or "credentials cache file".
     expect {
-	-re "klist: Credentials cache file .* not found.*\r\n" {
+	-re "klist: No credentials cache found.*\r\n" {
 	    verbose "klist started"
 	}
 	timeout {

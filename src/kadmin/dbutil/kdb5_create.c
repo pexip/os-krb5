@@ -53,7 +53,6 @@
  * Use is subject to license terms.
  */
 
-#include <stdio.h>
 #include <k5-int.h>
 #include <kdb.h>
 #include <kadm5/server_internal.h>
@@ -115,6 +114,7 @@ static krb5_error_code add_principal
 
 extern krb5_keyblock master_keyblock;
 extern krb5_principal master_princ;
+extern char *mkey_fullname;
 krb5_data master_salt;
 
 krb5_data tgt_princ_entries[] = {
@@ -156,7 +156,6 @@ void kdb5_create(argc, argv)
     int optchar;
 
     krb5_error_code retval;
-    char *mkey_fullname;
     char *pw_str = 0;
     unsigned int pw_size = 0;
     int do_stash = 0;
@@ -288,9 +287,9 @@ void kdb5_create(argc, argv)
 /*     } */
 
     if (log_ctx && log_ctx->iproprole) {
-        if ((retval = ulog_map(util_context, global_params.iprop_logfile,
-                               global_params.iprop_ulogsize, FKCOMMAND,
-                               db5util_db_args))) {
+        retval = ulog_map(util_context, global_params.iprop_logfile,
+                          global_params.iprop_ulogsize);
+        if (retval) {
             com_err(argv[0], retval, _("while creating update log"));
             exit_status++;
             return;
@@ -300,7 +299,12 @@ void kdb5_create(argc, argv)
          * We're reinitializing the update log in case one already
          * existed, but this should never happen.
          */
-        ulog_init_header(util_context);
+        retval = ulog_init_header(util_context);
+        if (retval) {
+            com_err(argv[0], retval, _("while initializing update log"));
+            exit_status++;
+            return;
+        }
 
         /*
          * Since we're creating a new db we shouldn't worry about
@@ -312,7 +316,6 @@ void kdb5_create(argc, argv)
 
     if ((retval = add_principal(util_context, master_princ, MASTER_KEY, &rblock)) ||
         (retval = add_principal(util_context, &tgt_princ, TGT_KEY, &rblock))) {
-        (void) krb5_db_fini(util_context);
         com_err(progname, retval, _("while adding entries to the database"));
         exit_status++; return;
     }
@@ -341,17 +344,11 @@ void kdb5_create(argc, argv)
                                       &master_keyblock,
                                       mkey_password);
     if (retval) {
-        com_err(progname, errno, _("while storing key"));
+        com_err(progname, retval, _("while storing key"));
         printf(_("Warning: couldn't stash master key.\n"));
     }
     /* clean up */
-    (void) krb5_db_fini(util_context);
-    memset(master_keyblock.contents, 0, master_keyblock.length);
-    free(master_keyblock.contents);
-    if (pw_str) {
-        memset(pw_str, 0, pw_size);
-        free(pw_str);
-    }
+    zapfree(pw_str, pw_size);
     free(master_salt.data);
 
     if (kadm5_create(&global_params)) {
@@ -419,10 +416,9 @@ add_principal(context, princ, op, pblock)
     struct iterate_args   iargs;
     krb5_actkvno_node     actkvno;
 
-    entry = krb5_db_alloc(context, NULL, sizeof(*entry));
+    entry = calloc(1, sizeof(*entry));
     if (entry == NULL)
         return ENOMEM;
-    memset(entry, 0, sizeof(*entry));
 
     entry->len = KRB5_KDB_V1_BASE_LENGTH;
     entry->attributes = pblock->flags;
@@ -496,6 +492,7 @@ add_principal(context, princ, op, pblock)
     entry->mask = (KADM5_KEY_DATA | KADM5_PRINCIPAL | KADM5_ATTRIBUTES |
                    KADM5_MAX_LIFE | KADM5_MAX_RLIFE | KADM5_TL_DATA |
                    KADM5_PRINC_EXPIRE_TIME);
+    entry->attributes |= KRB5_KDB_LOCKDOWN_KEYS;
 
     retval = krb5_db_put_principal(context, entry);
 

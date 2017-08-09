@@ -6,7 +6,6 @@ mydir=.
 #	plugins/locate/python
 #	plugins/preauth/wpse
 #	plugins/preauth/cksum_body
-#	plugins/authdata/greet
 SUBDIRS=util include lib \
 	@sam2_plugin@ \
 	plugins/audit \
@@ -16,10 +15,15 @@ SUBDIRS=util include lib \
 	plugins/hostrealm/test \
 	plugins/localauth/test \
 	plugins/pwqual/test \
+	plugins/authdata/greet_server \
+	plugins/authdata/greet_client \
 	plugins/kdb/db2 \
 	@ldap_plugin_dir@ \
+	plugins/kdb/test \
 	plugins/preauth/otp \
 	plugins/preauth/pkinit \
+	plugins/preauth/test \
+	plugins/tls/k5tls \
 	kdc kadmin slave clients appl tests \
 	config-files build-tools man doc @po@
 WINSUBDIRS=include util lib ccapi windows clients appl
@@ -30,8 +34,6 @@ HDRS =
 
 # Why aren't these flags showing up in Windows builds?
 ##DOS##CPPFLAGS=$(CPPFLAGS) -D_X86_=1  -DWIN32 -D_WIN32 -W3 -D_WINNT
-
-DISTFILES = $(SRCS) $(HDRS) COPYING COPYING.LIB ChangeLog Makefile.in
 
 # Lots of things will start to depend on the thread support, which
 # needs autoconf.h, but building "all" in include requires that util/et
@@ -46,9 +48,9 @@ update-autoconf-h:
 config.status: $(top_srcdir)/config/shlib.conf
 ##DOS##!endif
 
-all-windows:: maybe-awk Makefile-windows
+all-windows: maybe-awk Makefile-windows
 
-world::
+world:
 	date
 	make $(MFLAGS) all
 	date
@@ -62,8 +64,9 @@ INSTALLMKDIRS = $(KRB5ROOT) $(KRB5MANROOT) $(KRB5OTHERMKDIRS) \
 		$(KRB5_LIBDIR) $(KRB5_INCDIR) \
 		$(KRB5_DB_MODULE_DIR) $(KRB5_PA_MODULE_DIR) \
 		$(KRB5_AD_MODULE_DIR) \
-		$(KRB5_LIBKRB5_MODULE_DIR) \
+		$(KRB5_LIBKRB5_MODULE_DIR) $(KRB5_TLS_MODULE_DIR) \
 		@localstatedir@ @localstatedir@/krb5kdc \
+		@runstatedir@ @runstatedir@/krb5kdc \
 		$(KRB5_INCSUBDIRS) $(datadir) $(EXAMPLEDIR) \
 		$(PKGCONFIG_DIR)
 
@@ -83,54 +86,14 @@ install-headers-mkdirs:
 	$(srcdir)/config/mkinstalldirs $(DESTDIR)$(KRB5_INCDIR)/gssrpc
 install-headers-prerecurse: install-headers-mkdirs
 
-# install::
-#	$(MAKE) $(MFLAGS) install.man
-
-TAGS: $(SRCS)
-	etags $(SRCS)
-
 clean-:: clean-windows
 clean-unix::
-	$(RM) *.o core
-
-mostlyclean: clean
-
-# This doesn't work; if you think you need it, you should use a
-# separate build directory.
-# 
-# distclean: clean
-# 	rm -f Makefile config.status
-# 
-# realclean: distclean
-# 	rm -f TAGS
-
-dist: $(DISTFILES)
-	echo cpio-`sed -e '/version_string/!d' \
-	-e 's/[^0-9.]*\([0-9.]*\).*/\1/' -e q version.c` > .fname
-	rm -rf `cat .fname`
-	mkdir `cat .fname`
-	-ln $(DISTFILES) `cat .fname`
-	for file in $(DISTFILES); do \
-	  test -r `cat .fname`/$$file || cp -p $$file `cat .fname`; \
-	done
-	tar chzf `cat .fname`.tar.gz `cat .fname`
-	rm -rf `cat .fname` .fname
-
-GZIPPROG= gzip -9v
-PKGDIR=`pwd`/pkgdir
-pkgdir:
-	if test ! -d $(PKGDIR); then mkdir $(PKGDIR); else true; fi
-tgz-bin: pkgdir
-	rm -rf $(PKGDIR)/install cns5-bin.tgz
-	mkdir $(PKGDIR)/install
-	$(MAKE) install DESTDIR=$(PKGDIR)/install
-	(cd $(PKGDIR)/install && tar cf - usr/cygnus) | $(GZIPPROG) > cns5-bin.tgz
-	rm -rf $(PKGDIR)/install
+	$(RM) *.o core skiptests
 
 # Microsoft Windows build process...
 #
 
-config-windows:: Makefile-windows
+config-windows: Makefile-windows
 #	@echo Making in include
 #	cd include
 #	$(MAKE) -$(MFLAGS)
@@ -184,13 +147,12 @@ WINMAKEFILES=Makefile \
 	util\windows\Makefile \
 	util\wshelper\Makefile \
 	windows\Makefile windows\lib\Makefile \
-	windows\cns\Makefile windows\gina\Makefile \
-	windows\ms2mit\Makefile \
+	windows\cns\Makefile windows\ms2mit\Makefile \
 	windows\wintel\Makefile windows\kfwlogon\Makefile \
 	windows\leashdll\Makefile windows\leash\Makefile \
 	windows\leash\htmlhelp\Makefile
 
-##DOS##Makefile-windows:: $(MKFDEP) $(WINMAKEFILES)
+##DOS##Makefile-windows: $(MKFDEP) $(WINMAKEFILES)
 
 ##DOS##Makefile: Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
@@ -306,8 +268,6 @@ WINMAKEFILES=Makefile \
 ##DOS##	$(WCONFIG) config < $@.in > $@
 ##DOS##windows\cns\Makefile: windows\cns\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
-##DOS##windows\gina\Makefile: windows\gina\Makefile.in $(MKFDEP)
-##DOS##	$(WCONFIG) config < $@.in > $@
 ##DOS##windows\ms2mit\Makefile: windows\ms2mit\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
 ##DOS##windows\wintel\Makefile: windows\wintel\Makefile.in $(MKFDEP)
@@ -365,14 +325,6 @@ HOUT =	$(INC)krb5/krb5.h $(GG)gssapi.h $(PR)profile.h
 CLEANUP= Makefile $(ETOUT) $(HOUT) \
 	include/profile.h include/osconf.h
 
-
-kerbsrc.win: kerbsrc-is-obsolete
-
-kerbsrc-is-obsolete:
-	@echo "kerbsrc.zip is no longer supported.  It was intended to avoid"
-	@echo "needing Unix utilities on Windows, but these utilities are now"
-	@echo "available through the Utilities and SDK for UNIX-based"
-	@echo "Applications."
 
 dos-Makefile:
 	cat config/win-pre.in Makefile.in config/win-post.in | \
@@ -451,10 +403,10 @@ awk-windows-mac: $(ETOUT) $(HOUT)
 # The maybe-awk target needs to happen after AWK is defined.
 #
 
-##DOS##maybe-awk::
+##DOS##maybe-awk:
 ##DOS##!ifdef WHICH_CMD
 ##DOS##!if ![ $(WHICH_CMD) $(AWK) ]
-##DOS##maybe-awk:: awk-windows-mac
+##DOS##maybe-awk: awk-windows-mac
 ##DOS##!endif
 ##DOS##!endif
 
@@ -469,7 +421,7 @@ distclean-windows:
 
 # Avoid using $(CP) here because the nul+ hack breaks implicit
 # destination filenames.
-install-windows::
+install-windows:
 	@if "$(KRB_INSTALL_DIR)"=="" @echo KRB_INSTALL_DIR is not defined!  Please define it.
 	@if "$(KRB_INSTALL_DIR)"=="" @dir /b \nul\nul
 	@if not exist "$(KRB_INSTALL_DIR)\$(NULL)" @echo The directory $(KRB_INSTALL_DIR) does not exist.  Please create it.
@@ -502,14 +454,16 @@ install-windows::
 	copy windows\leashdll\$(OUTPRE)*.lib "$(KRB_INSTALL_DIR)\lib\."
 	copy windows\leashdll\$(OUTPRE)*.dll "$(KRB_INSTALL_DIR)\bin\."
 	$(INSTALLDBGSYMS) windows\leashdll\$(OUTPRE)*.pdb "$(KRB_INSTALL_DIR)\bin\."
+##DOS##!ifndef NO_LEASH
 	copy windows\leash\$(OUTPRE)*.exe "$(KRB_INSTALL_DIR)\bin\."
 	$(INSTALLDBGSYMS) windows\leash\$(OUTPRE)*.pdb "$(KRB_INSTALL_DIR)\bin\."
 	copy windows\leash\$(OUTPRE)*.chm "$(KRB_INSTALL_DIR)\bin\."
+	copy windows\leash\htmlhelp\*.chm "$(KRB_INSTALL_DIR)\bin\."
+##DOS##!endif
 	copy windows\kfwlogon\$(OUTPRE)*.lib "$(KRB_INSTALL_DIR)\lib\."
 	copy windows\kfwlogon\$(OUTPRE)*.exe "$(KRB_INSTALL_DIR)\bin\."
 	copy windows\kfwlogon\$(OUTPRE)*.dll "$(KRB_INSTALL_DIR)\bin\."
 	$(INSTALLDBGSYMS) windows\kfwlogon\$(OUTPRE)*.pdb "$(KRB_INSTALL_DIR)\bin\."
-	copy util\windows\$(OUTPRE)*.lib $(KRB_INSTALL_DIR)\lib\."
 	copy util\wshelper\$(OUTPRE)$(DLIB).lib "$(KRB_INSTALL_DIR)\lib\."
 	copy util\wshelper\$(OUTPRE)$(DLIB).dll "$(KRB_INSTALL_DIR)\bin\."
 	$(INSTALLDBGSYMS) util\wshelper\$(OUTPRE)$(DLIB).pdb "$(KRB_INSTALL_DIR)\bin\."
@@ -534,9 +488,21 @@ install-windows::
 	$(INSTALLDBGSYMS) clients\kdeltkt\$(OUTPRE)kdeltkt.pdb "$(KRB_INSTALL_DIR)\bin\."
 	$(INSTALLDBGSYMS) clients\kpasswd\$(OUTPRE)kpasswd.pdb "$(KRB_INSTALL_DIR)\bin\."
 	$(INSTALLDBGSYMS) clients\kswitch\$(OUTPRE)kswitch.pdb "$(KRB_INSTALL_DIR)\bin\."
-	copy windows\leash\htmlhelp\*.chm "$(KRB_INSTALL_DIR)\bin\."
 
 check-prerecurse: runenv.py
+	$(RM) $(SKIPTESTS)
+	touch $(SKIPTESTS)
+
+check-unix:
+	cat $(SKIPTESTS)
+
+check-pytests-no: check-postrecurse
+	@echo 'Skipped python test scripts: python 2.5 or later required' >> \
+		$(SKIPTESTS)
+
+check-cmocka-no: check-postrecurse
+	@echo 'Skipped cmocka tests due to missing library or header file' >> \
+		$(SKIPTESTS)
 
 # Create a test realm and spawn a shell in an environment pointing to it.
 # If CROSSNUM is set, create that many fully connected test realms and
@@ -548,10 +514,12 @@ testrealm: runenv.py
 # environment variable settings to propagate to Python-based tests
 
 pyrunenv.vals: Makefile
-	$(RUN_SETUP) \
+	$(RUN_SETUP); \
 	for i in $(RUN_VARS); do \
 		eval echo 'env['\\\'$$i\\\''] = '\\\'\$$$$i\\\'; \
 	done > $@
+	echo "tls_impl = '$(TLS_IMPL)'" >> $@
+	echo "have_sasl = '$(HAVE_SASL)'" >> $@
 
 runenv.py: pyrunenv.vals
 	echo 'env = {}' > $@
@@ -626,11 +594,10 @@ BSDFILES = \
 	lib/krb5/krb/strftime.c \
 	lib/krb5/krb/strptime.c \
 	slave/kpropd_rpc.c \
+	util/support/getopt.c \
+	util/support/getopt_long.c \
 	util/support/mkstemp.c \
-	util/support/strlcpy.c \
-	util/windows/getopt.c \
-	util/windows/getopt.h \
-	util/windows/getopt_long.c
+	util/support/strlcpy.c
 
 OTHEREXCLUDES = \
 	include/iprop.h \
@@ -650,10 +617,6 @@ OTHEREXCLUDES = \
 	lib/krb5/unicode \
 	plugins/kdb/db2/libdb2 \
 	plugins/kdb/db2/pol_xdr.c \
-	plugins/kdb/hdb/hdb.h \
-	plugins/kdb/hdb/hdb_asn1.h \
-	plugins/kdb/hdb/hdb_err.h \
-	plugins/kdb/hdb/windc_plugin.h \
 	plugins/kdb/ldap/libkdb_ldap/princ_xdr.c \
 	plugins/kdb/ldap/libkdb_ldap/princ_xdr.h \
 	plugins/preauth/pkinit/pkcs11.h \
@@ -682,25 +645,25 @@ FIND_REINDENT = cd $(top_srcdir) && \
 	$(FIND) $(INDENTDIRS) \( $(EXCLUDES) \) -prune -o \
 	\( -name '*.[ch]' -o -name '*.hin' -o -name '*.[ch].in' \)
 
-show-reindentfiles::
+show-reindentfiles:
 	($(FIND_REINDENT) -print)
 
-reindent::
+reindent:
 	($(FIND_REINDENT) \
 	-print0 | $(XARGS) -0 $(EMACS) -q -batch \
 	-l util/krb5-c-style.el \
 	-l util/krb5-batch-reindent.el)
 
-mark-cstyle:: mark-cstyle-krb5 mark-cstyle-bsd
+mark-cstyle: mark-cstyle-krb5 mark-cstyle-bsd
 
-mark-cstyle-krb5::
+mark-cstyle-krb5:
 	(cd $(top_srcdir) && \
 	$(FIND) $(INDENTDIRS) \( $(EXCLUDES) \) -prune -o \
 	-name '*.[ch]' \
 	-print0 | $(XARGS) -0 $(PYTHON) util/krb5-mark-cstyle.py \
 	--cstyle=krb5)
 
-mark-cstyle-bsd::
+mark-cstyle-bsd:
 	(cd $(top_srcdir) && $(FIND) $(BSDFILES) -print0 | $(XARGS) -0 \
 	$(PYTHON) util/krb5-mark-cstyle.py --cstyle=bsd)
 
@@ -708,3 +671,15 @@ check-copyright:
 	(cd $(top_srcdir) && \
 	$(FIND) . \( -name '*.[ch]' -o -name '*.hin' \) -print0 | \
 	$(XARGS) -0 python util/krb5-check-copyright.py)
+
+tags: FORCE
+	(cd $(top_srcdir) && \
+	$(FIND) . \( -name '*.[ch]' -o -name '*.hin' \) -print | \
+	etags --lang=c - && \
+	$(FIND) . -name '*.cpp' -print | etags --lang=c++ --append - && \
+	$(FIND) . -name '*.y' -print | etags --lang=yacc --append -)
+FORCE:
+.PHONY: FORCE tags
+
+distclean-unix:
+	$(RM) $(top_srcdir)/TAGS

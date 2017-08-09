@@ -50,7 +50,6 @@ static char sccsid[] = "@(#)bt_delete.c	8.13 (Berkeley) 7/28/94";
 static int __bt_bdelete __P((BTREE *, const DBT *));
 static int __bt_curdel __P((BTREE *, const DBT *, PAGE *, u_int));
 static int __bt_pdelete __P((BTREE *, PAGE *));
-static int __bt_relink __P((BTREE *, PAGE *));
 static int __bt_stkacq __P((BTREE *, PAGE **, CURSOR *));
 
 /*
@@ -153,7 +152,8 @@ __bt_stkacq(t, hp, c)
 	indx_t idx = 0;
 	db_pgno_t pgno;
 	recno_t nextpg, prevpg;
-	int exact, level;
+	int exact;
+	unsigned int level;
 
 	/*
 	 * Find the first occurrence of the key in the tree.  Toss the
@@ -634,7 +634,7 @@ dup2:				c->pg.pgno = e.page->pgno;
  *	t:	tree
  *	h:	page to be deleted
  */
-static int
+int
 __bt_relink(t, h)
 	BTREE *t;
 	PAGE *h;

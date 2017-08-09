@@ -14,7 +14,8 @@ for realm in multipass_realms(create_host=False):
 
     # Test FAST kinit.
     fastpw = password('fast')
-    realm.run_kadminl('ank -pw %s +requires_preauth user/fast' % fastpw)
+    realm.run([kadminl, 'ank', '-pw', fastpw, '+requires_preauth',
+               'user/fast'])
     realm.kinit('user/fast', fastpw)
     realm.kinit('user/fast', fastpw, flags=['-T', realm.ccache])
     realm.klist('user/fast@%s' % realm.realm)
@@ -27,11 +28,23 @@ for realm in multipass_realms(create_host=False):
 # principal with an empty password.  (Regression test for #7642.)
 conf={'plugins': {'pwqual': {'disable': 'empty'}}}
 realm = K5Realm(create_user=False, create_host=False, krb5_conf=conf)
-realm.run_kadminl('addprinc -pw "" user')
-realm.run(['./t_init_creds', 'user', ''])
+realm.run([kadminl, 'addprinc', '-pw', '', 'user'])
+realm.run(['./icred', 'user', ''])
 realm.stop()
 
 realm = K5Realm(create_host=False)
+
+# Regression test for #8454 (responder callback isn't used when
+# preauth is not required).
+realm.run(['./responder', '-r', 'password=%s' % password('user'),
+           realm.user_princ])
+
+# Test that WRONG_REALM responses aren't treated as referrals unless
+# they contain a crealm field pointing to a different realm.
+# (Regression test for #8060.)
+out = realm.run([kinit, '-C', 'notfoundprinc'], expected_code=1)
+if 'not found in Kerberos database' not in out:
+    fail('Expected error message not seen in kinit -C output')
 
 # Spot-check KRB5_TRACE output
 tracefile = os.path.join(realm.testdir, 'trace')

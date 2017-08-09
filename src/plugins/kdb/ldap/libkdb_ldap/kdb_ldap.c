@@ -65,13 +65,12 @@ krb5_ldap_read_startup_information(krb5_context context)
 
     SETUP_CONTEXT();
     if ((retval=krb5_ldap_read_krbcontainer_dn(context, &(ldap_context->container_dn)))) {
-        prepend_err_str(context, _("Unable to read Kerberos container"),
-                        retval, retval);
+        k5_prependmsg(context, retval, _("Unable to read Kerberos container"));
         goto cleanup;
     }
 
     if ((retval=krb5_ldap_read_realm_params(context, context->default_realm, &(ldap_context->lrparams), &mask))) {
-        prepend_err_str(context, _("Unable to read Realm"), retval, retval);
+        k5_prependmsg(context, retval, _("Unable to read Realm"));
         goto cleanup;
     }
 
@@ -120,120 +119,66 @@ cleanup:
 }
 
 
-/*
- * Interrogate the root DSE (zero length DN) for an attribute
- * value assertion.
- */
-static int
-has_rootdse_ava(krb5_context context, char *ldap_server, char *attribute,
-                char *value)
+/* Interrogate the root DSE (zero length DN) for an attribute value assertion.
+ * Return true if it is present, false if it is absent or we can't tell. */
+static krb5_boolean
+has_rootdse_ava(krb5_context context, const char *server_name,
+                const char *attribute, const char *value)
 {
-    int               i=0, flag=0, ret=0, retval=0;
-    char              *attrs[2], **values=NULL;
-    LDAP              *ld=NULL;
-    LDAPMessage       *msg=NULL, *res=NULL;
-    struct berval     cred;
+    krb5_boolean result = FALSE;
+    char *attrs[2], **values = NULL;
+    int i, st;
+    LDAP *ld = NULL;
+    LDAPMessage *msg, *res = NULL;
+    struct berval cred;
 
-    attrs[0] = attribute;
+    attrs[0] = (char *)attribute;
     attrs[1] = NULL;
 
-    retval = ldap_initialize(&ld, ldap_server);
-    if (retval != LDAP_SUCCESS) {
-        ret = 2; /* Don't know */
+    st = ldap_initialize(&ld, server_name);
+    if (st != LDAP_SUCCESS)
         goto cleanup;
-    }
 
+    /* Bind anonymously. */
     cred.bv_val = "";
     cred.bv_len = 0;
-
-    /* Anonymous bind */
-    retval = ldap_sasl_bind_s(ld, "", NULL, &cred, NULL, NULL, NULL);
-    if (retval != LDAP_SUCCESS) {
-        ret = 2; /* Don't know */
+    st = ldap_sasl_bind_s(ld, "", NULL, &cred, NULL, NULL, NULL);
+    if (st != LDAP_SUCCESS)
         goto cleanup;
-    }
 
-    retval = ldap_search_ext_s(ld, "", LDAP_SCOPE_BASE, NULL, attrs, 0, NULL, NULL, NULL, 0, &res);
-    if (retval != LDAP_SUCCESS) {
-        ret = 2; /* Don't know */
+    st = ldap_search_ext_s(ld, "", LDAP_SCOPE_BASE, NULL, attrs, 0, NULL,
+                           NULL, NULL, 0, &res);
+    if (st != LDAP_SUCCESS)
         goto cleanup;
-    }
 
     msg = ldap_first_message(ld, res);
-    if (msg == NULL) {
-        ret = 2; /* Don't know */
+    if (msg == NULL)
         goto cleanup;
-    }
 
     values = ldap_get_values(ld, msg, attribute);
-    if (values == NULL) {
-        ret = 1; /* Not supported */
+    if (values == NULL)
         goto cleanup;
-    }
 
     for (i = 0; values[i] != NULL; i++) {
         if (strcmp(values[i], value) == 0) {
-            flag = 1;
-            break;
+            result = TRUE;
+            goto cleanup;
         }
     }
 
-    if (flag != 1) {
-        ret = 1; /* Not supported */
-        goto cleanup;
-    }
-
 cleanup:
+    ldap_value_free(values);
+    ldap_msgfree(res);
+    ldap_unbind_ext_s(ld, NULL, NULL);
 
-    if (values != NULL)
-        ldap_value_free(values);
-
-    if (res != NULL)
-        ldap_msgfree(res);
-
-    if (ld != NULL)
-        ldap_unbind_ext_s(ld, NULL, NULL);
-
-    return ret;
+    return result;
 }
 
-#define ERR_MSG1 _("Unable to check if SASL EXTERNAL mechanism is supported by LDAP server. Proceeding anyway ...")
-#define ERR_MSG2 _("SASL EXTERNAL mechanism not supported by LDAP server. Can't perform certificate-based bind.")
-
-/* Function to check if a LDAP server supports the SASL external mechanism
- *Return values:
- *   0 => supports
- *   1 => does not support
- *   2 => don't know
- */
-int
-has_sasl_external_mech(krb5_context context, char *ldap_server)
+krb5_boolean
+has_modify_increment(krb5_context context, const char *server_name)
 {
-    int ret;
-
-    ret = has_rootdse_ava(context, ldap_server,
-                          "supportedSASLMechanisms", "EXTERNAL");
-    switch (ret) {
-    case 1: /* not supported */
-        krb5_set_error_message(context, 1, "%s", ERR_MSG2);
-        break;
-    case 2: /* don't know */
-        krb5_set_error_message(context, 1, "%s", ERR_MSG1);
-        break;
-    default:
-        break;
-    }
-
-    return ret;
-}
-
-int
-has_modify_increment(context, ldap_server)
-    krb5_context     context;
-    char             *ldap_server;
-{
-    return has_rootdse_ava(context, ldap_server,
-                           "supportedFeatures", "1.3.6.1.1.14");
+    return has_rootdse_ava(context, server_name, "supportedFeatures",
+                           "1.3.6.1.1.14");
 }
 
 void *
@@ -266,15 +211,13 @@ krb5_ldap_open(krb5_context context, char *conf_section, char **db_args,
 
     status = krb5_ldap_parse_db_params(context, db_args);
     if (status) {
-        prepend_err_str(context, _("Error processing LDAP DB params:"),
-                        status, status);
+        k5_prependmsg(context, status, _("Error processing LDAP DB params"));
         goto clean_n_exit;
     }
 
     status = krb5_ldap_read_server_params(context, conf_section, mode & 0x0300);
     if (status) {
-        prepend_err_str(context, _("Error reading LDAP server params:"),
-                        status, status);
+        k5_prependmsg(context, status, _("Error reading LDAP server params"));
         goto clean_n_exit;
     }
     if ((status=krb5_ldap_db_init(context, ldap_context)) != 0) {
@@ -298,19 +241,8 @@ int
 set_ldap_error(krb5_context ctx, int st, int op)
 {
     int translated_st = translate_ldap_error(st, op);
-    krb5_set_error_message(ctx, translated_st, "%s", ldap_err2string(st));
+    k5_setmsg(ctx, translated_st, "%s", ldap_err2string(st));
     return translated_st;
-}
-
-void
-prepend_err_str(krb5_context ctx, const char *str, krb5_error_code err,
-                krb5_error_code oerr)
-{
-    const char *omsg;
-
-    omsg = krb5_get_error_message(ctx, oerr);
-    krb5_set_error_message(ctx, err, "%s %s", str, omsg);
-    krb5_free_error_message(ctx, omsg);
 }
 
 extern krb5int_access accessor;
