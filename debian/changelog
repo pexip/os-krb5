@@ -1,3 +1,23 @@
+krb5 (1.12.1+dfsg-19+deb8u4) jessie; urgency=medium
+
+  * New version number; same code as deb8u3 but rebuilt to build arch all
+    packages and because dgit doesn't deal well with reusing a version
+    number when a package is rejected
+
+ -- Sam Hartman <hartmans@debian.org>  Mon, 28 Aug 2017 11:55:49 -0400
+
+krb5 (1.12.1+dfsg-19+deb8u3) jessie; urgency=high
+
+  * CVE-2017-11368: Remote authenticated attackers can crash the KDC,
+    Closes: #869260
+  *  fix for CVE-2016-3120 (kdc crash on restrict_anon_to_tgt), Closes:
+    #832572
+  * fix for CVE-2016-3119: remote DOS with ldap for authenticated
+    attackers, Closes: #819468
+  * Prevent requires_preauth bypass (CVE-2015-2694), Closes: #783557
+  
+ -- Sam Hartman <hartmans@debian.org>  Sun, 13 Aug 2017 18:02:34 -0400
+
 krb5 (1.12.1+dfsg-19+deb8u2) jessie-security; urgency=high
 
   * Non-maintainer upload by the Security Team.

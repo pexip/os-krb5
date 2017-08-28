@@ -37,3 +37,7 @@ upstream/0036-Fix-SPNEGO-context-import.patch
 upstream/0037-Verify-decoded-kadmin-C-strings-CVE-2015-8629.patch
 upstream/0038-Check-for-null-kadm5-policy-name-CVE-2015-8630.patch
 upstream/0039-Fix-leaks-in-kadmin-server-stubs-CVE-2015-8631.patch
+prevent-requires_preauth-bypass-cve-2015.patch
+fix-s4u2self-kdc-crash-when-anon-is-rest.patch
+fix-ldap-null-deref-on-empty-arg-cve-201.patch
+prevent-kdc-unset-status-assertion-failu.patch
