@@ -127,7 +127,7 @@ static krb5_error_code get_credentials(context, cred, server, now,
     krb5_creds **out_creds;
 {
     krb5_error_code     code;
-    krb5_creds          in_creds, evidence_creds, *result_creds = NULL;
+    krb5_creds          in_creds, evidence_creds, mcreds, *result_creds = NULL;
     krb5_flags          flags = 0;
 
     *out_creds = NULL;
@@ -139,37 +139,7 @@ static krb5_error_code get_credentials(context, cred, server, now,
 
     assert(cred->name != NULL);
 
-    /*
-     * Do constrained delegation if we have proxy credentials and
-     * we're not trying to get a ticket to ourselves (in which case
-     * we can just use the S4U2Self or evidence ticket directly).
-     */
-    if (cred->impersonator &&
-        !krb5_principal_compare(context, cred->impersonator, server->princ)) {
-        krb5_creds mcreds;
-
-        flags |= KRB5_GC_CANONICALIZE | KRB5_GC_CONSTRAINED_DELEGATION;
-
-        memset(&mcreds, 0, sizeof(mcreds));
-
-        mcreds.magic = KV5M_CREDS;
-        mcreds.server = cred->impersonator;
-        mcreds.client = cred->name->princ;
-
-        code = krb5_cc_retrieve_cred(context, cred->ccache,
-                                     KRB5_TC_MATCH_AUTHDATA, &mcreds,
-                                     &evidence_creds);
-        if (code)
-            goto cleanup;
-
-        assert(evidence_creds.ticket_flags & TKT_FLG_FORWARDABLE);
-
-        in_creds.client = cred->impersonator;
-        in_creds.second_ticket = evidence_creds.ticket;
-    } else {
-        in_creds.client = cred->name->princ;
-    }
-
+    in_creds.client = cred->name->princ;
     in_creds.server = server->princ;
     in_creds.times.endtime = endtime;
     in_creds.authdata = NULL;
@@ -188,12 +158,45 @@ static krb5_error_code get_credentials(context, cred, server, now,
             goto cleanup;
     }
 
-    /* Don't go out over the network if we used IAKERB */
-    if (cred->iakerb_mech)
+    /*
+     * For IAKERB or constrained delegation, only check the cache in this step.
+     * For IAKERB we will ask the server to make any necessary TGS requests;
+     * for constrained delegation we will adjust in_creds and make an S4U2Proxy
+     * request below if the cache lookup fails.
+     */
+    if (cred->impersonator != NULL || cred->iakerb_mech)
         flags |= KRB5_GC_CACHED;
 
     code = krb5_get_credentials(context, flags, cred->ccache,
                                 &in_creds, &result_creds);
+
+    /*
+     * Try constrained delegation if we have proxy credentials, unless
+     * we are trying to get a ticket to ourselves (in which case we could
+     * just use the evidence ticket directly from cache).
+     */
+    if (code == KRB5_CC_NOTFOUND && cred->impersonator != NULL &&
+        !cred->iakerb_mech &&
+        !krb5_principal_compare(context, cred->impersonator, server->princ)) {
+
+        memset(&mcreds, 0, sizeof(mcreds));
+        mcreds.magic = KV5M_CREDS;
+        mcreds.server = cred->impersonator;
+        mcreds.client = cred->name->princ;
+        code = krb5_cc_retrieve_cred(context, cred->ccache,
+                                     KRB5_TC_MATCH_AUTHDATA, &mcreds,
+                                     &evidence_creds);
+        if (code)
+            goto cleanup;
+
+        assert(evidence_creds.ticket_flags & TKT_FLG_FORWARDABLE);
+        in_creds.client = cred->impersonator;
+        in_creds.second_ticket = evidence_creds.ticket;
+        flags = KRB5_GC_CANONICALIZE | KRB5_GC_CONSTRAINED_DELEGATION;
+        code = krb5_get_credentials(context, flags, cred->ccache,
+                                    &in_creds, &result_creds);
+    }
+
     if (code)
         goto cleanup;
 
@@ -552,15 +555,17 @@ kg_new_connection(
     }
 
     ctx->initiate = 1;
-    ctx->gss_flags = (GSS_C_INTEG_FLAG | GSS_C_CONF_FLAG |
-                      GSS_C_TRANS_FLAG |
-                      ((req_flags) & (GSS_C_MUTUAL_FLAG | GSS_C_REPLAY_FLAG |
-                                      GSS_C_SEQUENCE_FLAG | GSS_C_DELEG_FLAG |
-                                      GSS_C_DCE_STYLE | GSS_C_IDENTIFY_FLAG |
-                                      GSS_C_EXTENDED_ERROR_FLAG)));
     ctx->seed_init = 0;
     ctx->seqstate = 0;
 
+    ctx->gss_flags = req_flags & (GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG |
+                                  GSS_C_MUTUAL_FLAG | GSS_C_REPLAY_FLAG |
+                                  GSS_C_SEQUENCE_FLAG | GSS_C_DELEG_FLAG |
+                                  GSS_C_DCE_STYLE | GSS_C_IDENTIFY_FLAG |
+                                  GSS_C_EXTENDED_ERROR_FLAG);
+    ctx->gss_flags |= GSS_C_TRANS_FLAG;
+    if (!cred->suppress_ci_flags)
+        ctx->gss_flags |= (GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG);
     if (req_flags & GSS_C_DCE_STYLE)
         ctx->gss_flags |= GSS_C_MUTUAL_FLAG;
 
@@ -639,6 +644,17 @@ kg_new_connection(
     if (code != 0)
         goto cleanup;
 
+    if (!(ctx->gss_flags & GSS_C_MUTUAL_FLAG)) {
+        /* There will be no AP-REP, so set up sequence state now. */
+        ctx->seq_recv = ctx->seq_send;
+        code = g_seqstate_init(&ctx->seqstate, ctx->seq_recv,
+                               (ctx->gss_flags & GSS_C_REPLAY_FLAG) != 0,
+                               (ctx->gss_flags & GSS_C_SEQUENCE_FLAG) != 0,
+                               ctx->proto);
+        if (code != 0)
+            goto cleanup;
+    }
+
     /* compute time_rec */
     if (time_rec) {
         if ((code = krb5_timeofday(context, &now)))
@@ -663,10 +679,6 @@ kg_new_connection(
         ctx->established = 0;
         major_status = GSS_S_CONTINUE_NEEDED;
     } else {
-        ctx->seq_recv = ctx->seq_send;
-        g_order_init(&(ctx->seqstate), ctx->seq_recv,
-                     (ctx->gss_flags & GSS_C_REPLAY_FLAG) != 0,
-                     (ctx->gss_flags & GSS_C_SEQUENCE_FLAG) != 0, ctx->proto);
         ctx->gss_flags |= GSS_C_PROT_READY_FLAG;
         ctx->established = 1;
         major_status = GSS_S_COMPLETE;
@@ -811,9 +823,14 @@ mutual_auth(
 
     /* store away the sequence number */
     ctx->seq_recv = ap_rep_data->seq_number;
-    g_order_init(&(ctx->seqstate), ctx->seq_recv,
-                 (ctx->gss_flags & GSS_C_REPLAY_FLAG) != 0,
-                 (ctx->gss_flags & GSS_C_SEQUENCE_FLAG) !=0, ctx->proto);
+    code = g_seqstate_init(&ctx->seqstate, ctx->seq_recv,
+                           (ctx->gss_flags & GSS_C_REPLAY_FLAG) != 0,
+                           (ctx->gss_flags & GSS_C_SEQUENCE_FLAG) != 0,
+                           ctx->proto);
+    if (code) {
+        krb5_free_ap_rep_enc_part(context, ap_rep_data);
+        goto fail;
+    }
 
     if (ap_rep_data->subkey != NULL &&
         (ctx->proto == 1 || (ctx->gss_flags & GSS_C_DCE_STYLE) ||

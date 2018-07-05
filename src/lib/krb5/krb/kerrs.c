@@ -24,7 +24,6 @@
  * or implied warranty.
  */
 
-#include <stdarg.h>
 #include "k5-int.h"
 #include "int-proto.h"
 
@@ -35,7 +34,6 @@ static int error_message_debug = 0;
 #endif
 #endif
 
-#undef krb5_set_error_message
 void KRB5_CALLCONV_C
 krb5_set_error_message(krb5_context ctx, krb5_error_code code,
                        const char *fmt, ...)
@@ -53,30 +51,6 @@ krb5_set_error_message(krb5_context ctx, krb5_error_code code,
     }
 #endif
     k5_vset_error(&ctx->err, code, fmt, args);
-#ifdef DEBUG
-    if (ERROR_MESSAGE_DEBUG())
-        fprintf(stderr, "->%s\n", ctx->err.msg);
-#endif
-    va_end(args);
-}
-
-void KRB5_CALLCONV_C
-krb5_set_error_message_fl(krb5_context ctx, krb5_error_code code,
-                          const char *file, int line, const char *fmt, ...)
-{
-    va_list args;
-
-    if (ctx == NULL)
-        return;
-    va_start(args, fmt);
-#ifdef DEBUG
-    if (ERROR_MESSAGE_DEBUG()) {
-        fprintf(stderr,
-                "krb5_set_error_message(ctx=%p/err=%p, code=%ld, ...)\n",
-                ctx, &ctx->err, (long)code);
-    }
-#endif
-    k5_vset_error_fl(&ctx->err, code, file, line, fmt, args);
 #ifdef DEBUG
     if (ERROR_MESSAGE_DEBUG())
         fprintf(stderr, "->%s\n", ctx->err.msg);
@@ -103,6 +77,50 @@ krb5_vset_error_message(krb5_context ctx, krb5_error_code code,
 #endif
 }
 
+void KRB5_CALLCONV
+krb5_prepend_error_message(krb5_context ctx, krb5_error_code code,
+                           const char *fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    krb5_vwrap_error_message(ctx, code, code, fmt, ap);
+    va_end(ap);
+}
+
+void KRB5_CALLCONV
+krb5_vprepend_error_message(krb5_context ctx, krb5_error_code code,
+                            const char *fmt, va_list ap)
+{
+    krb5_wrap_error_message(ctx, code, code, fmt, ap);
+}
+
+void KRB5_CALLCONV
+krb5_wrap_error_message(krb5_context ctx, krb5_error_code old_code,
+                        krb5_error_code code, const char *fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    krb5_vwrap_error_message(ctx, old_code, code, fmt, ap);
+    va_end(ap);
+}
+
+void KRB5_CALLCONV
+krb5_vwrap_error_message(krb5_context ctx, krb5_error_code old_code,
+                         krb5_error_code code, const char *fmt, va_list ap)
+{
+    const char *prev_msg;
+    char *prepend;
+
+    if (ctx == NULL || vasprintf(&prepend, fmt, ap) < 0)
+        return;
+    prev_msg = k5_get_error(&ctx->err, old_code);
+    k5_set_error(&ctx->err, code, "%s: %s", prepend, prev_msg);
+    k5_free_error(&ctx->err, prev_msg);
+    free(prepend);
+}
+
 /* Set the error message state of dest_ctx to that of src_ctx. */
 void KRB5_CALLCONV
 krb5_copy_error_message(krb5_context dest_ctx, krb5_context src_ctx)
@@ -117,16 +135,58 @@ krb5_copy_error_message(krb5_context dest_ctx, krb5_context src_ctx)
     }
 }
 
+/* Re-format msg using the format string err_fmt.  Return an allocated result,
+ * or NULL if err_fmt is NULL or on allocation failure. */
+static char *
+err_fmt_fmt(const char *err_fmt, long code, const char *msg)
+{
+    struct k5buf buf;
+    const char *p, *s;
+
+    if (err_fmt == NULL)
+        return NULL;
+
+    k5_buf_init_dynamic(&buf);
+
+    s = err_fmt;
+    while ((p = strchr(s, '%')) != NULL) {
+        k5_buf_add_len(&buf, s, p - s);
+        s = p;
+        if (p[1] == '\0')
+            break;
+        else if (p[1] == 'M')
+            k5_buf_add(&buf, msg);
+        else if (p[1] == 'C')
+            k5_buf_add_fmt(&buf, "%ld", code);
+        else if (p[1] == '%')
+            k5_buf_add(&buf, "%");
+        else
+            k5_buf_add_fmt(&buf, "%%%c", p[1]);
+        s += 2;
+    }
+    k5_buf_add(&buf, s);        /* Remainder after last token */
+    return buf.data;
+}
+
 const char * KRB5_CALLCONV
 krb5_get_error_message(krb5_context ctx, krb5_error_code code)
 {
+    const char *std, *custom;
+
 #ifdef DEBUG
     if (ERROR_MESSAGE_DEBUG())
         fprintf(stderr, "krb5_get_error_message(%p, %ld)\n", ctx, (long)code);
 #endif
     if (ctx == NULL)
         return error_message(code);
-    return k5_get_error(&ctx->err, code);
+
+    std = k5_get_error(&ctx->err, code);
+    custom = err_fmt_fmt(ctx->err_fmt, code, std);
+    if (custom != NULL) {
+        free((char *)std);
+        return custom;
+    }
+    return std;
 }
 
 void KRB5_CALLCONV
@@ -179,4 +239,14 @@ k5_restore_ctx_error(krb5_context ctx, struct errinfo *in)
         k5_clear_error(in);
     }
     return code;
+}
+
+/* If ctx contains an extended error message for oldcode, change it to be an
+ * extended error message for newcode. */
+void
+k5_change_error_message_code(krb5_context ctx, krb5_error_code oldcode,
+                             krb5_error_code newcode)
+{
+    if (ctx != NULL && ctx->err.msg != NULL && ctx->err.code == oldcode)
+        ctx->err.code = newcode;
 }

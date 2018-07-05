@@ -26,7 +26,7 @@
 
 /*
  * Test basic libk5crypto behavior across forks.  This is primarily interesting
- * for back ends with PKCS11-based constraints, such as the NSS back end.
+ * for back ends with PKCS11-based constraints.
  */
 
 #include "k5-int.h"
@@ -57,12 +57,11 @@ prepare_enc_data(krb5_key key, size_t in_len, krb5_enc_data *enc_data)
 int
 main()
 {
-    krb5_error_code ret;
     krb5_keyblock kb_aes, kb_rc4;
     krb5_key key_aes, key_rc4;
     krb5_data state_rc4, plain = string2data("plain"), decrypted;
     krb5_enc_data out_aes, out_rc4;
-    pid_t pid;
+    pid_t pid, wpid;
     int status;
 
     /* Seed the PRNG instead of creating a context, so we don't need
@@ -92,18 +91,22 @@ main()
     t(krb5_c_decrypt(ctx, &kb_aes, 0, NULL, &out_aes, &decrypted));
     assert(data_eq(plain, decrypted));
 
-    /*
-     * Encrypt another RC4 message.  This may fail because RC4 cipher state in
-     * the NSS back end includes a PKCS11 handle which won't work across forks,
-     * but make sure it fails in the expected manner.
-     */
-    ret = krb5_k_encrypt(ctx, key_rc4, 0, &state_rc4, &plain, &out_rc4);
-    assert(ret == 0 || ret == EINVAL);
+    /* Encrypt another RC4 message. */
+    t(krb5_k_encrypt(ctx, key_rc4, 0, &state_rc4, &plain, &out_rc4));
     t(krb5_c_free_state(ctx, &kb_rc4, &state_rc4));
+
+    krb5_free_keyblock_contents(ctx, &kb_aes);
+    krb5_free_keyblock_contents(ctx, &kb_rc4);
+    krb5_k_free_key(ctx, key_aes);
+    krb5_k_free_key(ctx, key_rc4);
+    krb5_free_data_contents(ctx, &out_aes.ciphertext);
+    krb5_free_data_contents(ctx, &out_rc4.ciphertext);
+    krb5_free_data_contents(ctx, &decrypted);
 
     /* If we're the parent, make sure the child succeeded. */
     if (pid != 0) {
-        assert(wait(&status) == pid);
+        wpid = wait(&status);
+        assert(wpid == pid);
         if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
             fprintf(stderr, "Child failed with status %d\n", status);
             return 1;

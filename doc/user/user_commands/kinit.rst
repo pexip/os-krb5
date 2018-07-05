@@ -33,7 +33,10 @@ DESCRIPTION
 -----------
 
 kinit obtains and caches an initial ticket-granting ticket for
-*principal*.
+*principal*.  If *principal* is absent, kinit chooses an appropriate
+principal name based on existing credential cache contents or the
+local username of the user invoking kinit.  Some options modify the
+choice of principal name.
 
 
 OPTIONS
@@ -102,6 +105,11 @@ OPTIONS
     requests renewal of the ticket-granting ticket.  Note that an
     expired ticket cannot be renewed, even if the ticket is still
     within its renewable life.
+
+    Note that renewable tickets that have expired as reported by
+    :ref:`klist(1)` may sometimes be renewed using this option,
+    because the KDC applies a grace period to account for client-KDC
+    clock skew.  See :ref:`krb5.conf(5)` **clockskew** setting.
 
 **-k** [**-i** | **-t** *keytab_file*]
     requests a ticket, obtained from a key in the local host's keytab.

@@ -22,7 +22,7 @@
 
 """A module for krb5 test scripts
 
-To run test scripts during "make check" (if Python 2.4 or later is
+To run test scripts during "make check" (if Python 2.5 or later is
 available), add rules like the following to Makefile.in:
 
     check-pytests::
@@ -129,6 +129,14 @@ Scripts may use the following functions and variables:
   the operations tested; it will only be displayed (with leading
   marker and trailing newline) if the script is running verbosely.
 
+* skipped(whatmsg, whymsg): Indicate that some tests were skipped.
+  whatmsg should concisely say what was skipped (e.g. "LDAP KDB
+  tests") and whymsg should give the reason (e.g. "because LDAP module
+  not built").
+
+* skip_rest(message): Indicate that some tests were skipped, then exit
+  the current script.
+
 * output(message, force_verbose=False): Place message (without any
   added newline) in testlog, and write it to stdout if running
   verbosely.
@@ -177,6 +185,12 @@ Scripts may use the following functions and variables:
 
 * args: Positional arguments left over after flags are processed.
 
+* runenv: The contents of $srctop/runenv.py, containing a dictionary
+  'env' which specifies additional variables to be added to the realm
+  environment, and a variable 'tls_impl', which indicates which TLS
+  implementation (if any) is being used by libkrb5's support for
+  contacting KDCs and kpasswd servers over HTTPS.
+
 * verbose: Whether the script is running verbosely.
 
 * testpass: The command-line test pass argument.  The script does not
@@ -187,7 +201,7 @@ Scripts may use the following functions and variables:
   - krb5kdc
   - kadmind
   - kadmin
-  - kadmin_local
+  - kadminl (kadmin.local)
   - kdb5_ldap_util
   - kdb5_util
   - ktutil
@@ -250,7 +264,7 @@ Scripts may use the following realm methods and attributes:
   realm.
 
 * realm.addprinc(princname, password=None): Using kadmin.local, create
-  a principle in the KDB named princname, with either a random or
+  a principal in the KDB named princname, with either a random or
   specified key.
 
 * realm.extract_keytab(princname, keytab): Using kadmin.local, create
@@ -273,14 +287,12 @@ Scripts may use the following realm methods and attributes:
   (must be a filename; self.keytab if not specified) and verify that
   the output shows the keytab name and principal name.
 
-* realm.run_kadminl(query): Run the specified query in kadmin.local.
-
 * realm.prep_kadmin(princname=None, password=None, flags=[]): Populate
   realm.kadmin_ccache with a ticket which can be used to run kadmin.
   If princname is not specified, realm.admin_princ and its default
   password will be used.
 
-* realm.run_kadmin(query, **keywords): Run the specified query in
+* realm.run_kadmin(args, **keywords): Run the specified query in
   kadmin, using realm.kadmin_ccache to authenticate.  Accepts the same
   keyword arguments as run.
 
@@ -296,6 +308,11 @@ Scripts may use the following realm methods and attributes:
   environment created with realm.special_env() for the slave.  If args
   is given, it contains a list of additional kpropd arguments.
   Returns a handle to the kpropd process.
+
+* realm.run_kpropd_once(env, args=[]): Run kpropd once, using the -t
+  flag.  Pass an environment created with realm.special_env() for the
+  slave.  If args is given, it contains a list of additional kpropd
+  arguments.  Returns the kpropd output.
 
 * realm.realm: The realm's name.
 
@@ -356,6 +373,11 @@ def fail(msg):
     """Print a message and exit with failure."""
     global _current_pass
     print "*** Failure:", msg
+    if _last_cmd:
+        print "*** Last command (#%d): %s" % (_cmd_index - 1, _last_cmd)
+    if _last_cmd_output:
+        print "*** Output of last command:"
+        sys.stdout.write(_last_cmd_output)
     if _current_pass:
         print "*** Failed in test pass:", _current_pass
     sys.exit(1)
@@ -365,6 +387,20 @@ def success(msg):
     global _success
     output('*** Success: %s\n' % msg)
     _success = True
+
+
+def skipped(whatmsg, whymsg):
+    output('*** Skipping: %s: %s\n' % (whatmsg, whymsg), force_verbose=True)
+    f = open(os.path.join(buildtop, 'skiptests'), 'a')
+    f.write('Skipped %s: %s\n' % (whatmsg, whymsg))
+    f.close()
+
+
+def skip_rest(whatmsg, whymsg):
+    global _success
+    skipped(whatmsg, whymsg)
+    _success = True
+    sys.exit(0)
 
 
 def output(msg, force_verbose=False):
@@ -392,7 +428,7 @@ def password(name):
 # Exit handler which ensures processes are cleaned up and, on failure,
 # prints messages to help developers debug the problem.
 def _onexit():
-    global _daemons, _success, verbose
+    global _daemons, _success, srctop, verbose
     global _debug, _stop_before, _stop_after, _shell_before, _shell_after
     if _daemons is None:
         # In Python 2.5, if we exit as a side-effect of importing
@@ -411,11 +447,25 @@ def _onexit():
     if not _success:
         print
         if not verbose:
-            print 'See testlog for details, or re-run with -v flag.'
+            testlogfile = os.path.join(os.getcwd(), 'testlog')
+            utildir = os.path.join(srctop, 'util')
+            print 'For details, see: %s' % testlogfile
+            print 'Or re-run this test script with the -v flag:'
+            print '    cd %s' % os.getcwd()
+            print '    PYTHONPATH=%s %s %s -v' % \
+                (utildir, sys.executable, sys.argv[0])
             print
         print 'Use --debug=NUM to run a command under a debugger.  Use'
         print '--stop-after=NUM to stop after a daemon is started in order to'
         print 'attach to it with a debugger.  Use --help to see other options.'
+
+
+def _onsigint(signum, frame):
+    # Exit without displaying a stack trace.  Suppress messages from _onexit.
+    global _success
+    _success = True
+    sys.exit(1)
+
 
 # Find the parent of dir which is at the root of a build or source directory.
 def _find_root(dir):
@@ -526,9 +576,9 @@ def _match_cmdnum(cmdnum, ind):
 # Return an environment suitable for running programs in the build
 # tree.  It is safe to modify the result.
 def _build_env():
-    global buildtop, _runenv
+    global buildtop, runenv
     env = os.environ.copy()
-    for (k, v) in _runenv.iteritems():
+    for (k, v) in runenv.env.iteritems():
         if v.find('./') == 0:
             env[k] = os.path.join(buildtop, v)
         else:
@@ -544,8 +594,7 @@ def _import_runenv():
     runenv_py = os.path.join(buildtop, 'runenv.py')
     if not os.path.exists(runenv_py):
         fail('You must run "make runenv.py" in %s first.' % buildtop)
-    module = imp.load_source('runenv', runenv_py)
-    return module.env
+    return imp.load_source('runenv', runenv_py)
 
 
 # Merge the nested dictionaries cfg1 and cfg2 into a new dictionary.
@@ -599,15 +648,16 @@ def _stop_or_shell(stop, shell, env, ind):
 
 
 def _run_cmd(args, env, input=None, expected_code=0):
-    global null_input, _cmd_index, _debug
+    global null_input, _cmd_index, _last_cmd, _last_cmd_output, _debug
     global _stop_before, _stop_after, _shell_before, _shell_after
 
     if (_match_cmdnum(_debug, _cmd_index)):
         return _debug_cmd(args, env, input)
 
     args = _valgrind(args)
+    _last_cmd = _shell_equiv(args)
 
-    output('*** [%d] Executing: %s\n' % (_cmd_index, _shell_equiv(args)))
+    output('*** [%d] Executing: %s\n' % (_cmd_index, _last_cmd))
     _stop_or_shell(_stop_before, _shell_before, env, _cmd_index)
 
     if input:
@@ -619,6 +669,7 @@ def _run_cmd(args, env, input=None, expected_code=0):
     proc = subprocess.Popen(args, stdin=infile, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, env=env)
     (outdata, dummy_errdata) = proc.communicate(input)
+    _last_cmd_output = outdata
     code = proc.returncode
     output(outdata)
     output('*** [%d] Completed with return code %d\n' % (_cmd_index, code))
@@ -653,7 +704,7 @@ def _debug_cmd(args, env, input):
 # we see sentinel as a substring of a line on either stdout or stderr.
 # Clean up the daemon process on exit.
 def _start_daemon(args, env, sentinel):
-    global null_input, _cmd_index, _debug
+    global null_input, _cmd_index, _last_cmd, _last_cmd_output, _debug
     global _stop_before, _stop_after, _shell_before, _shell_after
 
     if (_match_cmdnum(_debug, _cmd_index)):
@@ -664,15 +715,17 @@ def _start_daemon(args, env, sentinel):
         sys.exit(1)
 
     args = _valgrind(args)
-    output('*** [%d] Starting: %s\n' %
-           (_cmd_index, _shell_equiv(args)))
+    _last_cmd = _shell_equiv(args)
+    output('*** [%d] Starting: %s\n' % (_cmd_index, _last_cmd))
     _stop_or_shell(_stop_before, _shell_before, env, _cmd_index)
 
     # Start the daemon and look for the sentinel in stdout or stderr.
     proc = subprocess.Popen(args, stdin=null_input, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, env=env)
+    _last_cmd_output = ''
     while True:
         line = proc.stdout.readline()
+        _last_cmd_output += line
         if line == "":
             code = proc.wait()
             fail('%s failed to start with code %d.' % (args[0], code))
@@ -746,8 +799,8 @@ class K5Realm(object):
         if create_kdb:
             self.create_kdb()
         if krbtgt_keysalt and create_kdb:
-            self.run_kadminl('cpw -randkey -e %s %s' %
-                             (krbtgt_keysalt, self.krbtgt_princ))
+            self.run([kadminl, 'cpw', '-randkey', '-e', krbtgt_keysalt,
+                      self.krbtgt_princ])
         if create_user and create_kdb:
             self.addprinc(self.user_princ, password('user'))
             self.addprinc(self.admin_princ, password('admin'))
@@ -821,7 +874,7 @@ class K5Realm(object):
         global hostname
         filename = os.path.join(self.testdir, 'acl')
         file = open(filename, 'w')
-        file.write('%s *\n' % self.admin_princ)
+        file.write('%s *e\n' % self.admin_princ)
         file.write('kiprop/%s@%s p\n' % (hostname, self.realm))
         file.close()
 
@@ -900,15 +953,19 @@ class K5Realm(object):
         stop_daemon(self._kadmind_proc)
         self._kadmind_proc = None
 
-    def start_kpropd(self, env, args=[]):
-        global krb5kdc
+    def _kpropd_args(self):
         slavedump_path = os.path.join(self.testdir, 'incoming-slave-datatrans')
         kpropdacl_path = os.path.join(self.testdir, 'kpropd-acl')
-        proc = _start_daemon([kpropd, '-D', '-P', str(self.kprop_port()),
-                              '-f', slavedump_path, '-p', kdb5_util,
-                              '-a', kpropdacl_path] + args, env, 'ready')
+        return [kpropd, '-D', '-P', str(self.kprop_port()),
+                '-f', slavedump_path, '-p', kdb5_util, '-a', kpropdacl_path]
+
+    def start_kpropd(self, env, args=[]):
+        proc = _start_daemon(self._kpropd_args() + args, env, 'ready')
         self._kpropd_procs.append(proc)
         return proc
+
+    def run_kpropd_once(self, env, args=[]):
+        return self.run(self._kpropd_args() + ['-t'] + args, env=env)
 
     def stop(self):
         if self._kdc_proc:
@@ -921,12 +978,12 @@ class K5Realm(object):
 
     def addprinc(self, princname, password=None):
         if password:
-            self.run_kadminl('addprinc -pw %s %s' % (password, princname))
+            self.run([kadminl, 'addprinc', '-pw', password, princname])
         else:
-            self.run_kadminl('addprinc -randkey %s' % princname)
+            self.run([kadminl, 'addprinc', '-randkey', princname])
 
     def extract_keytab(self, princname, keytab):
-        self.run_kadminl('ktadd -k %s -norandkey %s' % (keytab, princname))
+        self.run([kadminl, 'ktadd', '-k', keytab, '-norandkey', princname])
 
     def kinit(self, princname, password=None, flags=[], **keywords):
         if password:
@@ -958,10 +1015,6 @@ class K5Realm(object):
             princ not in output):
             fail('Unexpected klist output.')
 
-    def run_kadminl(self, query, env=None):
-        global kadmin_local
-        return self.run([kadmin_local, '-q', query], env=env)
-
     def prep_kadmin(self, princname=None, pw=None, flags=[]):
         if princname is None:
             princname = self.admin_princ
@@ -970,9 +1023,8 @@ class K5Realm(object):
                           flags=['-S', 'kadmin/admin',
                                  '-c', self.kadmin_ccache] + flags)
 
-    def run_kadmin(self, query, **keywords):
-        return self.run([kadmin, '-c', self.kadmin_ccache, '-q', query],
-                        **keywords)
+    def run_kadmin(self, args, **keywords):
+        return self.run([kadmin, '-c', self.kadmin_ccache] + args, **keywords)
 
     def special_env(self, name, has_kdc_conf, krb5_conf=None, kdc_conf=None):
         krb5_conf_path = os.path.join(self.testdir, 'krb5.conf.%s' % name)
@@ -1091,8 +1143,8 @@ _default_kdc_conf = {
             'dictfile': '$testdir/dictfile',
             'kadmind_port': '$port1',
             'kpasswd_port': '$port2',
-            'kdc_ports': '$port0',
-            'kdc_tcp_ports': '$port0'}},
+            'kdc_listen': '$port0',
+            'kdc_tcp_listen': '$port0'}},
     'dbmodules': {
         'db_module_dir': '$plugins/kdb',
         'db': {'db_library': 'db2', 'database_name' : '$testdir/db'}},
@@ -1158,6 +1210,26 @@ _passes = [
                     'supported_enctypes': 'camellia256-cts:normal',
                     'master_key_type': 'camellia256-cts'}}}),
 
+    # Exercise the aes128-sha2 enctype.
+    ('aes128-sha2', None,
+      {'libdefaults': {
+                'default_tgs_enctypes': 'aes128-sha2',
+                'default_tkt_enctypes': 'aes128-sha2',
+                'permitted_enctypes': 'aes128-sha2'}},
+      {'realms': {'$realm': {
+                    'supported_enctypes': 'aes128-sha2:normal',
+                    'master_key_type': 'aes128-sha2'}}}),
+
+    # Exercise the aes256-sha2 enctype.
+    ('aes256-sha2', None,
+      {'libdefaults': {
+                'default_tgs_enctypes': 'aes256-sha2',
+                'default_tkt_enctypes': 'aes256-sha2',
+                'permitted_enctypes': 'aes256-sha2'}},
+      {'realms': {'$realm': {
+                    'supported_enctypes': 'aes256-sha2:normal',
+                    'master_key_type': 'aes256-sha2'}}}),
+
     # Test a setup with modern principal keys but an old TGT key.
     ('aes256.destgt', 'des-cbc-crc:normal',
      {'libdefaults': {'allow_weak_crypto': 'true'}},
@@ -1169,19 +1241,22 @@ _current_pass = None
 _daemons = []
 _parse_args()
 atexit.register(_onexit)
+signal.signal(signal.SIGINT, _onsigint)
 _outfile = open('testlog', 'w')
 _cmd_index = 1
+_last_cmd = None
+_last_cmd_output = None
 buildtop = _find_buildtop()
 srctop = _find_srctop()
 plugins = os.path.join(buildtop, 'plugins')
-_runenv = _import_runenv()
+runenv = _import_runenv()
 hostname = _get_hostname()
 null_input = open(os.devnull, 'r')
 
 krb5kdc = os.path.join(buildtop, 'kdc', 'krb5kdc')
 kadmind = os.path.join(buildtop, 'kadmin', 'server', 'kadmind')
 kadmin = os.path.join(buildtop, 'kadmin', 'cli', 'kadmin')
-kadmin_local = os.path.join(buildtop, 'kadmin', 'cli', 'kadmin.local')
+kadminl = os.path.join(buildtop, 'kadmin', 'cli', 'kadmin.local')
 kdb5_ldap_util = os.path.join(buildtop, 'plugins', 'kdb', 'ldap', 'ldap_util',
                               'kdb5_ldap_util')
 kdb5_util = os.path.join(buildtop, 'kadmin', 'dbutil', 'kdb5_util')

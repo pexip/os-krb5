@@ -24,6 +24,7 @@ Frequently used public interfaces
    krb5_cc_resolve.rst
    krb5_change_password.rst
    krb5_chpw_message.rst
+   krb5_expand_hostname.rst
    krb5_free_context.rst
    krb5_free_error_message.rst
    krb5_free_principal.rst
@@ -50,6 +51,7 @@ Frequently used public interfaces
    krb5_get_init_creds_opt_set_in_ccache.rst
    krb5_get_init_creds_opt_set_out_ccache.rst
    krb5_get_init_creds_opt_set_pa.rst
+   krb5_get_init_creds_opt_set_pac_request.rst
    krb5_get_init_creds_opt_set_preauth_list.rst
    krb5_get_init_creds_opt_set_proxiable.rst
    krb5_get_init_creds_opt_set_renew_life.rst
@@ -254,6 +256,7 @@ Rarely used public interfaces
    krb5_pac_parse.rst
    krb5_pac_sign.rst
    krb5_pac_verify.rst
+   krb5_prepend_error_message.rst
    krb5_principal2salt.rst
    krb5_rd_cred.rst
    krb5_rd_error.rst
@@ -267,6 +270,8 @@ Rarely used public interfaces
    krb5_server_decrypt_ticket_keytab.rst
    krb5_set_default_tgs_enctypes.rst
    krb5_set_error_message.rst
+   krb5_set_kdc_recv_hook.rst
+   krb5_set_kdc_send_hook.rst
    krb5_set_real_time.rst
    krb5_string_to_cksumtype.rst
    krb5_string_to_deltat.rst
@@ -285,7 +290,10 @@ Rarely used public interfaces
    krb5_verify_init_creds.rst
    krb5_verify_init_creds_opt_init.rst
    krb5_verify_init_creds_opt_set_ap_req_nofail.rst
+   krb5_vprepend_error_message.rst
    krb5_vset_error_message.rst
+   krb5_vwrap_error_message.rst
+   krb5_wrap_error_message.rst
 
 
 Public interfaces that should not be called directly
@@ -300,6 +308,7 @@ Public interfaces that should not be called directly
    krb5_c_crypto_length_iov.rst
    krb5_c_decrypt.rst
    krb5_c_decrypt_iov.rst
+   krb5_c_derive_prfplus.rst
    krb5_c_encrypt.rst
    krb5_c_encrypt_iov.rst
    krb5_c_encrypt_length.rst
@@ -316,6 +325,7 @@ Public interfaces that should not be called directly
    krb5_c_make_random_key.rst
    krb5_c_padding_length.rst
    krb5_c_prf.rst
+   krb5_c_prfplus.rst
    krb5_c_prf_length.rst
    krb5_c_random_add_entropy.rst
    krb5_c_random_make_octets.rst

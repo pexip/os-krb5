@@ -24,8 +24,8 @@
  * or implied warranty.
  */
 
-#include <locale.h>
 #include "k5-int.h"
+#include <locale.h>
 
 extern int optind;
 extern char *optarg;
@@ -117,6 +117,7 @@ main(int argc, char **argv)
                     princ_name);
             exit(1);
         }
+        krb5_free_principal(context, princ);
     }
 
     ret = krb5_cc_switch(context, cache);
@@ -124,5 +125,8 @@ main(int argc, char **argv)
         com_err(progname, ret, _("while switching to credential cache"));
         exit(1);
     }
+
+    krb5_cc_close(context, cache);
+    krb5_free_context(context);
     return 0;
 }

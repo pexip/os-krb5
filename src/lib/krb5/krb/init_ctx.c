@@ -62,6 +62,7 @@
    des-crc for now.  */
 static krb5_enctype default_enctype_list[] = {
     ENCTYPE_AES256_CTS_HMAC_SHA1_96, ENCTYPE_AES128_CTS_HMAC_SHA1_96,
+    ENCTYPE_AES256_CTS_HMAC_SHA384_192, ENCTYPE_AES128_CTS_HMAC_SHA256_128,
     ENCTYPE_DES3_CBC_SHA1,
     ENCTYPE_ARCFOUR_HMAC,
     ENCTYPE_CAMELLIA128_CTS_CMAC, ENCTYPE_CAMELLIA256_CTS_CMAC,
@@ -150,7 +151,7 @@ krb5_init_context_profile(profile_t profile, krb5_flags flags,
        of using uint64_t, the possibility does exist that we're
        wrong.  */
     {
-        krb5_ui_8 i64;
+        uint64_t i64;
         assert(sizeof(i64) == 8);
         i64 = 0, i64--, i64 >>= 62;
         assert(i64 == 3);
@@ -281,6 +282,10 @@ krb5_init_context_profile(profile_t profile, krb5_flags flags,
     ctx->prompt_types = 0;
     ctx->use_conf_ktypes = 0;
     ctx->udp_pref_limit = -1;
+
+    /* It's OK if this fails */
+    (void)profile_get_string(ctx->profile, KRB5_CONF_LIBDEFAULTS,
+                             KRB5_CONF_ERR_FMT, NULL, NULL, &ctx->err_fmt);
     *context_out = ctx;
     return 0;
 
@@ -308,6 +313,7 @@ krb5_free_context(krb5_context ctx)
     }
 
     krb5_clear_error_message(ctx);
+    free(ctx->err_fmt);
 
 #ifndef DISABLE_TRACING
     if (ctx->trace_callback)
@@ -319,6 +325,7 @@ krb5_free_context(krb5_context ctx)
     k5_localauth_free_context(ctx);
     k5_plugin_free_context(ctx);
     free(ctx->plugin_base_dir);
+    free(ctx->tls);
 
     ctx->magic = 0;
     free(ctx);
@@ -476,6 +483,8 @@ krb5int_parse_enctype_list(krb5_context context, const char *profkey,
         } else if (strcasecmp(token, "aes") == 0) {
             mod_list(ENCTYPE_AES256_CTS_HMAC_SHA1_96, sel, weak, &list);
             mod_list(ENCTYPE_AES128_CTS_HMAC_SHA1_96, sel, weak, &list);
+            mod_list(ENCTYPE_AES256_CTS_HMAC_SHA384_192, sel, weak, &list);
+            mod_list(ENCTYPE_AES128_CTS_HMAC_SHA256_128, sel, weak, &list);
         } else if (strcasecmp(token, "rc4") == 0) {
             mod_list(ENCTYPE_ARCFOUR_HMAC, sel, weak, &list);
         } else if (strcasecmp(token, "camellia") == 0) {

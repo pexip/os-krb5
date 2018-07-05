@@ -33,7 +33,7 @@
 
 #include <k5-int.h>
 #include <kadm5/admin.h>
-#include <kdb_kt.h>
+#include <kdb.h>
 #include "extern.h"
 
 /** Server handle */
@@ -66,6 +66,12 @@ kinit_kdb_init(krb5_context *pcontext, char *realm)
                         &server_handle);
     if (retval)
         return retval;
-    retval = krb5_kt_register(*pcontext, &krb5_kt_kdb_ops);
+    retval = krb5_db_register_keytab(*pcontext);
     return retval;
+}
+
+void
+kinit_kdb_fini()
+{
+    kadm5_destroy(server_handle);
 }

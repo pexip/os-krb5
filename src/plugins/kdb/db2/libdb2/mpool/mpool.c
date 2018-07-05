@@ -81,9 +81,9 @@ mpool_open(key, fd, pagesize, maxcache)
 	/* Allocate and initialize the MPOOL cookie. */
 	if ((mp = (MPOOL *)calloc(1, sizeof(MPOOL))) == NULL)
 		return (NULL);
-	CIRCLEQ_INIT(&mp->lqh);
+	TAILQ_INIT(&mp->lqh);
 	for (entry = 0; entry < HASHSIZE; ++entry)
-		CIRCLEQ_INIT(&mp->hqh[entry]);
+		TAILQ_INIT(&mp->hqh[entry]);
 	mp->maxcache = maxcache;
 	mp->npages = sb.st_size / pagesize;
 	mp->pagesize = pagesize;
@@ -143,8 +143,8 @@ mpool_new(mp, pgnoaddr, flags)
 	bp->flags = MPOOL_PINNED | MPOOL_INUSE;
 
 	head = &mp->hqh[HASHKEY(bp->pgno)];
-	CIRCLEQ_INSERT_HEAD(head, bp, hq);
-	CIRCLEQ_INSERT_TAIL(&mp->lqh, bp, q);
+	TAILQ_INSERT_HEAD(head, bp, hq);
+	TAILQ_INSERT_TAIL(&mp->lqh, bp, q);
 	return (bp->page);
 }
 
@@ -156,7 +156,7 @@ mpool_delete(mp, page)
 	struct _hqh *head;
 	BKT *bp;
 
-	bp = (BKT *)((char *)page - sizeof(BKT));
+	bp = (void *)((char *)page - sizeof(BKT));
 
 #ifdef DEBUG
 	if (!(bp->flags & MPOOL_PINNED)) {
@@ -168,8 +168,8 @@ mpool_delete(mp, page)
 
 	/* Remove from the hash and lru queues. */
 	head = &mp->hqh[HASHKEY(bp->pgno)];
-	CIRCLEQ_REMOVE(head, bp, hq);
-	CIRCLEQ_REMOVE(&mp->lqh, bp, q);
+	TAILQ_REMOVE(head, bp, hq);
+	TAILQ_REMOVE(&mp->lqh, bp, q);
 
 	free(bp);
 	return (RET_SUCCESS);
@@ -208,13 +208,14 @@ mpool_get(mp, pgno, flags)
 		 * of the lru chain.
 		 */
 		head = &mp->hqh[HASHKEY(bp->pgno)];
-		CIRCLEQ_REMOVE(head, bp, hq);
-		CIRCLEQ_INSERT_HEAD(head, bp, hq);
-		CIRCLEQ_REMOVE(&mp->lqh, bp, q);
-		CIRCLEQ_INSERT_TAIL(&mp->lqh, bp, q);
+		TAILQ_REMOVE(head, bp, hq);
+		TAILQ_INSERT_HEAD(head, bp, hq);
+		TAILQ_REMOVE(&mp->lqh, bp, q);
+		TAILQ_INSERT_TAIL(&mp->lqh, bp, q);
 
 		/* Return a pinned page. */
-		bp->flags |= MPOOL_PINNED;
+		if (!(flags & MPOOL_IGNOREPIN))
+			bp->flags |= MPOOL_PINNED;
 		return (bp->page);
 	}
 
@@ -236,7 +237,8 @@ mpool_get(mp, pgno, flags)
 	if (lseek(mp->fd, off, SEEK_SET) != off)
 		return (NULL);
 
-	if ((nr = read(mp->fd, bp->page, mp->pagesize)) != mp->pagesize) {
+	if ((nr = read(mp->fd, bp->page, mp->pagesize)) !=
+	    (ssize_t)mp->pagesize) {
 		if (nr > 0) {
 			/* A partial read is definitely bad. */
 			errno = EINVAL;
@@ -261,8 +263,8 @@ mpool_get(mp, pgno, flags)
 	 * of the lru chain.
 	 */
 	head = &mp->hqh[HASHKEY(bp->pgno)];
-	CIRCLEQ_INSERT_HEAD(head, bp, hq);
-	CIRCLEQ_INSERT_TAIL(&mp->lqh, bp, q);
+	TAILQ_INSERT_HEAD(head, bp, hq);
+	TAILQ_INSERT_TAIL(&mp->lqh, bp, q);
 
 	/* Run through the user's filter. */
 	if (mp->pgin != NULL)
@@ -286,7 +288,7 @@ mpool_put(mp, page, flags)
 #ifdef STATISTICS
 	++mp->pageput;
 #endif
-	bp = (BKT *)((char *)page - sizeof(BKT));
+	bp = (void *)((char *)page - sizeof(BKT));
 #ifdef DEBUG
 	if (!(bp->flags & MPOOL_PINNED)) {
 		(void)fprintf(stderr,
@@ -311,8 +313,8 @@ mpool_close(mp)
 	BKT *bp;
 
 	/* Free up any space allocated to the lru pages. */
-	while ((bp = mp->lqh.cqh_first) != (void *)&mp->lqh) {
-		CIRCLEQ_REMOVE(&mp->lqh, mp->lqh.cqh_first, q);
+	while ((bp = mp->lqh.tqh_first) != NULL) {
+		TAILQ_REMOVE(&mp->lqh, mp->lqh.tqh_first, q);
 		free(bp);
 	}
 
@@ -332,8 +334,7 @@ mpool_sync(mp)
 	BKT *bp;
 
 	/* Walk the lru chain, flushing any dirty pages to disk. */
-	for (bp = mp->lqh.cqh_first;
-	    bp != (void *)&mp->lqh; bp = bp->q.cqe_next)
+	for (bp = mp->lqh.tqh_first; bp != NULL; bp = bp->q.tqe_next)
 		if (bp->flags & MPOOL_DIRTY &&
 		    mpool_write(mp, bp) == RET_ERROR)
 			return (RET_ERROR);
@@ -363,8 +364,7 @@ mpool_bkt(mp)
 	 * off any lists.  If we don't find anything we grow the cache anyway.
 	 * The cache never shrinks.
 	 */
-	for (bp = mp->lqh.cqh_first;
-	    bp != (void *)&mp->lqh; bp = bp->q.cqe_next)
+	for (bp = mp->lqh.tqh_first; bp != NULL; bp = bp->q.tqe_next)
 		if (!(bp->flags & MPOOL_PINNED)) {
 			/* Flush if dirty. */
 			if (bp->flags & MPOOL_DIRTY &&
@@ -375,8 +375,8 @@ mpool_bkt(mp)
 #endif
 			/* Remove from the hash and lru queues. */
 			head = &mp->hqh[HASHKEY(bp->pgno)];
-			CIRCLEQ_REMOVE(head, bp, hq);
-			CIRCLEQ_REMOVE(&mp->lqh, bp, q);
+			TAILQ_REMOVE(head, bp, hq);
+			TAILQ_REMOVE(&mp->lqh, bp, q);
 #if defined(DEBUG) && !defined(DEBUG_IDX0SPLIT)
 			{ void *spage;
 				spage = bp->page;
@@ -430,9 +430,18 @@ mpool_write(mp, bp)
 	}
 	if (lseek(mp->fd, off, SEEK_SET) != off)
 		return (RET_ERROR);
-	if (write(mp->fd, bp->page, mp->pagesize) != mp->pagesize)
+	if (write(mp->fd, bp->page, mp->pagesize) !=
+	    (ssize_t)mp->pagesize)
 		return (RET_ERROR);
 
+	/*
+	 * Re-run through the input filter since this page may soon be
+	 * accessed via the cache, and whatever the user's output filter
+	 * did may screw things up if we don't let the input filter
+	 * restore the in-core copy.
+	 */
+	if (mp->pgin)
+		(mp->pgin)(mp->pgcookie, bp->pgno, bp->page);
 	bp->flags &= ~MPOOL_DIRTY;
 	return (RET_SUCCESS);
 }
@@ -450,7 +459,7 @@ mpool_look(mp, pgno)
 	BKT *bp;
 
 	head = &mp->hqh[HASHKEY(pgno)];
-	for (bp = head->cqh_first; bp != (void *)head; bp = bp->hq.cqe_next)
+	for (bp = head->tqh_first; bp != NULL; bp = bp->hq.tqe_next)
 		if ((bp->pgno == pgno) && (bp->flags & MPOOL_INUSE)) {
 #ifdef STATISTICS
 			++mp->cachehit;
@@ -494,8 +503,7 @@ mpool_stat(mp)
 
 	sep = "";
 	cnt = 0;
-	for (bp = mp->lqh.cqh_first;
-	    bp != (void *)&mp->lqh; bp = bp->q.cqe_next) {
+	for (bp = mp->lqh.tqh_first; bp != NULL; bp = bp->q.tqe_next) {
 		(void)fprintf(stderr, "%s%d", sep, bp->pgno);
 		if (bp->flags & MPOOL_DIRTY)
 			(void)fprintf(stderr, "d");
@@ -509,5 +517,11 @@ mpool_stat(mp)
 
 	}
 	(void)fprintf(stderr, "\n");
+}
+#else
+void
+mpool_stat(mp)
+	MPOOL *mp;
+{
 }
 #endif

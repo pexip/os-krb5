@@ -92,6 +92,7 @@
 #include <stdlib.h>
 #include <limits.h>             /* for *_MAX */
 #include <stdarg.h>
+#include <stdint.h>
 
 #ifndef KRB5INT_BEGIN_DECLS
 #if defined(__cplusplus)
@@ -129,30 +130,11 @@ struct _profile_t;
  * Word-size related definition.
  */
 
-typedef unsigned char   krb5_octet;
-
-#if INT_MAX == 0x7fff
-typedef int     krb5_int16;
-typedef unsigned int    krb5_ui_2;
-#elif SHRT_MAX == 0x7fff
-typedef short   krb5_int16;
-typedef unsigned short  krb5_ui_2;
-#else
-#error undefined 16 bit type
-#endif
-
-#if INT_MAX == 0x7fffffffL
-typedef int     krb5_int32;
-typedef unsigned int    krb5_ui_4;
-#elif LONG_MAX == 0x7fffffffL
-typedef long    krb5_int32;
-typedef unsigned long   krb5_ui_4;
-#elif SHRT_MAX == 0x7fffffffL
-typedef short   krb5_int32;
-typedef unsigned short  krb5_ui_4;
-#else
-#error: undefined 32 bit type
-#endif
+typedef uint8_t krb5_octet;
+typedef int16_t krb5_int16;
+typedef uint16_t krb5_ui_2;
+typedef int32_t krb5_int32;
+typedef uint32_t krb5_ui_4;
 
 #define VALID_INT_BITS    INT_MAX
 #define VALID_UINT_BITS   UINT_MAX
@@ -200,8 +182,14 @@ typedef krb5_int32 krb5_cryptotype;
 typedef krb5_int32      krb5_preauthtype; /* This may change, later on */
 typedef krb5_int32      krb5_flags;
 typedef krb5_int32      krb5_timestamp;
-typedef krb5_int32      krb5_error_code;
 typedef krb5_int32      krb5_deltat;
+
+/**
+ * Used to convey an operation status.  The value 0 indicates success; any
+ * other values are com_err codes.  Use krb5_get_error_message() to obtain a
+ * string describing the error.
+ */
+typedef krb5_int32      krb5_error_code;
 
 typedef krb5_error_code krb5_magic;
 
@@ -435,14 +423,16 @@ typedef struct _krb5_crypto_iov {
 #define ENCTYPE_RSA_ES_OAEP_ENV 0x000e  /**< RSA w/OEAP encryption, CMS enveloped data */
 #define ENCTYPE_DES3_CBC_ENV    0x000f  /**< DES-3 cbc mode, CMS enveloped data */
 
-#define ENCTYPE_DES3_CBC_SHA1           0x0010
-#define ENCTYPE_AES128_CTS_HMAC_SHA1_96 0x0011 /**< RFC 3962 */
-#define ENCTYPE_AES256_CTS_HMAC_SHA1_96 0x0012 /**< RFC 3962 */
-#define ENCTYPE_ARCFOUR_HMAC            0x0017
-#define ENCTYPE_ARCFOUR_HMAC_EXP        0x0018
-#define ENCTYPE_CAMELLIA128_CTS_CMAC    0x0019 /**< RFC 6803 */
-#define ENCTYPE_CAMELLIA256_CTS_CMAC    0x001a /**< RFC 6803 */
-#define ENCTYPE_UNKNOWN                 0x01ff
+#define ENCTYPE_DES3_CBC_SHA1               0x0010
+#define ENCTYPE_AES128_CTS_HMAC_SHA1_96     0x0011 /**< RFC 3962 */
+#define ENCTYPE_AES256_CTS_HMAC_SHA1_96     0x0012 /**< RFC 3962 */
+#define ENCTYPE_AES128_CTS_HMAC_SHA256_128  0x0013 /**< RFC 8009 */
+#define ENCTYPE_AES256_CTS_HMAC_SHA384_192  0x0014 /**< RFC 8009 */
+#define ENCTYPE_ARCFOUR_HMAC                0x0017 /**< RFC 4757 */
+#define ENCTYPE_ARCFOUR_HMAC_EXP            0x0018 /**< RFC 4757 */
+#define ENCTYPE_CAMELLIA128_CTS_CMAC        0x0019 /**< RFC 6803 */
+#define ENCTYPE_CAMELLIA256_CTS_CMAC        0x001a /**< RFC 6803 */
+#define ENCTYPE_UNKNOWN                     0x01ff
 
 #define CKSUMTYPE_CRC32         0x0001
 #define CKSUMTYPE_RSA_MD4       0x0002
@@ -458,10 +448,12 @@ typedef struct _krb5_crypto_iov {
                                                 ENCTYPE_AES128_CTS_HMAC_SHA1_96 */
 #define CKSUMTYPE_HMAC_SHA1_96_AES256 0x0010 /**< RFC 3962. Used with
                                                 ENCTYPE_AES256_CTS_HMAC_SHA1_96 */
+#define CKSUMTYPE_HMAC_SHA256_128_AES128 0x0013 /**< RFC 8009 */
+#define CKSUMTYPE_HMAC_SHA384_192_AES256 0x0014 /**< RFC 8009 */
 #define CKSUMTYPE_CMAC_CAMELLIA128 0x0011 /**< RFC 6803 */
 #define CKSUMTYPE_CMAC_CAMELLIA256 0x0012 /**< RFC 6803 */
-#define CKSUMTYPE_MD5_HMAC_ARCFOUR -137 /*Microsoft netlogon cksumtype*/
-#define CKSUMTYPE_HMAC_MD5_ARCFOUR -138 /*Microsoft md5 hmac cksumtype*/
+#define CKSUMTYPE_MD5_HMAC_ARCFOUR -137 /* Microsoft netlogon */
+#define CKSUMTYPE_HMAC_MD5_ARCFOUR -138 /**< RFC 4757 */
 
 /*
  * The following are entropy source designations. Whenever
@@ -661,6 +653,48 @@ krb5_error_code KRB5_CALLCONV
 krb5_c_prf_length(krb5_context context, krb5_enctype enctype, size_t *len);
 
 /**
+ * Generate pseudo-random bytes using RFC 6113 PRF+.
+ *
+ * @param [in]  context         Library context
+ * @param [in]  k               KDC contribution key
+ * @param [in]  input           Input data
+ * @param [out] output          Pseudo-random output buffer
+ *
+ * This function fills @a output with PRF+(k, input) as defined in RFC 6113
+ * section 5.1.  The caller must preinitialize @a output and allocate the
+ * desired amount of space.  The length of the pseudo-random output will match
+ * the length of @a output.
+ *
+ * @note RFC 4402 defines a different PRF+ operation.  This function does not
+ * implement that operation.
+ *
+ * @return 0 on success, @c E2BIG if output->length is too large for PRF+ to
+ * generate, @c ENOMEM on allocation failure, or an error code from
+ * krb5_c_prf()
+ */
+krb5_error_code KRB5_CALLCONV
+krb5_c_prfplus(krb5_context context, const krb5_keyblock *k,
+               const krb5_data *input, krb5_data *output);
+
+/**
+ * Derive a key using some input data (via RFC 6113 PRF+).
+ *
+ * @param [in]  context         Library context
+ * @param [in]  k               KDC contribution key
+ * @param [in]  input           Input string
+ * @param [in]  enctype         Output key enctype (or @c ENCTYPE_NULL)
+ * @param [out] out             Derived keyblock
+ *
+ * This function uses PRF+ as defined in RFC 6113 to derive a key from another
+ * key and an input string.  If @a enctype is @c ENCTYPE_NULL, the output key
+ * will have the same enctype as the input key.
+ */
+krb5_error_code KRB5_CALLCONV
+krb5_c_derive_prfplus(krb5_context context, const krb5_keyblock *k,
+                      const krb5_data *input, krb5_enctype enctype,
+                      krb5_keyblock **out);
+
+/**
  * Compute the KRB-FX-CF2 combination of two keys and pepper strings.
  *
  * @param [in]  context         Library context
@@ -680,8 +714,8 @@ krb5_c_prf_length(krb5_context context, krb5_enctype enctype, size_t *len);
  */
 krb5_error_code KRB5_CALLCONV
 krb5_c_fx_cf2_simple(krb5_context context,
-                     krb5_keyblock *k1, const char *pepper1,
-                     krb5_keyblock *k2, const char *pepper2,
+                     const krb5_keyblock *k1, const char *pepper1,
+                     const krb5_keyblock *k2, const char *pepper2,
                      krb5_keyblock **out);
 
 /**
@@ -880,8 +914,10 @@ krb5_c_make_checksum(krb5_context context, krb5_cksumtype cksumtype,
  *
  * This function verifies that @a cksum is a valid checksum for @a data.  If
  * the checksum type of @a cksum is a keyed checksum, @a key is used to verify
- * the checksum.  The actual checksum key will be derived from @a key and @a
- * usage if key derivation is specified for the checksum type.
+ * the checksum.  If the checksum type in @a cksum is 0 and @a key is not NULL,
+ * the mandatory checksum type for @a key will be used.  The actual checksum
+ * key will be derived from @a key and @a usage if key derivation is specified
+ * for the checksum type.
  *
  * @note This function is similar to krb5_k_verify_checksum(), but operates
  * on keyblock @a key.
@@ -982,6 +1018,9 @@ krb5_c_keyed_checksum_types(krb5_context context, krb5_enctype enctype,
 #define KRB5_KEYUSAGE_ENC_CHALLENGE_CLIENT 54
 #define KRB5_KEYUSAGE_ENC_CHALLENGE_KDC 55
 #define KRB5_KEYUSAGE_AS_REQ 56
+#define KRB5_KEYUSAGE_CAMMAC 64
+
+#define KRB5_KEYUSAGE_PA_FX_COOKIE 513  /**< Used for encrypted FAST cookies */
 /** @} */ /* end of KRB5_KEYUSAGE group */
 
 /**
@@ -1443,8 +1482,10 @@ krb5_k_make_checksum_iov(krb5_context context, krb5_cksumtype cksumtype,
  *
  * This function verifies that @a cksum is a valid checksum for @a data.  If
  * the checksum type of @a cksum is a keyed checksum, @a key is used to verify
- * the checksum.  The actual checksum key will be derived from @a key and @a
- * usage if key derivation is specified for the checksum type.
+ * the checksum.  If the checksum type in @a cksum is 0 and @a key is not NULL,
+ * the mandatory checksum type for @a key will be used.  The actual checksum
+ * key will be derived from @a key and @a usage if key derivation is specified
+ * for the checksum type.
  *
  * @note This function is similar to krb5_c_verify_checksum(), but operates
  * on opaque @a key.
@@ -1846,10 +1887,12 @@ krb5_verify_checksum(krb5_context context, krb5_cksumtype ctype,
 #define KRB5_AUTHDATA_INITIAL_VERIFIED_CAS      9
 #define KRB5_AUTHDATA_OSF_DCE   64
 #define KRB5_AUTHDATA_SESAME    65
+#define KRB5_AUTHDATA_CAMMAC    96
 #define KRB5_AUTHDATA_WIN2K_PAC 128
 #define KRB5_AUTHDATA_ETYPE_NEGOTIATION 129     /**< RFC 4537 */
 #define KRB5_AUTHDATA_SIGNTICKET        512     /**< formerly 142 in krb5 1.8 */
 #define KRB5_AUTHDATA_FX_ARMOR 71
+#define KRB5_AUTHDATA_AUTH_INDICATOR 97
 /** @} */ /* end of KRB5_AUTHDATA group */
 
 /* password change constants */
@@ -2248,7 +2291,7 @@ typedef struct _krb5_cccol_cursor *krb5_cccol_cursor;
 
 /* Flags for krb5_cc_set_flags and similar. */
 /** Open and close the file for each cache operation. */
-#define KRB5_TC_OPENCLOSE          0x00000001
+#define KRB5_TC_OPENCLOSE          0x00000001 /**< @deprecated has no effect */
 #define KRB5_TC_NOTICKET           0x00000002
 
 /**
@@ -2864,6 +2907,7 @@ krb5_kt_start_seq_get(krb5_context context, krb5_keytab keytab,
  * @param [in]  cursor          Key table cursor
  *
  * Return the next sequential entry in @a keytab and advance @a cursor.
+ * Callers must release the returned entry with krb5_kt_free_entry().
  *
  * @sa krb5_kt_start_seq_get(), krb5_kt_end_seq_get()
  *
@@ -4169,13 +4213,14 @@ krb5_524_convert_creds(krb5_context context, krb5_creds *v5creds,
  * @param [out] ktid            Key table handle
  *
  * Resolve the key table name @a name and set @a ktid to a handle identifying
- * the key table.  The key table is not opened.
+ * the key table.  Use krb5_kt_close() to free @a ktid when it is no longer
+ * needed.
  *
- * @note @a name must be of the form @c type:residual, where @a type must be a
- * type known to the library and @a residual portion should be specific to the
- * particular keytab type.
+ * @a name must be of the form @c type:residual, where @a type must be a type
+ * known to the library and @a residual portion should be specific to the
+ * particular keytab type.  If no @a type is given, the default is @c FILE.
  *
- * @sa krb5_kt_close()
+ * If @a name is of type @c FILE, the keytab file is not opened by this call.
  *
  * @code
  *  Example: krb5_kt_resolve(context, "FILE:/tmp/filename", &ktid);
@@ -4929,6 +4974,23 @@ void KRB5_CALLCONV
 krb5_free_default_realm(krb5_context context, char *lrealm);
 
 /**
+ * Canonicalize a hostname, possibly using name service.
+ *
+ * @param [in]  context         Library context
+ * @param [in]  host            Input hostname
+ * @param [out] canonhost_out   Canonicalized hostname
+ *
+ * This function canonicalizes orig_hostname, possibly using name service
+ * lookups if configuration permits.  Use krb5_free_string() to free @a
+ * canonhost_out when it is no longer needed.
+ *
+ * @version New in 1.15
+ */
+krb5_error_code KRB5_CALLCONV
+krb5_expand_hostname(krb5_context context, const char *host,
+                     char **canonhost_out);
+
+/**
  * Generate a full principal name from a service name.
  *
  * @param [in]  context         Library context
@@ -5008,9 +5070,9 @@ krb5_sname_match(krb5_context context, krb5_const_principal matching,
  * @retval 0 Success; otherwise - Kerberos error codes
  */
 krb5_error_code KRB5_CALLCONV
-krb5_change_password(krb5_context context, krb5_creds *creds, char *newpw,
-                     int *result_code, krb5_data *result_code_string,
-                     krb5_data *result_string);
+krb5_change_password(krb5_context context, krb5_creds *creds,
+                     const char *newpw, int *result_code,
+                     krb5_data *result_code_string, krb5_data *result_string);
 
 /**
  * Set a password for a principal using specified credentials.
@@ -5043,7 +5105,7 @@ krb5_change_password(krb5_context context, krb5_creds *creds, char *newpw,
  * Kerberos error codes.
  */
 krb5_error_code KRB5_CALLCONV
-krb5_set_password(krb5_context context, krb5_creds *creds, char *newpw,
+krb5_set_password(krb5_context context, krb5_creds *creds, const char *newpw,
                   krb5_principal change_password_for, int *result_code,
                   krb5_data *result_code_string, krb5_data *result_string);
 
@@ -5079,7 +5141,8 @@ krb5_set_password(krb5_context context, krb5_creds *creds, char *newpw,
  */
 krb5_error_code KRB5_CALLCONV
 krb5_set_password_using_ccache(krb5_context context, krb5_ccache ccache,
-                               char *newpw, krb5_principal change_password_for,
+                               const char *newpw,
+                               krb5_principal change_password_for,
                                int *result_code, krb5_data *result_code_string,
                                krb5_data *result_string);
 
@@ -7060,6 +7123,26 @@ krb5_get_init_creds_opt_set_out_ccache(krb5_context context,
                                        krb5_ccache ccache);
 
 /**
+ * @brief Ask the KDC to include or not include a PAC in the ticket
+ *
+ * @param [in] context          Library context
+ * @param [in] opt              Options structure
+ * @param [in] req_pac          Whether to request a PAC or not
+ *
+ * If this option is set, the AS request will include a PAC-REQUEST pa-data
+ * item explicitly asking the KDC to either include or not include a privilege
+ * attribute certificate in the ticket authorization data.  By default, no
+ * request is made; typically the KDC will default to including a PAC if it
+ * supports them.
+ *
+ * @version New in 1.15
+ */
+krb5_error_code KRB5_CALLCONV
+krb5_get_init_creds_opt_set_pac_request(krb5_context context,
+                                        krb5_get_init_creds_opt *opt,
+                                        krb5_boolean req_pac);
+
+/**
  * Set FAST flags in initial credential options.
  *
  * @param [in] context          Library context
@@ -7533,7 +7616,7 @@ krb5_tkt_creds_get_times(krb5_context context, krb5_tkt_creds_context ctx,
  * @param [in]  client          Client principal
  * @param [in]  arg_keytab      Key table handle
  * @param [in]  start_time      Time when ticket becomes valid (0 for now)
- * @param [in]  in_tkt_service  Service name of initial credentials (or NLUL)
+ * @param [in]  in_tkt_service  Service name of initial credentials (or NULL)
  * @param [in]  k5_gic_options  Initial credential options
  *
  * This function requests KDC for an initial credentials for @a client using a
@@ -7800,6 +7883,85 @@ krb5_vset_error_message(krb5_context  ctx, krb5_error_code code,
                         const char *fmt, va_list args)
 #if !defined(__cplusplus) && (__GNUC__ > 2)
     __attribute__((__format__(__printf__, 3, 0)))
+#endif
+    ;
+
+/**
+ * Add a prefix to the message for an error code.
+ *
+ * @param [in] ctx              Library context
+ * @param [in] code             Error code
+ * @param [in] fmt              Format string for error message prefix
+ * @param [in] ...              printf(3) style parameters
+ *
+ * Format a message and prepend it to the current message for @a code.  The
+ * prefix will be separated from the old message with a colon and space.
+ */
+void KRB5_CALLCONV_C
+krb5_prepend_error_message(krb5_context ctx, krb5_error_code code,
+                           const char *fmt, ...)
+#if !defined(__cplusplus) && (__GNUC__ > 2)
+    __attribute__((__format__(__printf__, 3, 4)))
+#endif
+    ;
+
+/**
+ * Add a prefix to the message for an error code using a va_list.
+ *
+ * @param [in] ctx              Library context
+ * @param [in] code             Error code
+ * @param [in] fmt              Format string for error message prefix
+ * @param [in] args             List of vprintf(3) style arguments
+ *
+ * This function is similar to krb5_prepend_error_message(), but uses a
+ * va_list instead of variadic arguments.
+ */
+void KRB5_CALLCONV
+krb5_vprepend_error_message(krb5_context  ctx, krb5_error_code code,
+                        const char *fmt, va_list args)
+#if !defined(__cplusplus) && (__GNUC__ > 2)
+    __attribute__((__format__(__printf__, 3, 0)))
+#endif
+    ;
+
+/**
+ * Add a prefix to a different error code's message.
+ *
+ * @param [in] ctx              Library context
+ * @param [in] old_code         Previous error code
+ * @param [in] code             Error code
+ * @param [in] fmt              Format string for error message prefix
+ * @param [in] ...              printf(3) style parameters
+ *
+ * Format a message and prepend it to the message for @a old_code.  The prefix
+ * will be separated from the old message with a colon and space.  Set the
+ * resulting message as the extended error message for @a code.
+ */
+void KRB5_CALLCONV_C
+krb5_wrap_error_message(krb5_context ctx, krb5_error_code old_code,
+                        krb5_error_code code, const char *fmt, ...)
+#if !defined(__cplusplus) && (__GNUC__ > 2)
+    __attribute__((__format__(__printf__, 4, 5)))
+#endif
+    ;
+
+/**
+ * Add a prefix to a different error code's message using a va_list.
+ *
+ * @param [in] ctx              Library context
+ * @param [in] old_code         Previous error code
+ * @param [in] code             Error code
+ * @param [in] fmt              Format string for error message prefix
+ * @param [in] args             List of vprintf(3) style arguments
+ *
+ * This function is similar to krb5_wrap_error_message(), but uses a
+ * va_list instead of variadic arguments.
+ */
+void KRB5_CALLCONV
+krb5_vwrap_error_message(krb5_context ctx, krb5_error_code old_code,
+                         krb5_error_code code, const char *fmt, va_list args)
+#if !defined(__cplusplus) && (__GNUC__ > 2)
+    __attribute__((__format__(__printf__, 4, 0)))
 #endif
     ;
 
@@ -8178,6 +8340,118 @@ krb5_set_trace_callback(krb5_context context, krb5_trace_callback fn,
  */
 krb5_error_code KRB5_CALLCONV
 krb5_set_trace_filename(krb5_context context, const char *filename);
+
+
+/**
+ * Hook function for inspecting or modifying messages sent to KDCs.
+ *
+ * @param [in]  context         Library context
+ * @param [in]  data            Callback data
+ * @param [in]  realm           The realm the message will be sent to
+ * @param [in]  message         The original message to be sent to the KDC
+ * @param [out] new_message_out Optional replacement message to be sent
+ * @param [out] reply_out       Optional synthetic reply
+ *
+ * If the hook function returns an error code, the KDC communication will be
+ * aborted and the error code will be returned to the library operation which
+ * initiated the communication.
+ *
+ * If the hook function sets @a reply_out, @a message will not be sent to the
+ * KDC, and the given reply will used instead.
+ *
+ * If the hook function sets @a new_message_out, the given message will be sent
+ * to the KDC in place of @a message.
+ *
+ * If the hook function returns successfully without setting either output,
+ * @a message will be sent to the KDC normally.
+ *
+ * The hook function should use krb5_copy_data() to construct the value for
+ * @a new_message_out or @a reply_out, to ensure that it can be freed correctly
+ * by the library.
+ *
+ * @version New in 1.15
+ *
+ * @retval 0 Success
+ * @return A Kerberos error code
+ */
+typedef krb5_error_code
+(KRB5_CALLCONV *krb5_pre_send_fn)(krb5_context context, void *data,
+                                  const krb5_data *realm,
+                                  const krb5_data *message,
+                                  krb5_data **new_message_out,
+                                  krb5_data **new_reply_out);
+
+/**
+ * Hook function for inspecting or overriding KDC replies.
+ *
+ * @param [in]  context         Library context
+ * @param [in]  data            Callback data
+ * @param [in]  code            Status of KDC communication
+ * @param [in]  realm           The realm the reply was received from
+ * @param [in]  message         The message sent to the realm's KDC
+ * @param [in]  reply           The reply received from the KDC
+ * @param [out] new_reply_out   Optional replacement reply
+ *
+ * If @a code is zero, @a reply contains the reply received from the KDC.  The
+ * hook function may return an error code to simulate an error, may synthesize
+ * a different reply by setting @a new_reply_out, or may simply return
+ * successfully to do nothing.
+ *
+ * If @a code is non-zero, KDC communication failed and @a reply should be
+ * ignored.  The hook function may return @a code or a different error code, or
+ * may synthesize a reply by setting @a new_reply_out and return successfully.
+ *
+ * The hook function should use krb5_copy_data() to construct the value for
+ * @a new_reply_out, to ensure that it can be freed correctly by the library.
+ *
+ * @version New in 1.15
+ *
+ * @retval 0 Success
+ * @return A Kerberos error code
+ */
+typedef krb5_error_code
+(KRB5_CALLCONV *krb5_post_recv_fn)(krb5_context context, void *data,
+                                   krb5_error_code code,
+                                   const krb5_data *realm,
+                                   const krb5_data *message,
+                                   const krb5_data *reply,
+                                   krb5_data **new_reply_out);
+
+/**
+ * Set a KDC pre-send hook function.
+ *
+ * @param [in] context          Library context
+ * @param [in] send_hook        Hook function (or NULL to disable the hook)
+ * @param [in] data             Callback data to be passed to @a send_hook
+ *
+ * @a send_hook will be called before messages are sent to KDCs by library
+ * functions such as krb5_get_credentials().  The hook function may inspect,
+ * override, or synthesize its own reply to the message.
+ *
+ * @version New in 1.15
+ */
+void KRB5_CALLCONV
+krb5_set_kdc_send_hook(krb5_context context, krb5_pre_send_fn send_hook,
+                       void *data);
+
+/**
+ * Set a KDC post-receive hook function.
+ *
+ * @param [in] context          The library context.
+ * @param [in] recv_hook        Hook function (or NULL to disable the hook)
+ * @param [in] data             Callback data to be passed to @a recv_hook
+ *
+ * @a recv_hook will be called after a reply is received from a KDC during a
+ * call to a library function such as krb5_get_credentials().  The hook
+ * function may inspect or override the reply.  This hook will not be executed
+ * if the pre-send hook returns a synthetic reply.
+ *
+ * @version New in 1.15
+ */
+void KRB5_CALLCONV
+krb5_set_kdc_recv_hook(krb5_context context, krb5_post_recv_fn recv_hook,
+                       void *data);
+
 
 #if TARGET_OS_MAC
 #    pragma pack(pop)

@@ -56,9 +56,11 @@ char     *principal_attributes[] = { "krbprincipalname",
                                      "krbLastSuccessfulAuth",
                                      "krbLastPwdChange",
                                      "krbLastAdminUnlock",
+                                     "krbPrincipalAuthInd",
                                      "krbExtraData",
                                      "krbObjectReferences",
                                      "krbAllowedToDelegateTo",
+                                     "krbPwdHistory",
                                      NULL };
 
 /* Must match KDB_*_ATTR macros in ldap_principal.h.  */
@@ -67,7 +69,7 @@ static char *attributes_set[] = { "krbmaxticketlife",
                                   "krbticketflags",
                                   "krbprincipalexpiration",
                                   "krbticketpolicyreference",
-                                  "krbUpEnabled",
+                                  "krbPrincipalAuthInd",
                                   "krbpwdpolicyreference",
                                   "krbpasswordexpiration",
                                   "krbprincipalkey",
@@ -77,14 +79,38 @@ static char *attributes_set[] = { "krbmaxticketlife",
                                   "krbLastFailedAuth",
                                   "krbLoginFailedCount",
                                   "krbLastAdminUnlock",
+                                  "krbPwdHistory",
                                   NULL };
+
+
+static void
+k5_free_key_data_contents(krb5_key_data *key)
+{
+    int16_t i;
+
+    for (i = 0; i < key->key_data_ver; i++) {
+        zapfree(key->key_data_contents[i], key->key_data_length[i]);
+        key->key_data_contents[i] = NULL;
+    }
+}
+
+void
+k5_free_key_data(krb5_int16 n_key_data, krb5_key_data *key_data)
+{
+    int16_t i;
+
+    if (key_data == NULL)
+        return;
+    for (i = 0; i < n_key_data; i++)
+        k5_free_key_data_contents(&key_data[i]);
+    free(key_data);
+}
 
 void
 krb5_dbe_free_contents(krb5_context context, krb5_db_entry *entry)
 {
     krb5_tl_data        *tl_data_next=NULL;
     krb5_tl_data        *tl_data=NULL;
-    int i, j;
 
     if (entry->e_data)
         free(entry->e_data);
@@ -96,42 +122,16 @@ krb5_dbe_free_contents(krb5_context context, krb5_db_entry *entry)
             free(tl_data->tl_data_contents);
         free(tl_data);
     }
-    if (entry->key_data) {
-        for (i = 0; i < entry->n_key_data; i++) {
-            for (j = 0; j < entry->key_data[i].key_data_ver; j++) {
-                if (entry->key_data[i].key_data_length[j]) {
-                    if (entry->key_data[i].key_data_contents[j]) {
-                        memset(entry->key_data[i].key_data_contents[j],
-                               0,
-                               (unsigned) entry->key_data[i].key_data_length[j]);
-                        free (entry->key_data[i].key_data_contents[j]);
-                    }
-                }
-                entry->key_data[i].key_data_contents[j] = NULL;
-                entry->key_data[i].key_data_length[j] = 0;
-                entry->key_data[i].key_data_type[j] = 0;
-            }
-        }
-        free(entry->key_data);
-    }
+    k5_free_key_data(entry->n_key_data, entry->key_data);
     memset(entry, 0, sizeof(*entry));
     return;
 }
 
 
-void
-krb5_ldap_free_principal(krb5_context kcontext, krb5_db_entry *entry)
-{
-    if (entry == NULL)
-        return;
-    krb5_dbe_free_contents(kcontext, entry);
-    free(entry);
-}
-
 krb5_error_code
 krb5_ldap_iterate(krb5_context context, char *match_expr,
                   krb5_error_code (*func)(krb5_pointer, krb5_db_entry *),
-                  krb5_pointer func_arg)
+                  krb5_pointer func_arg, krb5_flags iterflags)
 {
     krb5_db_entry            entry;
     krb5_principal           principal;
@@ -156,7 +156,7 @@ krb5_ldap_iterate(krb5_context context, char *match_expr,
         realm = context->default_realm;
         if (realm == NULL) {
             st = EINVAL;
-            krb5_set_error_message(context, st, _("Default realm not set"));
+            k5_setmsg(context, st, _("Default realm not set"));
             goto cleanup;
         }
     }
@@ -189,7 +189,7 @@ krb5_ldap_iterate(krb5_context context, char *match_expr,
                         continue;
                     if (krb5_parse_name(context, princ_name, &principal) != 0)
                         continue;
-                    if (is_principal_in_realm(ldap_context, principal) == 0) {
+                    if (is_principal_in_realm(ldap_context, principal)) {
                         if ((st = populate_krb5_db_entry(context, ldap_context, ld, ent, principal,
                                                          &entry)) != 0)
                             goto cleanup;
@@ -206,6 +206,7 @@ krb5_ldap_iterate(krb5_context context, char *match_expr,
             }
         } /* end of for (ent= ... */
         ldap_msgfree(result);
+        result = NULL;
     } /* end of for (tree= ... */
 
 cleanup:
@@ -215,7 +216,9 @@ cleanup:
     for (;ntree; --ntree)
         if (subtree[ntree-1])
             free (subtree[ntree-1]);
+    free(subtree);
 
+    ldap_msgfree(result);
     krb5_ldap_put_handle_to_pool(ldap_context, ldap_server_handle);
     return st;
 }
@@ -234,7 +237,6 @@ krb5_ldap_delete_principal(krb5_context context,
     int                       j=0, ptype=0, pcount=0, attrsetmask=0;
     krb5_error_code           st=0;
     krb5_boolean              singleentry=FALSE;
-    KEY                       *secretkey=NULL;
     kdb5_dal_handle           *dal_handle=NULL;
     krb5_ldap_context         *ldap_context=NULL;
     krb5_ldap_server_handle   *ldap_server_handle=NULL;
@@ -256,7 +258,7 @@ krb5_ldap_delete_principal(krb5_context context,
 
     if (DN == NULL) {
         st = EINVAL;
-        krb5_set_error_message(context, st, _("DN information missing"));
+        k5_setmsg(context, st, _("DN information missing"));
         goto cleanup;
     }
 
@@ -280,13 +282,7 @@ krb5_ldap_delete_principal(krb5_context context,
             goto cleanup;
 
         singleentry = (pcount == 1) ? TRUE: FALSE;
-        if (singleentry == FALSE) {
-            if (secretkey != NULL) {
-                if ((st=krb5_add_ber_mem_ldap_mod(&mods, "krbprincipalkey", LDAP_MOD_DELETE | LDAP_MOD_BVALUES,
-                                                  secretkey->keys)) != 0)
-                    goto cleanup;
-            }
-        } else {
+        if (singleentry == TRUE) {
             /*
              * If the Kerberos user principal to be deleted happens to be the last one associated
              * with the directory user object, then it is time to delete the other kerberos
@@ -340,24 +336,230 @@ cleanup:
     if (DN)
         free (DN);
 
-    if (secretkey != NULL) {
-        int i=0;
-        while (i < secretkey->nkey) {
-            free (secretkey->keys[i]->bv_val);
-            free (secretkey->keys[i]);
-            ++i;
-        }
-        free (secretkey->keys);
-        free (secretkey);
-    }
-
-    krb5_ldap_free_principal(context, entry);
+    krb5_db_free_principal(context, entry);
 
     ldap_mods_free(mods, 1);
     krb5_ldap_put_handle_to_pool(ldap_context, ldap_server_handle);
     return st;
 }
 
+/*
+ * Set *res will to 1 if entry is a standalone principal entry, 0 if not.  On
+ * error, the value of *res is not defined.
+ */
+static inline krb5_error_code
+is_standalone_principal(krb5_context kcontext, krb5_db_entry *entry, int *res)
+{
+    krb5_error_code code;
+
+    code = krb5_get_princ_type(kcontext, entry, res);
+    if (!code)
+        *res = (*res == KDB_STANDALONE_PRINCIPAL_OBJECT) ? 1 : 0;
+    return code;
+}
+
+/*
+ * Unparse princ in the format used for LDAP attributes, and set *user to the
+ * result.
+ */
+static krb5_error_code
+unparse_principal_name(krb5_context context, krb5_const_principal princ,
+                       char **user_out)
+{
+    krb5_error_code st;
+    char *luser = NULL;
+
+    *user_out = NULL;
+
+    st = krb5_unparse_name(context, princ, &luser);
+    if (st)
+        goto cleanup;
+
+    st = krb5_ldap_unparse_principal_name(luser);
+    if (st)
+        goto cleanup;
+
+    *user_out = luser;
+    luser = NULL;
+
+cleanup:
+    free(luser);
+    return st;
+}
+
+/*
+ * Rename a principal's rdn.
+ *
+ * NOTE: Not every LDAP ds supports deleting the old rdn. If that is desired,
+ * it will have to be deleted afterwards.
+ */
+static krb5_error_code
+rename_principal_rdn(krb5_context context, LDAP *ld, const char *dn,
+                     const char *newprinc, char **newdn_out)
+{
+    int ret;
+    char *newrdn = NULL;
+
+    *newdn_out = NULL;
+
+    ret = asprintf(&newrdn, "krbprincipalname=%s", newprinc);
+    if (ret < 0)
+        return ENOMEM;
+
+    /*
+     * ldap_rename_s takes a deleteoldrdn parameter, but setting it to 1 fails
+     * on 389 Directory Server (as of version 1.3.5.4) if the old RDN value
+     * contains uppercase letters.  Instead, change the RDN without deleting
+     * the old value and delete it later.
+     */
+    ret = ldap_rename_s(ld, dn, newrdn, NULL, 0, NULL, NULL);
+    if (ret == -1) {
+        ldap_get_option(ld, LDAP_OPT_ERROR_NUMBER, &ret);
+        ret = set_ldap_error(context, ret, OP_MOD);
+        goto cleanup;
+    }
+
+    ret = replace_rdn(context, dn, newrdn, newdn_out);
+
+cleanup:
+    free(newrdn);
+    return ret;
+}
+
+/*
+ * Rename a principal.
+ */
+krb5_error_code
+krb5_ldap_rename_principal(krb5_context context, krb5_const_principal source,
+                           krb5_const_principal target)
+{
+    int is_standalone;
+    krb5_error_code st;
+    char *suser = NULL, *tuser = NULL, *strval[2], *dn = NULL, *newdn = NULL;
+    krb5_db_entry *entry = NULL;
+    krb5_kvno mkvno;
+    struct berval **bersecretkey = NULL;
+    kdb5_dal_handle *dal_handle = NULL;
+    krb5_ldap_context *ldap_context = NULL;
+    krb5_ldap_server_handle *ldap_server_handle = NULL;
+    LDAP *ld = NULL;
+    LDAPMod **mods = NULL;
+
+    /* Clear the global error string */
+    krb5_clear_error_message(context);
+
+    SETUP_CONTEXT();
+    if (ldap_context->lrparams == NULL || ldap_context->container_dn == NULL)
+        return EINVAL;
+
+    /* get ldap handle */
+    GET_HANDLE();
+
+    /* Pass no flags.  Principal aliases won't be returned, which is a good
+     * thing since we don't support renaming aliases. */
+    st = krb5_ldap_get_principal(context, source, 0, &entry);
+    if (st)
+        goto cleanup;
+
+    st = is_standalone_principal(context, entry, &is_standalone);
+    if (st)
+        goto cleanup;
+
+    st = krb5_get_userdn(context, entry, &dn);
+    if (st)
+        goto cleanup;
+    if (dn == NULL) {
+        st = EINVAL;
+        k5_setmsg(context, st, _("dn information missing"));
+        goto cleanup;
+    }
+
+    st = unparse_principal_name(context, source, &suser);
+    if (st)
+        goto cleanup;
+    st = unparse_principal_name(context, target, &tuser);
+    if (st)
+        goto cleanup;
+
+    /* Specialize the salt and store it first so that in case of an error the
+     * correct salt will still be used. */
+    st = krb5_dbe_specialize_salt(context, entry);
+    if (st)
+        goto cleanup;
+
+    st = krb5_dbe_lookup_mkvno(context, entry, &mkvno);
+    if (st)
+        goto cleanup;
+
+    bersecretkey = krb5_encode_krbsecretkey(entry->key_data, entry->n_key_data,
+                                            mkvno);
+    if (bersecretkey == NULL) {
+        st = ENOMEM;
+        goto cleanup;
+    }
+
+    st = krb5_add_ber_mem_ldap_mod(&mods, "krbPrincipalKey",
+                                   LDAP_MOD_REPLACE | LDAP_MOD_BVALUES,
+                                   bersecretkey);
+    if (st != 0)
+        goto cleanup;
+
+    /* Update the principal. */
+    st = krb5_ldap_modify_ext(context, ld, dn, mods, OP_MOD);
+    if (st)
+        goto cleanup;
+    ldap_mods_free(mods, 1);
+    mods = NULL;
+
+    /* If this is a standalone principal, we want to rename the DN of the LDAP
+     * entry.  If not, we will modify the entry without changing its DN. */
+    if (is_standalone) {
+        st = rename_principal_rdn(context, ld, dn, tuser, &newdn);
+        if (st)
+            goto cleanup;
+        free(dn);
+        dn = newdn;
+        newdn = NULL;
+    }
+
+    /* There can be more than one krbPrincipalName, so we have to delete
+     * the old one and add the new one. */
+    strval[0] = suser;
+    strval[1] = NULL;
+    st = krb5_add_str_mem_ldap_mod(&mods, "krbPrincipalName", LDAP_MOD_DELETE,
+                                   strval);
+    if (st)
+        goto cleanup;
+
+    strval[0] = tuser;
+    strval[1] = NULL;
+    if (!is_standalone) {
+        st = krb5_add_str_mem_ldap_mod(&mods, "krbPrincipalName", LDAP_MOD_ADD,
+                                       strval);
+        if (st)
+            goto cleanup;
+    }
+
+    st = krb5_add_str_mem_ldap_mod(&mods, "krbCanonicalName", LDAP_MOD_REPLACE,
+                                   strval);
+    if (st)
+        goto cleanup;
+
+    /* Update the principal. */
+    st = krb5_ldap_modify_ext(context, ld, dn, mods, OP_MOD);
+    if (st)
+        goto cleanup;
+
+cleanup:
+    free(dn);
+    free(suser);
+    free(tuser);
+    free_berdata(bersecretkey);
+    krb5_db_free_principal(context, entry);
+    ldap_mods_free(mods, 1);
+    krb5_ldap_put_handle_to_pool(ldap_context, ldap_server_handle);
+    return st;
+}
 
 /*
  * Function: krb5_ldap_unparse_principal_name
@@ -409,7 +611,7 @@ krb5_ldap_parse_principal_name(char *i_princ_name, char **o_princ_name)
     at_rlm_name = strrchr(i_princ_name, '@');
     if (!at_rlm_name) {
         *o_princ_name = strdup(i_princ_name);
-        if (!o_princ_name)
+        if (!*o_princ_name)
             return ENOMEM;
     } else {
         k5_buf_init_dynamic(&buf);
@@ -419,9 +621,9 @@ krb5_ldap_parse_principal_name(char *i_princ_name, char **o_princ_name)
             k5_buf_add_len(&buf, p, 1);
         }
         k5_buf_add(&buf, at_rlm_name);
-        *o_princ_name = k5_buf_data(&buf);
-        if (!*o_princ_name)
+        if (k5_buf_status(&buf) != 0)
             return ENOMEM;
+        *o_princ_name = buf.data;
     }
     return 0;
 }

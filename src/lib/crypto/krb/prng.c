@@ -36,10 +36,12 @@ krb5_c_random_seed(krb5_context context, krb5_data *data)
 #if defined(_WIN32)
 
 krb5_boolean
-k5_get_os_entropy(unsigned char *buf, size_t len)
+k5_get_os_entropy(unsigned char *buf, size_t len, int strong)
 {
     krb5_boolean result;
     HCRYPTPROV provider;
+
+    /* CryptGenRandom is always considered strong. */
 
     if (!CryptAcquireContext(&provider, NULL, NULL, PROV_RSA_FULL,
                              CRYPT_VERIFYCONTEXT))
@@ -49,22 +51,6 @@ k5_get_os_entropy(unsigned char *buf, size_t len)
     return result;
 }
 
-krb5_error_code KRB5_CALLCONV
-krb5_c_random_os_entropy(krb5_context context, int strong, int *success)
-{
-    int oursuccess = 0;
-    char buf[1024];
-    krb5_data data = make_data(buf, sizeof(buf));
-
-    if (k5_get_os_entropy(buf, sizeof(buf)) &&
-        krb5_c_random_add_entropy(context, KRB5_C_RANDSOURCE_OSRAND,
-                                  &data) == 0)
-        oursuccess = 1;
-    if (success != NULL)
-        *success = oursuccess;
-    return 0;
-}
-
 #else /* not Windows */
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -72,6 +58,9 @@ krb5_c_random_os_entropy(krb5_context context, int strong, int *success)
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
+#ifdef __linux__
+#include <sys/syscall.h>
+#endif /* __linux__ */
 
 /* Open device, ensure that it is not a regular file, and read entropy.  Return
  * true on success, false on failure. */
@@ -107,44 +96,39 @@ cleanup:
 }
 
 krb5_boolean
-k5_get_os_entropy(unsigned char *buf, size_t len)
+k5_get_os_entropy(unsigned char *buf, size_t len, int strong)
 {
-    return read_entropy_from_device("/dev/urandom", buf, len);
-}
+    const char *device;
+#if defined(__linux__) && defined(SYS_getrandom)
+    int r;
 
-/* Read entropy from device and contribute it to the PRNG.  Returns true on
- * success. */
-static krb5_boolean
-add_entropy_from_device(krb5_context context, const char *device)
-{
-    krb5_data data;
-    unsigned char buf[64];
+    while (len > 0) {
+        /*
+         * Pull from the /dev/urandom pool, but require it to have been seeded.
+         * This ensures strong randomness while only blocking during first
+         * system boot.
+         *
+         * glibc does not currently provide a binding for getrandom:
+         * https://sourceware.org/bugzilla/show_bug.cgi?id=17252
+         */
+        errno = 0;
+        r = syscall(SYS_getrandom, buf, len, 0);
+        if (r <= 0) {
+            if (errno == EINTR)
+                continue;
 
-    if (!read_entropy_from_device(device, buf, sizeof(buf)))
-        return FALSE;
-    data = make_data(buf, sizeof(buf));
-    return (krb5_c_random_add_entropy(context, KRB5_C_RANDSOURCE_OSRAND,
-                                      &data) == 0);
-}
-
-krb5_error_code KRB5_CALLCONV
-krb5_c_random_os_entropy(krb5_context context, int strong, int *success)
-{
-    int unused;
-    int *oursuccess = (success != NULL) ? success : &unused;
-
-    *oursuccess = 0;
-    /* If we are getting strong data then try that first.  We are
-       guaranteed to cause a reseed of some kind if strong is true and
-       we have both /dev/random and /dev/urandom.  We want the strong
-       data included in the reseed so we get it first.*/
-    if (strong) {
-        if (add_entropy_from_device(context, "/dev/random"))
-            *oursuccess = 1;
+            /* ENOSYS or other unrecoverable failure */
+            break;
+        }
+        len -= r;
+        buf += r;
     }
-    if (add_entropy_from_device(context, "/dev/urandom"))
-        *oursuccess = 1;
-    return 0;
+    if (len == 0)
+        return TRUE;
+#endif /* defined(__linux__) && defined(SYS_getrandom) */
+
+    device = strong ? "/dev/random" : "/dev/urandom";
+    return read_entropy_from_device(device, buf, len);
 }
 
 #endif /* not Windows */

@@ -31,6 +31,7 @@
 #include "k5-int.h"
 #include "k5-json.h"
 #include "int-proto.h"
+#include "os-proto.h"
 
 #include <krb5/clpreauth_plugin.h>
 #include <ctype.h>
@@ -475,6 +476,7 @@ doprompt(krb5_context context, krb5_prompter_fct prompter, void *prompter_data,
     krb5_prompt prompt;
     krb5_data prompt_reply;
     krb5_error_code retval;
+    krb5_prompt_type prompt_type = KRB5_PROMPT_TYPE_PREAUTH;
 
     if (prompttxt == NULL || out == NULL)
         return EINVAL;
@@ -486,7 +488,10 @@ doprompt(krb5_context context, krb5_prompter_fct prompter, void *prompter_data,
     prompt.prompt = (char *)prompttxt;
     prompt.hidden = 1;
 
+    /* PROMPTER_INVOCATION */
+    k5_set_prompt_types(context, &prompt_type);
     retval = (*prompter)(context, prompter_data, NULL, banner, 1, &prompt);
+    k5_set_prompt_types(context, NULL);
     if (retval != 0)
         return retval;
 
@@ -698,9 +703,8 @@ filter_tokeninfos(krb5_context context, const char *otpvalue,
     /* It is an error if we have no matching tokeninfos. */
     if (filtered[0] == NULL) {
         free(filtered);
-        krb5_set_error_message(context, KRB5_PREAUTH_FAILED,
-                               _("OTP value doesn't match "
-                                 "any token formats"));
+        k5_setmsg(context, KRB5_PREAUTH_FAILED,
+                  _("OTP value doesn't match any token formats"));
         return KRB5_PREAUTH_FAILED; /* We have no supported tokeninfos. */
     }
 
@@ -831,6 +835,7 @@ set_pa_data(const krb5_pa_otp_req *req, krb5_pa_data ***pa_data_out)
         goto error;
     out[0]->contents = (krb5_octet *)tmp->data;
     out[0]->length = tmp->length;
+    free(tmp);
 
     *pa_data_out = out;
     return 0;
@@ -912,8 +917,7 @@ filter_supported_tokeninfos(krb5_context context, krb5_otp_tokeninfo **tis)
     if (tis[0] != NULL)
         return 0;
 
-    krb5_set_error_message(context, KRB5_PREAUTH_FAILED,
-                           _("No supported tokens"));
+    k5_setmsg(context, KRB5_PREAUTH_FAILED, _("No supported tokens"));
     return KRB5_PREAUTH_FAILED; /* We have no supported tokeninfos. */
 }
 
@@ -1083,11 +1087,6 @@ otp_client_process(krb5_context context, krb5_clpreauth_moddata moddata,
     if (as_key == NULL)
         return ENOENT;
 
-    /* Use FAST armor key as response key. */
-    retval = cb->set_as_key(context, rock, as_key);
-    if (retval != 0)
-        return retval;
-
     /* Attempt to get token selection from the responder. */
     pin = empty_data();
     value = empty_data();
@@ -1114,6 +1113,11 @@ otp_client_process(krb5_context context, krb5_clpreauth_moddata moddata,
 
     /* Encrypt the challenge's nonce and set it in the request. */
     retval = encrypt_nonce(context, as_key, chl, req);
+    if (retval != 0)
+        goto error;
+
+    /* Use FAST armor key as response key. */
+    retval = cb->set_as_key(context, rock, as_key);
     if (retval != 0)
         goto error;
 

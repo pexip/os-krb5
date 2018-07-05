@@ -24,9 +24,6 @@
  * or implied warranty.
  */
 
-#include <stdio.h>
-#include <errno.h>
-
 #include <k5-int.h>
 #include <kadm5/admin.h>
 #include <kdb.h>
@@ -74,7 +71,7 @@ lookup_lockout_policy(krb5_context context,
             *pw_failcnt_interval = policy->pw_failcnt_interval;
             *pw_lockout_duration = policy->pw_lockout_duration;
         }
-        krb5_ldap_free_password_policy(context, policy);
+        krb5_db_free_policy(context, policy);
     }
 
     xdrmem_create(&xdrs, NULL, 0, XDR_FREE);

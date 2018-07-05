@@ -6,7 +6,7 @@
 "fromaddr":{
 	"type":0,
 	"length":0,
-	"ipv4":[]},
+	"ip":[]},
 "kdc_status":"",
 "rep_etype":0,
 "rep.ticket":{
@@ -33,7 +33,7 @@
 	"type":0},
 "req_id":"",
 "req.kdc_options":0,
-"req.pa_type":[]
+"req.pa_type":[],
 "req.server":{
 	"components":[],
 	"realm":"",

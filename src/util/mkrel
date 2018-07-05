@@ -136,9 +136,6 @@ if test $newstyle = t; then
 		sed -e '/#[a-z 	]*KRB5_RELDATE/c\
 #define KRB5_RELDATE "'"$reldate"'"' patchlevel.h > patchlevel.h.new && \
 		mv patchlevel.h.new patchlevel.h)
-	if test $checkout = t; then
-		(cd $reldir && git log --stat $reltag > doc/CHANGES)
-	fi
 else
 
 	(cd $reldir/src/lib/krb5/krb && \
@@ -167,7 +164,7 @@ if test $dosrc = t; then
 			make)
 	fi
 	echo "Creating configure scripts..."
-	(cd $reldir/src; util/reconf)
+	(cd $reldir/src; autoreconf -v)
 
 	if test -d $reldir/src/util/autoconf; then
 		echo "Cleaning src/util/autoconf..."
@@ -179,7 +176,7 @@ echo "Nuking unneeded files..."
 find $reldir \( -name TODO -o -name todo -o -name .cvsignore \
 	-o -name .gitignore -o -name BADSYMS -o -name .Sanitize \
 	-o -name .rconf \) -print | xargs rm -f || true
-find $reldir -type d \( -name autom4te.cache \
+find $reldir -depth -type d \( -name autom4te.cache \
 	-o -name \$ac_config_fragdir \) -exec rm -rf {} \; || true
 rm -rf $reldir/.git || true
 

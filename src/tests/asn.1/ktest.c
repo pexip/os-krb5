@@ -908,6 +908,7 @@ ktest_make_sample_key_data(krb5_key_data *p, int i)
     len = asprintf(&str, "key%d", i);
     if (len < 0)
         abort();
+    p->key_data_ver = 2;
     p->key_data_type[0] = 2;
     p->key_data_length[0] = (unsigned int) len;
     p->key_data_contents[0] = (krb5_octet *)str;
@@ -933,6 +934,87 @@ ktest_make_sample_ldap_seqof_key_data(ldap_seqof_key_data *p)
 }
 #endif
 
+void
+ktest_make_sample_kkdcp_message(krb5_kkdcp_message *p)
+{
+    krb5_kdc_req req;
+    krb5_data *message;
+
+    ktest_make_sample_kdc_req(&req);
+    req.msg_type = KRB5_AS_REQ;
+    encode_krb5_as_req(&req, &message);
+    p->kerb_message = *message;
+    free(message);
+    ktest_empty_kdc_req(&req);
+    ktest_make_sample_data(&(p->target_domain));
+    p->dclocator_hint = 0;
+}
+
+static krb5_authdata *
+make_ad_element(krb5_authdatatype ad_type, const char *str)
+{
+    krb5_authdata *ad;
+
+    ad = ealloc(sizeof(*ad));
+    ad->ad_type = ad_type;
+    ad->length = strlen(str);
+    ad->contents = ealloc(ad->length);
+    memcpy(ad->contents, str, ad->length);
+    return ad;
+}
+
+static krb5_verifier_mac *
+make_vmac(krb5_boolean include_princ, krb5_kvno kvno, krb5_enctype enctype,
+          const char *cksumstr)
+{
+    krb5_verifier_mac *vmac;
+
+    vmac = ealloc(sizeof(*vmac));
+    if (include_princ) {
+        ktest_make_sample_principal(&vmac->princ);
+        (void)krb5_set_principal_realm(NULL, vmac->princ, "");
+    } else {
+        vmac->princ = NULL;
+    }
+    vmac->kvno = kvno;
+    vmac->enctype = enctype;
+    vmac->checksum.checksum_type = 1;
+    vmac->checksum.length = strlen(cksumstr);
+    vmac->checksum.contents = ealloc(vmac->checksum.length);
+    memcpy(vmac->checksum.contents, cksumstr, vmac->checksum.length);
+    return vmac;
+}
+
+void
+ktest_make_minimal_cammac(krb5_cammac *p)
+{
+    memset(p, 0, sizeof(*p));
+    p->elements = ealloc(2 * sizeof(*p->elements));
+    p->elements[0] = make_ad_element(1, "ad1");
+    p->elements[1] = NULL;
+}
+
+void
+ktest_make_maximal_cammac(krb5_cammac *p)
+{
+    p->elements = ealloc(3 * sizeof(*p->elements));
+    p->elements[0] = make_ad_element(1, "ad1");
+    p->elements[1] = make_ad_element(2, "ad2");
+    p->elements[2] = NULL;
+    p->kdc_verifier = make_vmac(TRUE, 5, 16, "cksumkdc");
+    p->svc_verifier = make_vmac(TRUE, 5, 16, "cksumsvc");
+    p->other_verifiers = ealloc(3 * sizeof(*p->other_verifiers));
+    p->other_verifiers[0] = make_vmac(FALSE, 0, 0, "cksum1");
+    p->other_verifiers[1] = make_vmac(TRUE, 5, 16, "cksum2");
+    p->other_verifiers[2] = NULL;
+}
+
+void
+ktest_make_sample_secure_cookie(krb5_secure_cookie *p)
+{
+    ktest_make_sample_pa_data_array(&p->data);
+    p->time = SAMPLE_TIME;
+}
 
 /****************************************************************/
 /* destructors */
@@ -1083,6 +1165,8 @@ ktest_destroy_principal(krb5_principal *p)
 {
     int i;
 
+    if (*p == NULL)
+        return;
     for (i=0; i<(*p)->length; i++)
         ktest_empty_data(&(*p)->data[i]);
     ktest_empty_data(&(*p)->realm);
@@ -1731,3 +1815,42 @@ ktest_empty_ldap_seqof_key_data(krb5_context ctx, ldap_seqof_key_data *p)
     free(p->key_data);
 }
 #endif
+
+void
+ktest_empty_kkdcp_message(krb5_kkdcp_message *p)
+{
+    ktest_empty_data(&p->kerb_message);
+    ktest_empty_data(&p->target_domain);
+    p->dclocator_hint = -1;
+}
+
+static void
+destroy_verifier_mac(krb5_verifier_mac **vmac)
+{
+    if (*vmac == NULL)
+        return;
+    ktest_destroy_principal(&(*vmac)->princ);
+    ktest_empty_checksum(&(*vmac)->checksum);
+    free(*vmac);
+    *vmac = NULL;
+}
+
+void
+ktest_empty_cammac(krb5_cammac *p)
+{
+    krb5_verifier_mac **vmacp;
+
+    ktest_destroy_authorization_data(&p->elements);
+    destroy_verifier_mac(&p->kdc_verifier);
+    destroy_verifier_mac(&p->svc_verifier);
+    for (vmacp = p->other_verifiers; vmacp != NULL && *vmacp != NULL; vmacp++)
+        destroy_verifier_mac(vmacp);
+    free(p->other_verifiers);
+    p->other_verifiers = NULL;
+}
+
+void
+ktest_empty_secure_cookie(krb5_secure_cookie *p)
+{
+    ktest_empty_pa_data_array(p->data);
+}

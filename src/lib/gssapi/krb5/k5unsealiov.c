@@ -24,11 +24,8 @@
  * or implied warranty.
  */
 
-#include <assert.h>
-#include "k5-platform.h"        /* for 64-bit support */
-#include "k5-int.h"          /* for zap() */
+#include "k5-int.h"
 #include "gssapiP_krb5.h"
-#include <stdarg.h>
 
 static OM_uint32
 kg_unseal_v1_iov(krb5_context context,
@@ -69,7 +66,14 @@ kg_unseal_v1_iov(krb5_context context,
         return GSS_S_DEFECTIVE_TOKEN;
     }
 
-    if (header->buffer.length < token_wrapper_len + 14) {
+    if (ctx->seq == NULL) {
+        /* ctx was established using a newer enctype, and cannot process RFC
+         * 1964 tokens. */
+        *minor_status = 0;
+        return GSS_S_DEFECTIVE_TOKEN;
+    }
+
+    if (header->buffer.length < token_wrapper_len + 22) {
         *minor_status = 0;
         return GSS_S_DEFECTIVE_TOKEN;
     }
@@ -280,7 +284,7 @@ kg_unseal_v1_iov(krb5_context context,
     }
 
     code = 0;
-    retval = g_order_check(&ctx->seqstate, (gssint_uint64)seqnum);
+    retval = g_seqstate_check(ctx->seqstate, (uint64_t)seqnum);
 
 cleanup:
     krb5_free_checksum_contents(context, &md5cksum);
@@ -621,7 +625,7 @@ kg_unseal_iov(OM_uint32 *minor_status,
     OM_uint32 code;
 
     ctx = (krb5_gss_ctx_id_rec *)context_handle;
-    if (!ctx->established) {
+    if (ctx->terminated || !ctx->established) {
         *minor_status = KG_CTX_INCOMPLETE;
         return GSS_S_NO_CONTEXT;
     }

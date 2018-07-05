@@ -137,6 +137,9 @@ generic_gss_create_empty_oid_set(OM_uint32 *minor_status, gss_OID_set *oid_set)
 {
     *minor_status = 0;
 
+    if (oid_set == NULL)
+        return GSS_S_CALL_INACCESSIBLE_WRITE;
+
     if ((*oid_set = (gss_OID_set) gssalloc_malloc(sizeof(gss_OID_set_desc)))) {
         memset(*oid_set, 0, sizeof(gss_OID_set_desc));
         return(GSS_S_COMPLETE);
@@ -160,6 +163,9 @@ generic_gss_add_oid_set_member(OM_uint32 *minor_status,
     if (member_oid == NULL || member_oid->length == 0 ||
         member_oid->elements == NULL)
         return (GSS_S_CALL_INACCESSIBLE_READ);
+
+    if (oid_set == NULL)
+        return GSS_S_CALL_INACCESSIBLE_WRITE;
 
     elist = (*oid_set)->elements;
     /* Get an enlarged copy of the array */
@@ -276,10 +282,6 @@ generic_gss_oid_to_str(OM_uint32 *minor_status,
         }
     }
     k5_buf_add_len(&buf, "}\0", 2);
-    if (k5_buf_data(&buf) == NULL) {
-        *minor_status = ENOMEM;
-        return(GSS_S_FAILURE);
-    }
     return k5buf_to_gss(minor_status, &buf, oid_str);
 }
 

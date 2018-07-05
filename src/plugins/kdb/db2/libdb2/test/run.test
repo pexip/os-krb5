@@ -36,7 +36,7 @@ main()
 	find $bindir -type f -exec test -r {} \; -print | head -100 > $BINFILES
 
 	if [ $# -eq 0 ]; then
-		for t in 1 2 3 4 5 6 7 8 9 10 11 12 13 20 40 41; do
+		for t in 1 2 3 4 5 6 7 8 9 10 11 12 13 20 40 41 50 60 61 62 63; do
 			test$t
 		done
 	else
@@ -47,7 +47,7 @@ main()
 			[0-9]*)
 				test$1;;
 			btree)
-				for t in 1 2 3 7 8 9 10 12 13 40 41; do
+				for t in 1 2 3 7 8 9 10 12 13 40 41 50 60 61 62 63; do
 					test$t
 				done;;
 			hash)
@@ -71,10 +71,11 @@ main()
 }
 
 getnwords() {
-	# Delete blank lines because the db code appears not to
-	# like empty keys.  On Debian Linux, $DICT appears to contain
-	# some non-ASCII characters, and "rev" chokes on them.
-	sed -e '/^$/d' < $DICT | cat -v | sed -e ${1}q
+	# Delete blank lines because the db code appears not to like
+	# empty keys.  Omit lines with non-alphanumeric characters to
+	# avoid shell metacharacters and non-ASCII characters which
+	# could cause 'rev' to choke.
+	LC_ALL=C sed -e '/^$/d' -e '/[^A-Za-z]/d' < $DICT | sed -e ${1}q
 }
 
 # Take the first hundred entries in the dictionary, and make them
@@ -613,6 +614,7 @@ test13()
 				echo p
 				echo k$i
 				echo d$i
+				echo S
 				echo g
 				echo k$i
 			done > $TMP2
@@ -912,6 +914,121 @@ EOF
 		echo "test41: btree: failed"
 		exit 1
 	fi
+}
+
+# Test for recursive traversal successfully retrieving records that
+# are inaccessible to normal sequential (sibling-link) traversal.
+# This works by unlinking a few leaf pages but leaving their parent
+# links intact.  To verify that the unlink actually makes records
+# inaccessible, the test first uses "o" to do a normal sequential
+# traversal, followed by "O" to do a recursive traversal.
+test50 () {
+	echo "Test 50: btree: recursive traversal"
+	fill="abcdefghijklmnopqrstuvwxyzy"
+	script='{
+		for (i = 0; i < 20000; i++) {
+			printf("p\nkAA%05d\nd%05d%s\n", i, i, $0);
+		}
+		print "u";
+		print "u";
+		print "u";
+		print "u";
+	}'
+	(echo $fill | awk "$script"; echo o) > $TMP2
+	echo $fill |
+	awk '{
+		for (i = 0; i < 20000; i++) {
+			printf("%05d%s\n", i, $0);
+		}
+	}' > $TMP1
+	$PROG -o $TMP3 -i psize=512 btree $TMP2
+	if (cmp -s $TMP1 $TMP3); then
+		echo "test50: btree: unexpected success after unlinking pages"
+		exit 1
+	fi
+	(echo $fill | awk "$script"; echo O) > $TMP2
+	$PROG -o $TMP3 -i psize=512 btree $TMP2
+	if (cmp -s $TMP1 $TMP3); then :
+	else
+		echo "test50: btree: failed"
+		exit 1
+	fi
+}
+
+test60 () {
+	echo "Test 60: btree: big key, small data, byteswap unaligned access"
+	# 488 = 512 - 20 (header) - 3 ("foo") - 1 (newline)
+	(echo foo; echo bar) |
+	awk '{
+		s = $0
+		for (i = 0; i < 488; i++) {
+			s = s "x";
+		}
+		printf("p\nk%s\ndx\n", s);
+	}' > $TMP2
+	for order in 1234 4321; do
+		$PROG -o $TMP3 -i psize=512,lorder=$order btree $TMP2
+	done
+}
+
+test61 () {
+	echo "Test 61: btree: small key, big data, byteswap unaligned access"
+	# 484 = 512 - 20 (header) - 7 ("foo1234") - 1 (newline)
+	(echo foo1234; echo bar1234) |
+	awk '{
+		s = $0
+		for (i = 0; i < 484; i++) {
+			s = s "x";
+		}
+		printf("p\nk%s\nd%s\n", $0, s);
+	}' > $TMP2
+	for order in 1234 4321; do
+		$PROG -o $TMP3 -i psize=512,lorder=$order btree $TMP2
+	done
+}
+
+test62 () {
+	echo "Test 62: btree: small key, big data, known byte order files"
+	(echo foo1234; echo bar1234) |
+	awk '{
+		s = $0
+		for (i = 0; i < 484; i++) {
+			s = s "x";
+		}
+		printf("%s\n", s);
+	}' > $TMP1
+	(echo g; echo kfoo1234; echo g; echo kbar1234) > $TMP2
+	for f in t.le.db t.be.db; do
+		echo "    $f"
+		$PROG -f $f -s -o $TMP3 btree $TMP2
+		if (cmp -s $TMP1 $TMP3); then :
+		else
+			echo "test62: btree: failed"
+			exit 1
+		fi
+	done
+}
+
+test63 () {
+	echo "Test 63: btree: big key, medium data, bt_split unaligned access"
+	# 488 = 512 - 20 (header) - 3 ("foo") - 1 (newline)
+	# 223 = 232 - 8 (key pointer)
+	# 232 = bt_ovflsize = (512 - 20 (header)) / 2 (DEFMINKEYPAGE)
+	#	- (2 (indx_t) + 12 (NBLEAFDBT(0,0)))
+	awk 'BEGIN {
+		s = "";
+		for (i = 0; i < 488; i++) {
+			s = s "x";
+		}
+		d = "";
+		for (i = 0; i < 223; i++) {
+			d = d "x";
+		}
+		for (i = 0; i < 128; i++) {
+			printf("p\nk%s%03d\nd%s\n", s, i, d);
+		}
+	}' /dev/null > $TMP2
+	$PROG -o $TMP3 -i psize=512 btree $TMP2
 }
 
 main $*

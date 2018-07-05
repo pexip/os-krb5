@@ -29,8 +29,8 @@
  */
 
 /* Implement alternate profile file handling. */
-#include "fake-addrinfo.h"
 #include "k5-int.h"
+#include "fake-addrinfo.h"
 #include <kadm5/admin.h>
 #include "adm_proto.h"
 #include <stdio.h>
@@ -66,7 +66,7 @@ krb5_aprof_init(char *fname, char *envname, krb5_pointer *acontextp)
     krb5_error_code ret;
     profile_t profile;
     const char *kdc_config;
-    char *profile_path, **filenames;
+    char **filenames;
     int i;
     struct k5buf buf;
 
@@ -79,17 +79,16 @@ krb5_aprof_init(char *fname, char *envname, krb5_pointer *acontextp)
     if (kdc_config)
         k5_buf_add(&buf, kdc_config);
     for (i = 0; filenames[i] != NULL; i++) {
-        if (k5_buf_len(&buf) > 0)
+        if (buf.len > 0)
             k5_buf_add(&buf, ":");
         k5_buf_add(&buf, filenames[i]);
     }
     krb5_free_config_files(filenames);
-    profile_path = k5_buf_data(&buf);
-    if (profile_path == NULL)
+    if (k5_buf_status(&buf) != 0)
         return ENOMEM;
     profile = (profile_t) NULL;
-    ret = profile_init_path(profile_path, &profile);
-    free(profile_path);
+    ret = profile_init_path(buf.data, &profile);
+    k5_buf_free(&buf);
     if (ret)
         return ret;
     *acontextp = profile;
@@ -592,6 +591,14 @@ krb5_error_code kadm5_get_config_params(krb5_context context,
     GET_STRING_PARAM(dict_file, KADM5_CONFIG_DICT_FILE, KRB5_CONF_DICT_FILE,
                      NULL);
 
+    /* Get the kadmind listen addresses. */
+    GET_STRING_PARAM(kadmind_listen, KADM5_CONFIG_KADMIND_LISTEN,
+                     KRB5_CONF_KADMIND_LISTEN, NULL);
+    GET_STRING_PARAM(kpasswd_listen, KADM5_CONFIG_KPASSWD_LISTEN,
+                     KRB5_CONF_KPASSWD_LISTEN, NULL);
+    GET_STRING_PARAM(iprop_listen, KADM5_CONFIG_IPROP_LISTEN,
+                     KRB5_CONF_IPROP_LISTEN, NULL);
+
 #define GET_PORT_PARAM(FIELD, BIT, CONFTAG, DEFAULT)            \
     get_port_param(&params.FIELD, params_in->FIELD,             \
                    &params.mask, params_in->mask, BIT,          \
@@ -690,7 +697,7 @@ krb5_error_code kadm5_get_config_params(krb5_context context,
                     ep++;
             }
             /* Convert this flag. */
-            if (krb5_string_to_flags(sp, "+", "-", &params.flags))
+            if (krb5_flagspec_to_mask(sp, &params.flags, &params.flags))
                 break;
             sp = ep;
         }
@@ -727,8 +734,8 @@ krb5_error_code kadm5_get_config_params(krb5_context context,
         params.keysalts = NULL;
         params.num_keysalts = 0;
         krb5_string_to_keysalts(svalue,
-                                ", \t", /* Tuple separators */
-                                ":.-",  /* Key/salt separators */
+                                NULL, /* Tuple separators */
+                                NULL, /* Key/salt separators */
                                 0,      /* No duplicates */
                                 &params.keysalts,
                                 &params.num_keysalts);
@@ -829,8 +836,7 @@ kadm5_get_admin_service_name(krb5_context ctx, char *realm_in,
 {
     krb5_error_code ret;
     kadm5_config_params params_in, params_out;
-    struct addrinfo hint, *ai = NULL;
-    int err;
+    char *canonhost = NULL;
 
     memset(&params_in, 0, sizeof(params_in));
     memset(&params_out, 0, sizeof(params_out));
@@ -846,26 +852,18 @@ kadm5_get_admin_service_name(krb5_context ctx, char *realm_in,
         goto err_params;
     }
 
-    memset(&hint, 0, sizeof(hint));
-    hint.ai_flags = AI_CANONNAME | AI_ADDRCONFIG;
-    err = getaddrinfo(params_out.admin_server, NULL, &hint, &ai);
-    if (err != 0) {
-        ret = KADM5_CANT_RESOLVE;
-        krb5_set_error_message(ctx, ret,
-                               _("Cannot resolve address of admin server "
-                                 "\"%s\" for realm \"%s\""),
-                               params_out.admin_server, realm_in);
+    ret = krb5_expand_hostname(ctx, params_out.admin_server, &canonhost);
+    if (ret)
         goto err_params;
-    }
-    if (strlen(ai->ai_canonname) + sizeof("kadmin/") > maxlen) {
+
+    if (strlen(canonhost) + sizeof("kadmin/") > maxlen) {
         ret = ENOMEM;
         goto err_params;
     }
-    snprintf(admin_name, maxlen, "kadmin/%s", ai->ai_canonname);
+    snprintf(admin_name, maxlen, "kadmin/%s", canonhost);
 
 err_params:
-    if (ai != NULL)
-        freeaddrinfo(ai);
+    krb5_free_string(ctx, canonhost);
     kadm5_free_config_params(ctx, &params_out);
     return ret;
 }

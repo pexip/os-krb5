@@ -24,7 +24,6 @@
  * or implied warranty.
  */
 
-#include <stdarg.h>
 #include "k5-int.h"
 
 static krb5_error_code
@@ -41,10 +40,8 @@ build_principal_va(krb5_context context, krb5_principal princ,
     data = malloc(size * sizeof(krb5_data));
     if (!data) { retval = ENOMEM; }
 
-    if (!retval) {
-        r = strdup(realm);
-        if (!r) { retval = ENOMEM; }
-    }
+    if (!retval)
+        r = k5memdup0(realm, rlen, &retval);
 
     while (!retval && (component = va_arg(ap, char *))) {
         if (count == size) {

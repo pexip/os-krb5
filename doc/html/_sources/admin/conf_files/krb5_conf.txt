@@ -9,7 +9,12 @@ realms of interest, defaults for the current realm and for Kerberos
 applications, and mappings of hostnames onto Kerberos realms.
 Normally, you should install your krb5.conf file in the directory
 ``/etc``.  You can override the default location by setting the
-environment variable **KRB5_CONFIG**.
+environment variable **KRB5_CONFIG**.  Multiple colon-separated
+filenames may be specified in **KRB5_CONFIG**; all files which are
+present will be read.  Starting in release 1.14, directory names can
+also be specified in **KRB5_CONFIG**; all files within the directory
+whose names consist solely of alphanumeric characters, dashes, or
+underscores will be read.
 
 
 Structure
@@ -17,14 +22,11 @@ Structure
 
 The krb5.conf file is set up in the style of a Windows INI file.
 Sections are headed by the section name, in square brackets.  Each
-section may contain zero or more relations, of the form:
-
- ::
+section may contain zero or more relations, of the form::
 
     foo = bar
 
-or
- ::
+or::
 
     fubar = {
         foo = bar
@@ -36,8 +38,7 @@ value for the tag.  This means that neither the remainder of this
 configuration file nor any other configuration file will be checked
 for any other values for this tag.
 
-For example, if you have the following lines:
- ::
+For example, if you have the following lines::
 
     foo = bar*
     foo = baz
@@ -45,9 +46,7 @@ For example, if you have the following lines:
 then the second value of ``foo`` (``baz``) would never be read.
 
 The krb5.conf file can include other files using either of the
-following directives at the beginning of a line:
-
- ::
+following directives at the beginning of a line::
 
     include FILENAME
     includedir DIRNAME
@@ -55,16 +54,15 @@ following directives at the beginning of a line:
 *FILENAME* or *DIRNAME* should be an absolute path. The named file or
 directory must exist and be readable.  Including a directory includes
 all files within the directory whose names consist solely of
-alphanumeric characters, dashes, or underscores.  Included profile
-files are syntactically independent of their parents, so each included
-file must begin with a section header.
+alphanumeric characters, dashes, or underscores.  Starting in release
+1.15, files with names ending in ".conf" are also included.  Included
+profile files are syntactically independent of their parents, so each
+included file must begin with a section header.
 
 The krb5.conf file can specify that configuration should be obtained
 from a loadable module, rather than the file itself, using the
 following directive at the beginning of a line before any section
-headers:
-
- ::
+headers::
 
     module MODULEPATH:RESIDUAL
 
@@ -133,6 +131,12 @@ The libdefaults section may contain any of the following relations:
     Sets the maximum allowable amount of clockskew in seconds that the
     library will tolerate before assuming that a Kerberos message is
     invalid.  The default value is 300 seconds, or five minutes.
+
+    The clockskew setting is also used when evaluating ticket start
+    and expiration times.  For example, tickets that have reached
+    their expiration time can still be used (and renewed if they are
+    renewable tickets) if they have been expired for a shorter
+    duration than the **clockskew** setting.
 
 **default_ccache_name**
     This relation specifies the name of the default credential cache.
@@ -208,6 +212,18 @@ The libdefaults section may contain any of the following relations:
     data), and anything the fake KDC sends will not be trusted without
     verification using some secret that it won't know.
 
+**dns_uri_lookup**
+    Indicate whether DNS URI records should be used to locate the KDCs
+    and other servers for a realm, if they are not listed in the
+    krb5.conf information for the realm.  SRV records are used as a
+    fallback if no URI records were found.  The default value is true.
+    New in release 1.15.
+
+**err_fmt**
+    This relation allows for custom error message formatting.  If a
+    value is set, error messages will be formatted by substituting a
+    normal error message for %M and an error code for %C in the value.
+
 **extra_addresses**
     This allows a computer to use multiple local addresses, in order
     to allow Kerberos to work in a network that uses NATs while still
@@ -244,6 +260,19 @@ The libdefaults section may contain any of the following relations:
     files in the user's home directory, with the filename .k5login.
     For security reasons, .k5login files must be owned by
     the local user or by root.
+
+**kcm_mach_service**
+    On OS X only, determines the name of the bootstrap service used to
+    contact the KCM daemon for the KCM credential cache type.  If the
+    value is ``-``, Mach RPC will not be used to contact the KCM
+    daemon.  The default value is ``org.h5l.kcm``.
+
+**kcm_socket**
+    Determines the path to the Unix domain socket used to access the
+    KCM daemon for the KCM credential cache type.  If the value is
+    ``-``, Unix domain sockets will not be used to contact the KCM
+    daemon.  The default value is
+    ``/var/run/.heim_org.h5l.kcm-socket``.
 
 **kdc_default_options**
     Default KDC options (Xored for multiple values) when requesting
@@ -352,7 +381,6 @@ The libdefaults section may contain any of the following relations:
     credentials will fail if the client machine does not have a
     keytab.  The default value is false.
 
-
 .. _realms:
 
 [realms]
@@ -398,8 +426,7 @@ following tags may be specified in the realm's subsection:
         default realm, this rule is not applicable and the conversion
         will fail.
 
-    For example:
-     ::
+    For example::
 
         [realms]
             ATHENA.MIT.EDU = {
@@ -427,6 +454,32 @@ following tags may be specified in the realm's subsection:
     translating Kerberos 4 service principals to Kerberos 5 principals
     (for example, when converting ``rcmd.hostname`` to
     ``host/hostname.domain``).
+
+**http_anchors**
+    When KDCs and kpasswd servers are accessed through HTTPS proxies, this tag
+    can be used to specify the location of the CA certificate which should be
+    trusted to issue the certificate for a proxy server.  If left unspecified,
+    the system-wide default set of CA certificates is used.
+
+    The syntax for values is similar to that of values for the
+    **pkinit_anchors** tag:
+
+    **FILE:** *filename*
+
+    *filename* is assumed to be the name of an OpenSSL-style ca-bundle file.
+
+    **DIR:** *dirname*
+
+    *dirname* is assumed to be an directory which contains CA certificates.
+    All files in the directory will be examined; if they contain certificates
+    (in PEM format), they will be used.
+
+    **ENV:** *envvar*
+
+    *envvar* specifies the name of an environment variable which has been set
+    to a value conforming to one of the previous values.  For example,
+    ``ENV:X509_PROXY_CA``, where environment variable ``X509_PROXY_CA`` has
+    been set to ``FILE:/tmp/my_proxy.pem``.
 
 **kdc**
     The name or address of a host running a KDC for that realm.  An
@@ -479,9 +532,7 @@ for that particular host or domain.  A host name relation implicitly
 provides the corresponding domain name relation, unless an explicit domain
 name relation is provided.  The Kerberos realm may be
 identified either in the realms_ section or using DNS SRV records.
-Host names and domain names should be in lower case.  For example:
-
- ::
+Host names and domain names should be in lower case.  For example::
 
     [domain_realm]
         crash.mit.edu = TEST.ATHENA.MIT.EDU
@@ -537,9 +588,7 @@ For example, ``ANL.GOV``, ``PNL.GOV``, and ``NERSC.GOV`` all wish to
 use the ``ES.NET`` realm as an intermediate realm.  ANL has a sub
 realm of ``TEST.ANL.GOV`` which will authenticate with ``NERSC.GOV``
 but not ``PNL.GOV``.  The [capaths] section for ``ANL.GOV`` systems
-would look like this:
-
- ::
+would look like this::
 
     [capaths]
         ANL.GOV = {
@@ -562,9 +611,7 @@ would look like this:
         }
 
 The [capaths] section of the configuration file used on ``NERSC.GOV``
-systems would look like this:
-
- ::
+systems would look like this::
 
     [capaths]
         NERSC.GOV = {
@@ -602,8 +649,7 @@ Each tag in the [appdefaults] section names a Kerberos V5 application
 or an option that is used by some Kerberos V5 application[s].  The
 value of the tag defines the default behaviors for that application.
 
-For example:
- ::
+For example::
 
     [appdefaults]
         telnet = {
@@ -825,27 +871,21 @@ PKINIT options
           A realm-specific value overrides, not adds to, a generic
           [libdefaults] specification.  The search order is:
 
-1. realm-specific subsection of [libdefaults]:
-
-    ::
+1. realm-specific subsection of [libdefaults]::
 
        [libdefaults]
            EXAMPLE.COM = {
                pkinit_anchors = FILE:/usr/local/example.com.crt
            }
 
-2. realm-specific value in the [realms] section,
-
-    ::
+2. realm-specific value in the [realms] section::
 
        [realms]
            OTHERREALM.ORG = {
                pkinit_anchors = FILE:/usr/local/otherrealm.org.crt
            }
 
-3. generic value in the [libdefaults] section.
-
-    ::
+3. generic value in the [libdefaults] section::
 
        [libdefaults]
            pkinit_anchors = DIR:/usr/local/generic_trusted_cas/
@@ -978,9 +1018,7 @@ PKINIT krb5.conf options
         * digitalSignature
         * keyEncipherment
 
-    Examples:
-
-     ::
+    Examples::
 
         pkinit_cert_match = ||<SUBJECT>.*DoE.*<SAN>.*@EXAMPLE.COM
         pkinit_cert_match = &&<EKU>msScLogin,clientAuth<ISSUER>.*DoE.*
@@ -1000,7 +1038,8 @@ PKINIT krb5.conf options
 
     **kpServerAuth**
         If **kpServerAuth** is specified, a KDC certificate with the
-        id-kp-serverAuth EKU as used by Microsoft will be accepted.
+        id-kp-serverAuth EKU will be accepted.  This key usage value
+        is used in most commercially issued server certificates.
 
     **none**
         If **none** is specified, then the KDC certificate will not be
@@ -1027,9 +1066,6 @@ PKINIT krb5.conf options
     defined in :rfc:`4556`.  This option may be specified multiple
     times.  Its value should contain the acceptable hostname for the
     KDC (as contained in its certificate).
-
-**pkinit_longhorn**
-    If this flag is set to true, we are talking to the Longhorn KDC.
 
 **pkinit_pool**
     Specifies the location of intermediate certificates which may be
@@ -1058,16 +1094,6 @@ PKINIT krb5.conf options
     information to be used by the client when verifying the validity
     of the KDC certificate presented.  This option may be specified
     multiple times.
-
-**pkinit_win2k**
-    This flag specifies whether the target realm is assumed to support
-    only the old, pre-RFC version of the protocol.  The default is
-    false.
-
-**pkinit_win2k_require_binding**
-    If this flag is set to true, it expects that the target KDC is
-    patched to return a reply with a checksum rather than a nonce.
-    The default is false.
 
 
 .. _parameter_expansion:
@@ -1101,14 +1127,10 @@ Valid parameters are:
 Sample krb5.conf file
 ---------------------
 
-Here is an example of a generic krb5.conf file:
-
- ::
+Here is an example of a generic krb5.conf file::
 
     [libdefaults]
         default_realm = ATHENA.MIT.EDU
-        default_tkt_enctypes = des3-hmac-sha1 des-cbc-crc
-        default_tgs_enctypes = des3-hmac-sha1 des-cbc-crc
         dns_lookup_kdc = true
         dns_lookup_realm = false
 
@@ -1116,10 +1138,9 @@ Here is an example of a generic krb5.conf file:
         ATHENA.MIT.EDU = {
             kdc = kerberos.mit.edu
             kdc = kerberos-1.mit.edu
-            kdc = kerberos-2.mit.edu:750
+            kdc = kerberos-2.mit.edu
             admin_server = kerberos.mit.edu
             master_kdc = kerberos.mit.edu
-            default_domain = mit.edu
         }
         EXAMPLE.COM = {
             kdc = kerberos.example.com
@@ -1128,7 +1149,6 @@ Here is an example of a generic krb5.conf file:
         }
 
     [domain_realm]
-        .mit.edu = ATHENA.MIT.EDU
         mit.edu = ATHENA.MIT.EDU
 
     [capaths]

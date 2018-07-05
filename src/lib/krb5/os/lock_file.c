@@ -43,7 +43,29 @@
 
 #if defined(HAVE_FCNTL_H) && defined(F_SETLKW) && defined(F_RDLCK)
 #define POSIX_FILE_LOCKS
+
+/*
+ * Gnu libc bug 20251, currently unfixed, breaks OFD lock support on
+ * 32-bit platforms.  Work around this bug by explicitly using the
+ * fcntl64 system call and struct flock64.
+ */
+#if defined(__linux__) && __WORDSIZE == 32
+#include <sys/syscall.h>
+#ifdef SYS_fcntl64
+#define USE_FCNTL64
 #endif
+#endif
+#ifdef USE_FCNTL64
+/* Use the fcntl64 system call and struct flock64.  (Gnu libc does not
+ * define a fcntl64() function, so we must use syscall().) */
+#define fcntl(fd, cmd, arg) syscall(SYS_fcntl64, fd, cmd, arg)
+typedef struct flock64 fcntl_lock_st;
+#else
+/* Use regular fcntl() and struct flock. */
+typedef struct flock fcntl_lock_st;
+#endif
+
+#endif /* defined(HAVE_FCNTL_H) && defined(F_SETLKW) && defined(F_RDLCK) */
 
 #ifdef HAVE_FLOCK
 #ifndef sysvimp
@@ -57,6 +79,30 @@
 #endif
 #endif
 
+#ifdef POSIX_FILE_LOCKS
+/*
+ * Try to use OFD locks where available (e.g. Linux 3.15 and later).  OFD locks
+ * contend with regular POSIX file locks, but are owned by the open file
+ * description instead of the process, which is much better for thread safety.
+ * Fall back to regular POSIX locks on EINVAL in case we are running with an
+ * older kernel than we were built with.
+ */
+static int
+ofdlock(int fd, int cmd, fcntl_lock_st *lock_arg)
+{
+#ifdef F_OFD_SETLKW
+    int st, ofdcmd;
+
+    assert(cmd == F_SETLKW || cmd == F_SETLK);
+    ofdcmd = (cmd == F_SETLKW) ? F_OFD_SETLKW : F_OFD_SETLK;
+    st = fcntl(fd, ofdcmd, lock_arg);
+    if (st == 0 || errno != EINVAL)
+        return st;
+#endif
+    return fcntl(fd, cmd, lock_arg);
+}
+#endif /* POSIX_FILE_LOCKS */
+
 /*ARGSUSED*/
 krb5_error_code
 krb5_lock_file(krb5_context context, int fd, int mode)
@@ -65,7 +111,7 @@ krb5_lock_file(krb5_context context, int fd, int mode)
     krb5_error_code     retval = 0;
 #ifdef POSIX_FILE_LOCKS
     int lock_cmd = F_SETLKW;
-    struct flock lock_arg = { 0 };
+    fcntl_lock_st lock_arg = { 0 };
 #endif
 
     switch (mode & ~KRB5_LOCKMODE_DONTBLOCK) {
@@ -105,7 +151,7 @@ krb5_lock_file(krb5_context context, int fd, int mode)
     lock_arg.l_whence = 0;
     lock_arg.l_start = 0;
     lock_arg.l_len = 0;
-    if (fcntl(fd, lock_cmd, &lock_arg) == -1) {
+    if (ofdlock(fd, lock_cmd, &lock_arg) == -1) {
         if (errno == EACCES || errno == EAGAIN) /* see POSIX/IEEE 1003.1-1988,
                                                    6.5.2.4 */
             return(EAGAIN);

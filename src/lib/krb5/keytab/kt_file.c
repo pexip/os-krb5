@@ -253,6 +253,26 @@ krb5_ktfile_close(krb5_context context, krb5_keytab id)
     return (0);
 }
 
+/* Return true if k1 is more recent than k2, applying wraparound heuristics. */
+static krb5_boolean
+more_recent(const krb5_keytab_entry *k1, const krb5_keytab_entry *k2)
+{
+    /*
+     * If a small kvno was written at the same time or later than a large kvno,
+     * the kvno probably wrapped at some boundary, so consider the small kvno
+     * more recent.  Wraparound can happen due to pre-1.14 keytab file format
+     * limitations (8-bit kvno storage), pre-1.14 kadmin protocol limitations
+     * (8-bit kvno marshalling), or KDB limitations (16-bit kvno storage).
+     */
+    if (k1->timestamp >= k2->timestamp && k1->vno < 128 && k2->vno > 240)
+        return TRUE;
+    if (k1->timestamp <= k2->timestamp && k1->vno > 240 && k2->vno < 128)
+        return FALSE;
+
+    /* Otherwise do a simple version comparison. */
+    return k1->vno > k2->vno;
+}
+
 /*
  * This is the get_entry routine for the file based keytab implementation.
  * It opens the keytab file, and either retrieves the entry or returns
@@ -268,7 +288,6 @@ krb5_ktfile_get_entry(krb5_context context, krb5_keytab id,
     krb5_error_code kerror = 0;
     int found_wrong_kvno = 0;
     krb5_boolean similar;
-    int kvno_offset = 0;
     int was_open;
     char *princname;
 
@@ -339,46 +358,33 @@ krb5_ktfile_get_entry(krb5_context context, krb5_keytab id,
         }
 
         if (kvno == IGNORE_VNO) {
-            /* if this is the first match, or if the new vno is
-               bigger, free the current and keep the new.  Otherwise,
-               free the new. */
-            /* A 1.2.x keytab contains only the low 8 bits of the key
-               version number.  Since it can be much bigger, and thus
-               the 8-bit value can wrap, we need some heuristics to
-               figure out the "highest" numbered key if some numbers
-               close to 255 and some near 0 are used.
-
-               The heuristic here:
-
-               If we have any keys with versions over 240, then assume
-               that all version numbers 0-127 refer to 256+N instead.
-               Not perfect, but maybe good enough?  */
-
-#define M(VNO) (((VNO) - kvno_offset + 256) % 256)
-
-            if (new_entry.vno > 240)
-                kvno_offset = 128;
-            if (! cur_entry.principal ||
-                M(new_entry.vno) > M(cur_entry.vno)) {
+            /* If this entry is more recent (or the first match), free the
+             * current and keep the new.  Otherwise, free the new. */
+            if (cur_entry.principal == NULL ||
+                more_recent(&new_entry, &cur_entry)) {
                 krb5_kt_free_entry(context, &cur_entry);
                 cur_entry = new_entry;
             } else {
                 krb5_kt_free_entry(context, &new_entry);
             }
         } else {
-            /* if this kvno matches, free the current (will there ever
-               be one?), keep the new, and break out.  Otherwise, remember
-               that we were here so we can return the right error, and
-               free the new */
-            /* Yuck.  The krb5-1.2.x keytab format only stores one byte
-               for the kvno, so we're toast if the kvno requested is
-               higher than that.  Short-term workaround: only compare
-               the low 8 bits.  */
-
-            if (new_entry.vno == (kvno & 0xff)) {
+            /*
+             * If this kvno matches exactly, free the current, keep the new,
+             * and break out.  If it matches the low 8 bits of the desired
+             * kvno, remember the first match (because the recorded kvno may
+             * have been truncated due to pre-1.14 keytab format or kadmin
+             * protocol limitations) but keep looking for an exact match.
+             * Otherwise, remember that we were here so we can return the right
+             * error, and free the new.
+             */
+            if (new_entry.vno == kvno) {
                 krb5_kt_free_entry(context, &cur_entry);
                 cur_entry = new_entry;
-                break;
+                if (new_entry.vno == kvno)
+                    break;
+            } else if (new_entry.vno == (kvno & 0xff) &&
+                       cur_entry.principal == NULL) {
+                cur_entry = new_entry;
             } else {
                 found_wrong_kvno++;
                 krb5_kt_free_entry(context, &new_entry);
@@ -394,9 +400,8 @@ krb5_ktfile_get_entry(krb5_context context, krb5_keytab id,
         else {
             kerror = KRB5_KT_NOTFOUND;
             if (krb5_unparse_name(context, principal, &princname) == 0) {
-                krb5_set_error_message(context, kerror,
-                                       _("No key table entry found for %s"),
-                                       princname);
+                k5_setmsg(context, kerror,
+                          _("No key table entry found for %s"), princname);
                 free(princname);
             }
         }
@@ -472,8 +477,7 @@ krb5_ktfile_start_seq_get(krb5_context context, krb5_keytab id, krb5_kt_cursor *
         /* Wrapped?!  */
         KTITERS(id)--;
         KTUNLOCK(id);
-        krb5_set_error_message(context, KRB5_KT_IOERR,
-                               "Too many keytab iterators active");
+        k5_setmsg(context, KRB5_KT_IOERR, "Too many keytab iterators active");
         return KRB5_KT_IOERR;   /* XXX */
     }
     KTUNLOCK(id);
@@ -563,7 +567,7 @@ const krb5_ser_entry krb5_ktfile_ser_entry = {
     krb5_ktf_keytab_externalize,        /* Externalize routine  */
     krb5_ktf_keytab_internalize         /* Internalize routine  */
 };
-
+
 /*
  * krb5_ktf_keytab_size()       - Determine the size required to externalize
  *                                this krb5_keytab variant.
@@ -608,7 +612,7 @@ krb5_ktf_keytab_size(krb5_context kcontext, krb5_pointer arg, size_t *sizep)
     }
     return(kret);
 }
-
+
 /*
  * krb5_ktf_keytab_externalize()        - Externalize the krb5_keytab.
  */
@@ -622,7 +626,7 @@ krb5_ktf_keytab_externalize(krb5_context kcontext, krb5_pointer arg, krb5_octet 
     size_t              remain;
     krb5_ktfile_data    *ktdata;
     krb5_int32          file_is_open;
-    krb5_int64          file_pos;
+    int64_t             file_pos;
     char                *ktname;
     const char          *fnamep;
 
@@ -704,7 +708,7 @@ krb5_ktf_keytab_externalize(krb5_context kcontext, krb5_pointer arg, krb5_octet 
     }
     return(kret);
 }
-
+
 /*
  * krb5_ktf_keytab_internalize()        - Internalize the krb5_ktf_keytab.
  */
@@ -719,7 +723,7 @@ krb5_ktf_keytab_internalize(krb5_context kcontext, krb5_pointer *argp, krb5_octe
     char                *ktname = NULL;
     krb5_ktfile_data    *ktdata;
     krb5_int32          file_is_open;
-    krb5_int64          foff;
+    int64_t             foff;
 
     *argp = NULL;
     bp = *buffer;
@@ -813,9 +817,8 @@ krb5_ktfile_add(krb5_context context, krb5_keytab id, krb5_keytab_entry *entry)
     if (KTFILEP(id)) {
         /* Iterator(s) active -- no changes.  */
         KTUNLOCK(id);
-        krb5_set_error_message(context, KRB5_KT_IOERR,
-                               _("Cannot change keytab with keytab iterators "
-                                 "active"));
+        k5_setmsg(context, KRB5_KT_IOERR,
+                  _("Cannot change keytab with keytab iterators active"));
         return KRB5_KT_IOERR;   /* XXX */
     }
     if ((retval = krb5_ktfileint_openw(context, id))) {
@@ -847,9 +850,8 @@ krb5_ktfile_remove(krb5_context context, krb5_keytab id, krb5_keytab_entry *entr
     if (KTFILEP(id)) {
         /* Iterator(s) active -- no changes.  */
         KTUNLOCK(id);
-        krb5_set_error_message(context, KRB5_KT_IOERR,
-                               _("Cannot change keytab with keytab iterators "
-                                 "active"));
+        k5_setmsg(context, KRB5_KT_IOERR,
+                  _("Cannot change keytab with keytab iterators active"));
         return KRB5_KT_IOERR;   /* XXX */
     }
 
@@ -999,7 +1001,7 @@ const krb5_kt_ops krb5_kt_dfl_ops = {
  * sizeof(krb5_int32) bytes for the timestamp
  * sizeof(krb5_octet) bytes for the key version number
  * sizeof(krb5_int16) bytes for the enctype
- * sizeof(krb5_int32) bytes for the key length, followed by the key
+ * sizeof(krb5_int16) bytes for the key length, followed by the key
  */
 
 #ifndef SEEK_SET
@@ -1011,14 +1013,6 @@ typedef krb5_int16  krb5_kt_vno;
 
 #define krb5_kt_default_vno ((krb5_kt_vno)KRB5_KT_DEFAULT_VNO)
 
-#ifdef ANSI_STDIO
-static char *const fopen_mode_rbplus= "rb+";
-static char *const fopen_mode_rb = "rb";
-#else
-static char *const fopen_mode_rbplus= "r+";
-static char *const fopen_mode_rb = "r";
-#endif
-
 static krb5_error_code
 krb5_ktfileint_open(krb5_context context, krb5_keytab id, int mode)
 {
@@ -1029,14 +1023,13 @@ krb5_ktfileint_open(krb5_context context, krb5_keytab id, int mode)
     KTCHECKLOCK(id);
     errno = 0;
     KTFILEP(id) = fopen(KTFILENAME(id),
-                        (mode == KRB5_LOCKMODE_EXCLUSIVE) ?
-                        fopen_mode_rbplus : fopen_mode_rb);
+                        (mode == KRB5_LOCKMODE_EXCLUSIVE) ? "rb+" : "rb");
     if (!KTFILEP(id)) {
         if ((mode == KRB5_LOCKMODE_EXCLUSIVE) && (errno == ENOENT)) {
             /* try making it first time around */
             k5_create_secure_file(context, KTFILENAME(id));
             errno = 0;
-            KTFILEP(id) = fopen(KTFILENAME(id), fopen_mode_rbplus);
+            KTFILEP(id) = fopen(KTFILENAME(id), "rb+");
             if (!KTFILEP(id))
                 goto report_errno;
             writevno = 1;
@@ -1047,9 +1040,8 @@ krb5_ktfileint_open(krb5_context context, krb5_keytab id, int mode)
                 /* XXX */
                 return EMFILE;
             case ENOENT:
-                krb5_set_error_message(context, ENOENT,
-                                       _("Key table file '%s' not found"),
-                                       KTFILENAME(id));
+                k5_setmsg(context, ENOENT,
+                          _("Key table file '%s' not found"), KTFILENAME(id));
                 return ENOENT;
             default:
                 return errno;
@@ -1190,10 +1182,11 @@ krb5_ktfileint_internal_read_entry(krb5_context context, krb5_keytab id, krb5_ke
     krb5_int16 princ_size;
     register int i;
     krb5_int32 size;
-    krb5_int32 start_pos;
+    krb5_int32 start_pos, pos;
     krb5_error_code error;
     char        *tmpdata;
     krb5_data   *princ;
+    uint32_t    vno32;
 
     KTCHECKLOCK(id);
     memset(ret_entry, 0, sizeof(krb5_keytab_entry));
@@ -1372,6 +1365,20 @@ krb5_ktfileint_internal_read_entry(krb5_context context, krb5_keytab id, krb5_ke
         goto fail;
     }
 
+    /* Check for a 32-bit kvno extension if four or more bytes remain. */
+    pos = ftell(KTFILEP(id));
+    if (pos - start_pos + 4 <= size) {
+        if (!fread(&vno32, sizeof(vno32), 1, KTFILEP(id))) {
+            error = KRB5_KT_END;
+            goto fail;
+        }
+        if (KTVERSION(id) != KRB5_KT_VNO_1)
+            vno32 = ntohl(vno32);
+        /* If the value is 0, the bytes are just zero-fill. */
+        if (vno32)
+            ret_entry->vno = vno32;
+    }
+
     /*
      * Reposition file pointer to the next inter-record length field.
      */
@@ -1411,6 +1418,7 @@ krb5_ktfileint_write_entry(krb5_context context, krb5_keytab id, krb5_keytab_ent
     krb5_int32  princ_type;
     krb5_int32  size_needed;
     krb5_int32  commit_point = -1;
+    uint32_t    vno32;
     int         i;
 
     KTCHECKLOCK(id);
@@ -1513,6 +1521,13 @@ krb5_ktfileint_write_entry(krb5_context context, krb5_keytab id, krb5_keytab_ent
         goto abend;
     }
 
+    /* 32-bit key version number */
+    vno32 = entry->vno;
+    if (KTVERSION(id) != KRB5_KT_VNO_1)
+        vno32 = htonl(vno32);
+    if (!fwrite(&vno32, sizeof(vno32), 1, KTFILEP(id)))
+        goto abend;
+
     if (fflush(KTFILEP(id)))
         goto abend;
 
@@ -1561,6 +1576,7 @@ krb5_ktfileint_size_entry(krb5_context context, krb5_keytab_entry *entry, krb5_i
     total_size += sizeof(krb5_octet);
     total_size += sizeof(krb5_int16);
     total_size += sizeof(krb5_int16) + entry->key.length;
+    total_size += sizeof(uint32_t);
 
     *size_needed = total_size;
     return retval;

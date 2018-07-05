@@ -44,8 +44,6 @@
 #define KRB5_DEFAULT_OPTIONS 0
 #define KRB5_DEFAULT_TKT_LIFE 60*60*12 /* 12 hours */
 
-#define KRB5_SECONDARY_CACHE "FILE:/tmp/krb5cc_"
-
 #define KRB5_LOGIN_NAME ".k5login"
 #define KRB5_USERS_NAME ".k5users"
 #define USE_DEFAULT_REALM_NAME "."
@@ -71,25 +69,18 @@ extern char k5users_path[MAXPATHLEN];
 extern char * gb_err;
 /***********/
 
-typedef struct opt_info{
-    int opt;
-    krb5_deltat lifetime;
-    krb5_deltat rlife;
-    int princ;
-}opt_info;
-
 /* krb_auth_su.c */
 extern krb5_boolean krb5_auth_check
-(krb5_context, krb5_principal, char *, opt_info *,
+(krb5_context, krb5_principal, char *, krb5_get_init_creds_opt *,
  char *, krb5_ccache, int *, uid_t);
 
 extern krb5_boolean krb5_fast_auth
 (krb5_context, krb5_principal, krb5_principal, char *,
  krb5_ccache);
 
-extern krb5_boolean krb5_get_tkt_via_passwd
-(krb5_context, krb5_ccache *, krb5_principal,
- krb5_principal, opt_info *, krb5_boolean *);
+extern krb5_boolean ksu_get_tgt_via_passwd
+(krb5_context,
+ krb5_principal, krb5_get_init_creds_opt *, krb5_boolean *, krb5_creds *);
 
 extern void dump_principal
 (krb5_context, char *, krb5_principal);
@@ -106,8 +97,8 @@ extern krb5_error_code get_best_principal
 
 /* ccache.c */
 extern krb5_error_code krb5_ccache_copy
-(krb5_context, krb5_ccache, char *, krb5_principal,
- krb5_ccache *, krb5_boolean *, uid_t);
+(krb5_context, krb5_ccache, krb5_principal, krb5_ccache,
+ krb5_boolean, krb5_principal, krb5_boolean *);
 
 extern krb5_error_code krb5_store_all_creds
 (krb5_context, krb5_ccache, krb5_creds **, krb5_creds **);
@@ -132,7 +123,7 @@ extern krb5_error_code krb5_get_login_princ
 extern void show_credential
 (krb5_context, krb5_creds *, krb5_ccache);
 
-extern int gen_sym (void);
+krb5_error_code gen_sym(krb5_context context, char **sym);
 
 extern krb5_error_code krb5_ccache_overwrite
 (krb5_context, krb5_ccache, krb5_ccache, krb5_principal);
@@ -141,9 +132,11 @@ extern krb5_error_code krb5_store_some_creds
 (krb5_context, krb5_ccache, krb5_creds **, krb5_creds **,
  krb5_principal, krb5_boolean *);
 
-extern krb5_error_code krb5_ccache_copy_restricted
-(krb5_context, krb5_ccache, char *, krb5_principal,
- krb5_ccache *, krb5_boolean *, uid_t);
+extern krb5_boolean ks_ccache_name_is_initialized
+(krb5_context, const char *);
+
+extern krb5_boolean ks_ccache_is_initialized
+(krb5_context, krb5_ccache);
 
 extern krb5_error_code krb5_ccache_refresh
 (krb5_context, krb5_ccache);
@@ -202,8 +195,6 @@ extern int standard_shell (char *);
 
 extern krb5_error_code get_params (int *, int, char **, char ***);
 
-extern char *get_dir_of_file (const char *);
-
 /* heuristic.c */
 extern krb5_error_code get_all_princ_from_file (FILE *, char ***);
 
@@ -231,7 +222,7 @@ extern krb5_error_code find_princ_in_list
 
 extern krb5_error_code get_best_princ_for_target
 (krb5_context, uid_t, uid_t, char *, char *, krb5_ccache,
- opt_info *, char *, char *, krb5_principal *, int *);
+ krb5_get_init_creds_opt *, char *, char *, krb5_principal *, int *);
 
 extern krb5_error_code ksu_tgtname (krb5_context, const krb5_data *,
                                     const krb5_data *,

@@ -16,7 +16,8 @@ struct gak_password {
 };
 
 struct _krb5_init_creds_context {
-    krb5_gic_opt_ext *opte;
+    krb5_get_init_creds_opt *opt;
+    krb5_get_init_creds_opt opt_storage;
     char *in_tkt_service;
     krb5_prompter_fct prompter;
     void *prompter_data;
@@ -54,7 +55,7 @@ struct _krb5_init_creds_context {
     krb5_keyblock as_key;
     krb5_enctype etype;
     krb5_boolean enc_pa_rep_permitted;
-    krb5_boolean have_restarted;
+    krb5_boolean restarted;
     krb5_boolean sent_nontrivial_preauth;
     krb5_boolean preauth_required;
     struct krb5_responder_context_st rctx;

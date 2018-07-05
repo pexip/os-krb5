@@ -85,6 +85,7 @@ typedef struct {
 typedef struct {
 	gss_cred_id_t mcred;	/* mechglue union of obtainable creds */
 	gss_OID_set neg_mechs;	/* app-specified list of allowable mechs */
+	int no_ask_integ;	/* do not request integ from mechs */
 } spnego_gss_cred_id_rec, *spnego_gss_cred_id_t;
 
 /* Structure for context handle */
@@ -94,14 +95,14 @@ typedef struct {
 	gss_OID_set mech_set;
 	gss_OID internal_mech;  /* alias into mech_set->elements */
 	gss_ctx_id_t ctx_handle;
-	char  *optionStr;
-	gss_cred_id_t default_cred;
 	int mic_reqd;
 	int mic_sent;
 	int mic_rcvd;
 	int firstpass;
 	int mech_complete;
 	int nego_done;
+	int initiate;
+	int opened;
 	OM_uint32 ctx_flags;
 	gss_name_t internal_name;
 	gss_OID actual_mech;

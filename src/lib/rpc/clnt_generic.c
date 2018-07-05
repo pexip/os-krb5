@@ -36,12 +36,12 @@
 static char sccsid[] = "@(#)clnt_generic.c 1.4 87/08/11 (C) 1987 SMI";
 #endif
 
+#include "autoconf.h"
 #include <string.h>
 #include <gssrpc/rpc.h>
 #include <sys/socket.h>
 #include <sys/errno.h>
 #include <netdb.h>
-#include "autoconf.h"
 
 /*
  * Generic client creation: takes (hostname, program-number, protocol) and
@@ -76,9 +76,6 @@ clnt_create(
 		return (NULL);
 	}
 	memset(&sockin, 0, sizeof(sockin));
-#if HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	sockin.sin_len = sizeof(sockin);
-#endif
 	sockin.sin_family = h->h_addrtype;
 	sockin.sin_port = 0;
 	memmove((char*)&sockin.sin_addr, h->h_addr, sizeof(sockin.sin_addr));
@@ -97,17 +94,12 @@ clnt_create(
 		if (client == NULL) {
 			return (NULL);
 		}
-		tv.tv_sec = 120;
-		clnt_control(client, CLSET_TIMEOUT, &tv);
 		break;
 	case IPPROTO_TCP:
 		client = clnttcp_create(&sockin, prog, vers, &sock, 0, 0);
 		if (client == NULL) {
 			return (NULL);
 		}
-		tv.tv_sec = 120;
-		tv.tv_usec = 0;
-		clnt_control(client, CLSET_TIMEOUT, &tv);
 		break;
 	default:
 		rpc_createerr.cf_stat = RPC_SYSTEMERROR;

@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -17,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '1.12.1',
+        VERSION:     '1.15',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -212,17 +210,34 @@ string returned by gethostname().</p>
 type which is mapped to a krb5 principal name, clients will only be
 allowed to authenticate to that principal in the default keytab.</p>
 </div>
+<div class="section" id="name-attributes">
+<h2>Name Attributes<a class="headerlink" href="#name-attributes" title="Permalink to this headline">¶</a></h2>
+<p>In release 1.8 or later, the <a class="reference external" href="http://tools.ietf.org/html/rfc6680.txt#section-7.4">gss_inquire_name</a> and
+<a class="reference external" href="http://tools.ietf.org/html/6680.html#section-7.5">gss_get_name_attribute</a> functions, specified in <span class="target" id="index-2"></span><a class="rfc reference external" href="http://tools.ietf.org/html/rfc6680.html"><strong>RFC 6680</strong></a>, can be
+used to retrieve name attributes from the <em>src_name</em> returned by
+<a class="reference external" href="http://tools.ietf.org/html/rfc2744.html#section-5.1">gss_accept_sec_context</a>.  The following attributes are defined when
+the krb5 mechanism is used:</p>
+<ul class="simple" id="gssapi-authind-attr">
+<li>&#8220;auth-indicator&#8221; attribute:</li>
+</ul>
+<p>This attribute will be included in the <a class="reference external" href="http://tools.ietf.org/html/rfc6680.txt#section-7.4">gss_inquire_name</a> output if the
+ticket contains <a class="reference internal" href="../admin/auth_indicator.html#auth-indicator"><em>authentication indicators</em></a>.
+One indicator is returned per invocation of <a class="reference external" href="http://tools.ietf.org/html/6680.html#section-7.5">gss_get_name_attribute</a>,
+so multiple invocations may be necessary to retrieve all of the
+indicators from the ticket.  (New in release 1.15.)</p>
+</div>
 <div class="section" id="importing-and-exporting-credentials">
 <h2>Importing and exporting credentials<a class="headerlink" href="#importing-and-exporting-credentials" title="Permalink to this headline">¶</a></h2>
 <p>The following GSSAPI extensions can be used to import and export
 credentials (declared in <tt class="docutils literal"><span class="pre">&lt;gssapi/gssapi_ext.h&gt;</span></tt>):</p>
-<div class="highlight-python"><pre>OM_uint32 gss_export_cred(OM_uint32 *minor_status,
+<div class="highlight-python"><div class="highlight"><pre>OM_uint32 gss_export_cred(OM_uint32 *minor_status,
                           gss_cred_id_t cred_handle,
                           gss_buffer_t token);
 
 OM_uint32 gss_import_cred(OM_uint32 *minor_status,
                           gss_buffer_t token,
-                          gss_cred_id_t *cred_handle);</pre>
+                          gss_cred_id_t *cred_handle);
+</pre></div>
 </div>
 <p>The first function serializes a GSSAPI credential handle into a
 buffer; the second unseralizes a buffer into a GSSAPI credential
@@ -260,7 +275,7 @@ cache no longer exists.</p>
 <tt class="docutils literal"><span class="pre">&lt;gssapi/gssapi_ext.h&gt;</span></tt>) can be used to wrap and unwrap messages
 with additional &#8220;associated data&#8221; which is integrity-checked but is
 not included in the output buffer:</p>
-<div class="highlight-python"><pre>OM_uint32 gss_wrap_aead(OM_uint32 *minor_status,
+<div class="highlight-python"><div class="highlight"><pre>OM_uint32 gss_wrap_aead(OM_uint32 *minor_status,
                         gss_ctx_id_t context_handle,
                         int conf_req_flag, gss_qop_t qop_req,
                         gss_buffer_t input_assoc_buffer,
@@ -274,7 +289,8 @@ OM_uint32 gss_unwrap_aead(OM_uint32 *minor_status,
                           gss_buffer_t input_assoc_buffer,
                           gss_buffer_t output_payload_buffer,
                           int *conf_state,
-                          gss_qop_t *qop_state);</pre>
+                          gss_qop_t *qop_state);
+</pre></div>
 </div>
 <p>Wrap tokens created with gss_wrap_aead will successfully unwrap only
 if the same <em>input_assoc_buffer</em> contents are presented to
@@ -286,7 +302,7 @@ gss_unwrap_aead.</p>
 be used for in-place encryption, fine-grained control over wrap token
 layout, and for constructing wrap tokens compatible with Microsoft DCE
 RPC:</p>
-<div class="highlight-python"><pre>typedef struct gss_iov_buffer_desc_struct {
+<div class="highlight-python"><div class="highlight"><pre>typedef struct gss_iov_buffer_desc_struct {
     OM_uint32 type;
     gss_buffer_desc buffer;
 } gss_iov_buffer_desc, *gss_iov_buffer_t;
@@ -311,7 +327,8 @@ OM_uint32 gss_wrap_iov_length(OM_uint32 *minor_status,
 
 OM_uint32 gss_release_iov_buffer(OM_uint32 *minor_status,
                                  gss_iov_buffer_desc *iov,
-                                 int iov_count);</pre>
+                                 int iov_count);
+</pre></div>
 </div>
 <p>The caller of gss_wrap_iov provides an array of gss_iov_buffer_desc
 structures, each containing a type and a gss_buffer_desc structure.
@@ -348,9 +365,9 @@ gss_release_iov_buffer can be used to release all allocated buffers
 within an iov list and unset their allocated flags.  Here is an
 example of how gss_wrap_iov can be used with allocation requested
 (<em>ctx</em> is assumed to be a previously established gss_ctx_id_t):</p>
-<div class="highlight-python"><pre>OM_uint32 major, minor;
+<div class="highlight-python"><div class="highlight"><pre>OM_uint32 major, minor;
 gss_iov_buffer_desc iov[4];
-char str[] = "message";
+char str[] = &quot;message&quot;;
 
 iov[0].type = GSS_IOV_BUFFER_TYPE_HEADER | GSS_IOV_BUFFER_FLAG_ALLOCATE;
 iov[1].type = GSS_IOV_BUFFER_TYPE_DATA;
@@ -366,7 +383,8 @@ if (GSS_ERROR(major))
 
 /* Transmit or otherwise use resulting buffers. */
 
-(void)gss_release_iov_buffer(&amp;minor, iov, 4);</pre>
+(void)gss_release_iov_buffer(&amp;minor, iov, 4);
+</pre></div>
 </div>
 <p>If the caller does not choose to request buffer allocation by
 gss_wrap_iov, it should first call gss_wrap_iov_length to query the
@@ -374,9 +392,9 @@ lengths of the HEADER, PADDING, and TRAILER buffers.  DATA buffers
 must be provided in the iov list so that padding length can be
 computed correctly, but the output buffers need not be initialized.
 Here is an example of using gss_wrap_iov_length and gss_wrap_iov:</p>
-<div class="highlight-python"><pre>OM_uint32 major, minor;
+<div class="highlight-python"><div class="highlight"><pre>OM_uint32 major, minor;
 gss_iov_buffer_desc iov[4];
-char str[1024] = "message", *ptr;
+char str[1024] = &quot;message&quot;, *ptr;
 
 iov[0].type = GSS_IOV_BUFFER_TYPE_HEADER;
 iov[1].type = GSS_IOV_BUFFER_TYPE_DATA;
@@ -403,10 +421,11 @@ iov[3].buffer.value = ptr;
 major = gss_wrap_iov(&amp;minor, ctx, 1, GSS_C_QOP_DEFAULT, NULL,
                      iov, 4);
 if (GSS_ERROR(major))
-    handle_error(major, minor);</pre>
+    handle_error(major, minor);
+</pre></div>
 </div>
 <p>If the context was established using the <strong>GSS_C_DCE_STYLE</strong> flag
-(described in <span class="target" id="index-2"></span><a class="rfc reference external" href="http://tools.ietf.org/html/rfc4757.html"><strong>RFC 4757</strong></a>), wrap tokens compatible with Microsoft DCE
+(described in <span class="target" id="index-3"></span><a class="rfc reference external" href="http://tools.ietf.org/html/rfc4757.html"><strong>RFC 4757</strong></a>), wrap tokens compatible with Microsoft DCE
 RPC can be constructed.  In this case, the IOV list must include a
 SIGN_ONLY buffer, a DATA buffer, a second SIGN_ONLY buffer, and a
 HEADER buffer in that order (the order of the buffer contents remains
@@ -425,7 +444,7 @@ STREAM buffer, unless it has the <strong>GSS_C_BUFFER_FLAG_ALLOCATE</strong> fla
 set, in which case it will be initialized with a copy of the decrypted
 data.  Here is an example (<em>token</em> and <em>token_len</em> are assumed to be a
 pre-existing pointer and length for a modifiable region of data):</p>
-<div class="highlight-python"><pre>OM_uint32 major, minor;
+<div class="highlight-python"><div class="highlight"><pre>OM_uint32 major, minor;
 gss_iov_buffer_desc iov[2];
 
 iov[0].type = GSS_IOV_BUFFER_TYPE_STREAM;
@@ -437,15 +456,16 @@ if (GSS_ERROR(major))
     handle_error(major, minor);
 
 /* Decrypted data is in iov[1].buffer, pointing to a subregion of
- * token. */</pre>
+ * token. */
+</pre></div>
 </div>
 </div>
 <div class="section" id="iov-mic-tokens">
-<h2>IOV MIC tokens<a class="headerlink" href="#iov-mic-tokens" title="Permalink to this headline">¶</a></h2>
+<span id="gssapi-mic-token"></span><h2>IOV MIC tokens<a class="headerlink" href="#iov-mic-tokens" title="Permalink to this headline">¶</a></h2>
 <p>The following extensions (declared in <tt class="docutils literal"><span class="pre">&lt;gssapi/gssapi_ext.h&gt;</span></tt>) can
 be used in release 1.12 or later to construct and verify MIC tokens
 using an IOV list:</p>
-<div class="highlight-python"><pre>OM_uint32 gss_get_mic_iov(OM_uint32 *minor_status,
+<div class="highlight-python"><div class="highlight"><pre>OM_uint32 gss_get_mic_iov(OM_uint32 *minor_status,
                           gss_ctx_id_t context_handle,
                           gss_qop_t qop_req,
                           gss_iov_buffer_desc *iov,
@@ -461,7 +481,8 @@ OM_uint32 gss_verify_mic_iov(OM_uint32 *minor_status,
                              gss_ctx_id_t context_handle,
                              gss_qop_t *qop_state,
                              gss_iov_buffer_desc *iov,
-                             int iov_count);</pre>
+                             int iov_count);
+</pre></div>
 </div>
 <p>The caller of gss_get_mic_iov provides an array of gss_iov_buffer_desc
 structures, each containing a type and a gss_buffer_desc structure.
@@ -481,14 +502,14 @@ buffers within an iov list and unset their allocated flags.  Here is
 an example of how gss_get_mic_iov can be used with allocation
 requested (<em>ctx</em> is assumed to be a previously established
 gss_ctx_id_t):</p>
-<div class="highlight-python"><pre>OM_uint32 major, minor;
+<div class="highlight-python"><div class="highlight"><pre>OM_uint32 major, minor;
 gss_iov_buffer_desc iov[3];
 
 iov[0].type = GSS_IOV_BUFFER_TYPE_DATA;
-iov[0].buffer.value = "sign1";
+iov[0].buffer.value = &quot;sign1&quot;;
 iov[0].buffer.length = 5;
 iov[1].type = GSS_IOV_BUFFER_TYPE_SIGN_ONLY;
-iov[1].buffer.value = "sign2";
+iov[1].buffer.value = &quot;sign2&quot;;
 iov[1].buffer.length = 5;
 iov[2].type = GSS_IOV_BUFFER_TYPE_MIC_TOKEN | GSS_IOV_BUFFER_FLAG_ALLOCATE;
 
@@ -498,19 +519,20 @@ if (GSS_ERROR(major))
 
 /* Transmit or otherwise use iov[2].buffer. */
 
-(void)gss_release_iov_buffer(&amp;minor, iov, 3);</pre>
+(void)gss_release_iov_buffer(&amp;minor, iov, 3);
+</pre></div>
 </div>
 <p>If the caller does not choose to request buffer allocation by
 gss_get_mic_iov, it should first call gss_get_mic_iov_length to query
 the length of the MIC_TOKEN buffer.  Here is an example of using
 gss_get_mic_iov_length and gss_get_mic_iov:</p>
-<div class="highlight-python"><pre>OM_uint32 major, minor;
+<div class="highlight-python"><div class="highlight"><pre>OM_uint32 major, minor;
 gss_iov_buffer_desc iov[2];
 char data[1024];
 
 iov[0].type = GSS_IOV_BUFFER_TYPE_MIC_TOKEN;
 iov[1].type = GSS_IOV_BUFFER_TYPE_DATA;
-iov[1].buffer.value = "message";
+iov[1].buffer.value = &quot;message&quot;;
 iov[1].buffer.length = 7;
 
 major = gss_wrap_iov_length(&amp;minor, ctx, 1, GSS_C_QOP_DEFAULT,
@@ -524,7 +546,8 @@ iov[0].buffer.value = data;
 major = gss_wrap_iov(&amp;minor, ctx, 1, GSS_C_QOP_DEFAULT, NULL,
                      iov, 2);
 if (GSS_ERROR(major))
-    handle_error(major, minor);</pre>
+    handle_error(major, minor);
+</pre></div>
 </div>
 </div>
 </div>
@@ -541,6 +564,7 @@ if (GSS_ERROR(major))
 <li><a class="reference internal" href="#name-types">Name types</a></li>
 <li><a class="reference internal" href="#initiator-credentials">Initiator credentials</a></li>
 <li><a class="reference internal" href="#acceptor-names">Acceptor names</a></li>
+<li><a class="reference internal" href="#name-attributes">Name Attributes</a></li>
 <li><a class="reference internal" href="#importing-and-exporting-credentials">Importing and exporting credentials</a></li>
 <li><a class="reference internal" href="#aead-message-wrapping">AEAD message wrapping</a></li>
 <li><a class="reference internal" href="#iov-message-wrapping">IOV message wrapping</a></li>
@@ -567,6 +591,7 @@ if (GSS_ERROR(major))
 <li class="toctree-l1"><a class="reference internal" href="../plugindev/index.html">For plugin module developers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../build/index.html">Building Kerberos V5</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../basic/index.html">Kerberos V5 concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../formats/index.html">Protocols and file formats</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../mitK5features.html">MIT Kerberos features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../build_this.html">How to build this documentation from the source</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../about.html">Contributing to the MIT Kerberos Documentation</a></li>
@@ -589,8 +614,8 @@ if (GSS_ERROR(major))
 
     <div class="footer-wrapper">
         <div class="footer" >
-            <div class="right" ><i>Release: 1.12.1</i><br />
-                &copy; <a href="../copyright.html">Copyright</a> 1985-2013, MIT.
+            <div class="right" ><i>Release: 1.15</i><br />
+                &copy; <a href="../copyright.html">Copyright</a> 1985-2016, MIT.
             </div>
             <div class="left">
                 

@@ -55,13 +55,11 @@
  *  Any missing data or mismatches are treated as errors.
  */
 
-#include <sys/types.h>
-#include <getopt.h>
-#include <stdio.h>
-#include <string.h>
-#include <krb5.h>
 #include <k5-platform.h>
 #include <k5-json.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <krb5.h>
 
 struct responder_data {
     krb5_boolean called;
@@ -321,6 +319,7 @@ main(int argc, char **argv)
     krb5_principal principal;
     krb5_creds creds;
     krb5_error_code err;
+    const char *errmsg;
     char *opt, *val;
     struct responder_data response;
     int c;
@@ -421,8 +420,10 @@ main(int argc, char **argv)
         fprintf(stderr, "error: responder callback wasn't called\n");
         err = 1;
     } else if (err) {
+        errmsg = krb5_get_error_message(context, err);
         fprintf(stderr, "error: krb5_get_init_creds_password failed: %s\n",
-                krb5_get_error_message(context, err));
+                errmsg);
+        krb5_free_error_message(context, errmsg);
         err = 2;
     }
     krb5_free_context(context);

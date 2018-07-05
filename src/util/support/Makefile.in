@@ -43,6 +43,16 @@ PRINTF_OBJ= @PRINTF_OBJ@
 ##DOS##PRINTF_ST_OBJ= printf.o
 ##DOS##PRINTF_OBJ= $(OUTPRE)printf.$(OBJEXT)
 
+GETOPT_ST_OBJ= @GETOPT_ST_OBJ@
+GETOPT_OBJ= @GETOPT_OBJ@
+##DOS##GETOPT_ST_OBJ= getopt.o
+##DOS##GETOPT_OBJ= $(OUTPRE)getopt.$(OBJEXT)
+
+GETOPT_LONG_ST_OBJ= @GETOPT_LONG_ST_OBJ@
+GETOPT_LONG_OBJ= @GETOPT_LONG_OBJ@
+##DOS##GETOPT_LONG_ST_OBJ= getopt_long.o
+##DOS##GETOPT_LONG_OBJ= $(OUTPRE)getopt_long.$(OBJEXT)
+
 IPC_ST_OBJ=
 IPC_OBJ=
 ##DOS##IPC_ST_OBJ= ipc_stream.o
@@ -72,12 +82,15 @@ STLIBOBJS= \
 	base64.o \
 	json.o \
 	bcmp.o \
+	strerror_r.o \
 	$(GETTIMEOFDAY_ST_OBJ) \
 	$(IPC_ST_OBJ) \
 	$(STRLCPY_ST_OBJ) \
 	$(FNMATCH_ST_OBJ) \
 	$(PRINTF_ST_OBJ) \
-	$(MKSTEMP_ST_OBJ)
+	$(MKSTEMP_ST_OBJ) \
+	$(GETOPT_ST_OBJ) \
+	$(GETOPT_LONG_ST_OBJ)
 
 LIBOBJS= \
 	$(OUTPRE)threads.$(OBJEXT) \
@@ -94,12 +107,15 @@ LIBOBJS= \
 	$(OUTPRE)base64.$(OBJEXT) \
 	$(OUTPRE)json.$(OBJEXT) \
 	$(OUTPRE)bcmp.$(OBJEXT) \
+	$(OUTPRE)strerror_r.$(OBJEXT) \
 	$(GETTIMEOFDAY_OBJ) \
 	$(IPC_OBJ) \
 	$(STRLCPY_OBJ) \
 	$(FNMATCH_OBJ) \
 	$(PRINTF_OBJ) \
-	$(MKSTEMP_OBJ)
+	$(MKSTEMP_OBJ) \
+	$(GETOPT_OBJ) \
+	$(GETOPT_LONG_OBJ)
 
 SRCS=\
 	$(srcdir)/threads.c \
@@ -124,7 +140,11 @@ SRCS=\
 	$(srcdir)/path.c \
 	$(srcdir)/base64.c \
 	$(srcdir)/json.c \
-	$(srcdir)/bcmp.c
+	$(srcdir)/bcmp.c \
+	$(srcdir)/strerror_r.c \
+	$(srcdir)/t_utf8.c \
+	$(srcdir)/getopt.c \
+	$(srcdir)/getopt_long.c
 
 SHLIB_EXPDEPS =
 # Add -lm if dumping thread stats, for sqrt.
@@ -133,9 +153,9 @@ SHLIB_EXPLIBS= $(LIBS) $(DL_LIB)
 DEPLIBS=
 
 #
-all-unix:: all-liblinks
+all-unix: all-liblinks
 
-install-unix:: install-libs
+install-unix: install-libs
 
 clean-unix:: clean-liblinks clean-libs clean-libobjs
 
@@ -148,10 +168,11 @@ t_mktime: gmt_mktime.c
 	$(CC) $(ALL_CFLAGS) -DTEST_LEAP -o t_mktime $(srcdir)/gmt_mktime.c
 
 SHLIB_EXPORT_FILE=libkrb5support.exports
-##DOS##all-windows:: libkrb5support.exports
+##DOS##all-windows: libkrb5support.exports
 
 EXTRA_SUPPORT_SYMS= @EXTRA_SUPPORT_SYMS@
 ##DOS##EXTRA_SUPPORT_SYMS= krb5int_mkstemp krb5int_strlcpy krb5int_strlcat \
+##DOS##		k5_optind k5_optarg k5_opterr k5_optopt k5_getopt k5_getopt_long \
 ##DOS##		krb5int_vasprintf krb5int_asprintf krb5int_gettimeofday $(IPC_SYMS)
 
 ##DOS##!if 0
@@ -196,20 +217,24 @@ t_json: $(T_JSON_OBJS)
 t_unal: t_unal.o
 	$(CC_LINK) -o t_unal t_unal.o
 
-TEST_PROGS= t_k5buf t_path t_path_win t_base64 t_json t_unal
+t_utf8: t_utf8.o utf8.o
+	$(CC_LINK) -o t_utf8 t_utf8.o utf8.o
 
-check-unix:: $(TEST_PROGS)
+TEST_PROGS= t_k5buf t_path t_path_win t_base64 t_json t_unal t_utf8
+
+check-unix: $(TEST_PROGS)
 	./t_k5buf
 	./t_path
 	./t_path_win
 	./t_base64
 	./t_json
 	./t_unal
+	./t_utf8
 
-clean::
+clean:
 	$(RM) t_k5buf.o t_k5buf t_unal.o t_unal path_win.o path_win
 	$(RM) t_path_win.o t_path_win t_path.o t_path t_base64.o t_base64
-	$(RM) t_json.o t_json libkrb5support.exports
+	$(RM) t_json.o t_json libkrb5support.exports t_utf8.o t_utf8
 
 @lib_frag@
 @libobj_frag@

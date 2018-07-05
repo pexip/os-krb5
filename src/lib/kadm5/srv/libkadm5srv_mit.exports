@@ -5,8 +5,6 @@ kadm5int_acl_check_krb
 kadm5int_acl_finish
 kadm5int_acl_impose_restrictions
 kadm5int_acl_init
-adb_policy_close
-adb_policy_init
 hist_princ
 kadm5_set_use_password_server
 kadm5_chpass_principal
@@ -21,6 +19,7 @@ kadm5_delete_principal
 kadm5_destroy
 kadm5_flush
 kadm5_free_config_params
+kadm5_free_kadm5_key_data
 kadm5_free_key_data
 kadm5_free_name_list
 kadm5_free_policy_ent
@@ -50,6 +49,7 @@ kadm5_rename_principal
 kadm5_set_string
 kadm5_setkey_principal
 kadm5_setkey_principal_3
+kadm5_setkey_principal_4
 kadm5_setv4key_principal
 kadm5_unlock
 kdb_delete_entry
@@ -67,16 +67,16 @@ krb5_aprof_get_string_all
 krb5_aprof_getvals
 krb5_aprof_init
 krb5_copy_key_data_contents
-krb5_flags_to_string
+krb5_flagnum_to_string
+krb5_flagspec_to_mask
+krb5_flags_to_strings
 krb5_free_key_data_contents
-krb5_input_flag_to_string
 krb5_keysalt_is_present
 krb5_keysalt_iterate
 krb5_klog_close
 krb5_klog_init
 krb5_klog_reopen
 krb5_klog_syslog
-krb5_string_to_flags
 krb5_string_to_keysalts
 master_db
 master_princ
@@ -93,6 +93,8 @@ xdr_cprinc_arg
 xdr_dpol_arg
 xdr_dprinc_arg
 xdr_generic_ret
+xdr_getpkeys_arg
+xdr_getpkeys_ret
 xdr_getprivs_ret
 xdr_gpol_arg
 xdr_gpol_ret
@@ -133,6 +135,7 @@ xdr_osa_pw_hist_ent
 xdr_purgekeys_arg
 xdr_rprinc_arg
 xdr_setkey3_arg
+xdr_setkey4_arg
 xdr_setkey_arg
 xdr_setv4key_arg
 xdr_sstring_arg

@@ -4,8 +4,8 @@
  *      values from the krb5 config file(s).
  */
 
-#include "fake-addrinfo.h"
 #include "k5-int.h"
+#include "fake-addrinfo.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -82,7 +82,7 @@ test_locate_kdc(krb5_context ctx, char *realm)
 
     rlm.data = realm;
     rlm.length = strlen(realm);
-    retval = k5_locate_kdc(ctx, &rlm, &servers, get_masters, 0);
+    retval = k5_locate_kdc(ctx, &rlm, &servers, get_masters, FALSE);
     if (retval) {
         com_err("krb5_locate_kdc", retval, 0);
         return;
@@ -91,7 +91,7 @@ test_locate_kdc(krb5_context ctx, char *realm)
     for (i = 0; i < servers.nservers; i++) {
         struct server_entry *entry = &servers.servers[i];
         if (entry->hostname) {
-            printf(" host:%s/%d", entry->hostname, ntohs(entry->port));
+            printf(" host:%s/%d", entry->hostname, entry->port);
             continue;
         }
         switch (entry->family) {

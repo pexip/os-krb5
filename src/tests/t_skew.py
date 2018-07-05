@@ -14,7 +14,7 @@ realm.run([kvno, realm.host_princ])
 realm.run([kdestroy])
 
 # kinit (with preauth) should work, with or without FAST.
-realm.run_kadminl('modprinc +requires_preauth user')
+realm.run([kadminl, 'modprinc', '+requires_preauth', 'user'])
 realm.kinit(realm.user_princ, password('user'))
 realm.run([kvno, realm.host_princ])
 realm.kinit(realm.user_princ, password('user'), flags=['-T', realm.ccache])
@@ -40,18 +40,18 @@ realm.kinit(realm.user_princ, password('user'),
 out = realm.kinit(realm.user_princ, password('user'), expected_code=1)
 if 'Clock skew too great in KDC reply' not in out:
     fail('Expected error message not seen in kinit skew case')
-out = realm.kinit(realm.user_princ, password('user'), flags=['-T', fast_cache],
+out = realm.kinit(realm.user_princ, None, flags=['-T', fast_cache],
                   expected_code=1)
 if 'Clock skew too great while' not in out:
     fail('Expected error message not seen in kinit FAST skew case')
 
 # kinit (with preauth) should fail from the KDC, with or without FAST.
-realm.run_kadminl('modprinc +requires_preauth user')
+realm.run([kadminl, 'modprinc', '+requires_preauth', 'user'])
 out = realm.kinit(realm.user_princ, password('user'), expected_code=1)
 if 'Clock skew too great while' not in out:
     fail('Expected error message not seen in kinit skew case (preauth)')
-realm.kinit(realm.user_princ, password('user'), flags=['-T', fast_cache],
-            expected_code=1)
+out = realm.kinit(realm.user_princ, None, flags=['-T', fast_cache],
+                  expected_code=1)
 if 'Clock skew too great while' not in out:
     fail('Expected error message not seen in kinit FAST skew case (preauth)')
 
