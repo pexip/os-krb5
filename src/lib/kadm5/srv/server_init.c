@@ -10,11 +10,8 @@
  * Use is subject to license terms.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
+#include "k5-int.h"
 #include <com_err.h>
-#include "k5-int.h"             /* needed for gssapiP_krb5.h */
 #include <kadm5/admin.h>
 #include <krb5.h>
 #include <kdb_log.h>
@@ -240,6 +237,7 @@ kadm5_ret_t kadm5_init(krb5_context context, char *client_name, char *pass,
      KADM5_CONFIG_IPROP_PORT)
 
     if ((handle->params.mask & REQUIRED_PARAMS) != REQUIRED_PARAMS) {
+        kadm5_free_config_params(handle->context, &handle->params);
         free_db_args(handle);
         free(handle);
         return KADM5_MISSING_CONF_PARAMS;
@@ -247,6 +245,7 @@ kadm5_ret_t kadm5_init(krb5_context context, char *client_name, char *pass,
     if ((handle->params.mask & KADM5_CONFIG_IPROP_ENABLED) == KADM5_CONFIG_IPROP_ENABLED
         && handle->params.iprop_enabled) {
         if ((handle->params.mask & IPROP_REQUIRED_PARAMS) != IPROP_REQUIRED_PARAMS) {
+            kadm5_free_config_params(handle->context, &handle->params);
             free_db_args(handle);
             free(handle);
             return KADM5_MISSING_CONF_PARAMS;
@@ -255,6 +254,7 @@ kadm5_ret_t kadm5_init(krb5_context context, char *client_name, char *pass,
 
     ret = krb5_set_default_realm(handle->context, handle->params.realm);
     if (ret) {
+        kadm5_free_config_params(handle->context, &handle->params);
         free_db_args(handle);
         free(handle);
         return ret;
@@ -263,6 +263,7 @@ kadm5_ret_t kadm5_init(krb5_context context, char *client_name, char *pass,
     ret = krb5_db_open(handle->context, db_args,
                        KRB5_KDB_OPEN_RW | KRB5_KDB_SRV_TYPE_ADMIN);
     if (ret) {
+        kadm5_free_config_params(handle->context, &handle->params);
         free_db_args(handle);
         free(handle);
         return(ret);
@@ -270,6 +271,7 @@ kadm5_ret_t kadm5_init(krb5_context context, char *client_name, char *pass,
 
     if ((ret = krb5_parse_name(handle->context, client_name,
                                &handle->current_caller))) {
+        kadm5_free_config_params(handle->context, &handle->params);
         krb5_db_fini(handle->context);
         free_db_args(handle);
         free(handle);
@@ -277,6 +279,7 @@ kadm5_ret_t kadm5_init(krb5_context context, char *client_name, char *pass,
     }
 
     if (! (handle->lhandle = malloc(sizeof(*handle)))) {
+        kadm5_free_config_params(handle->context, &handle->params);
         krb5_db_fini(handle->context);
         free_db_args(handle);
         free(handle);
@@ -290,6 +293,7 @@ kadm5_ret_t kadm5_init(krb5_context context, char *client_name, char *pass,
     /* can't check the handle until current_caller is set */
     ret = check_handle((void *) handle);
     if (ret) {
+        kadm5_free_config_params(handle->context, &handle->params);
         free_db_args(handle);
         free(handle);
         return ret;
@@ -299,6 +303,7 @@ kadm5_ret_t kadm5_init(krb5_context context, char *client_name, char *pass,
                           (handle->params.mask & KADM5_CONFIG_MKEY_FROM_KBD)
                           && handle->params.mkey_from_kbd);
     if (ret) {
+        kadm5_free_config_params(handle->context, &handle->params);
         krb5_db_fini(handle->context);
         free_db_args(handle);
         free(handle);
@@ -307,6 +312,7 @@ kadm5_ret_t kadm5_init(krb5_context context, char *client_name, char *pass,
 
     ret = kdb_init_hist(handle, handle->params.realm);
     if (ret) {
+        kadm5_free_config_params(handle->context, &handle->params);
         krb5_db_fini(handle->context);
         free_db_args(handle);
         free(handle);
@@ -315,6 +321,7 @@ kadm5_ret_t kadm5_init(krb5_context context, char *client_name, char *pass,
 
     ret = k5_kadm5_hook_load(context,&handle->hook_handles);
     if (ret) {
+        kadm5_free_config_params(handle->context, &handle->params);
         krb5_db_fini(handle->context);
         krb5_free_principal(handle->context, handle->current_caller);
         free_db_args(handle);
@@ -324,6 +331,7 @@ kadm5_ret_t kadm5_init(krb5_context context, char *client_name, char *pass,
 
     ret = init_pwqual(handle);
     if (ret) {
+        kadm5_free_config_params(handle->context, &handle->params);
         k5_kadm5_hook_free_handles(context, handle->hook_handles);
         krb5_db_fini(handle->context);
         krb5_free_principal(handle->context, handle->current_caller);
@@ -346,7 +354,7 @@ kadm5_ret_t kadm5_destroy(void *server_handle)
     destroy_pwqual(handle);
 
     k5_kadm5_hook_free_handles(handle->context, handle->hook_handles);
-    adb_policy_close(handle);
+    ulog_fini(handle->context);
     krb5_db_fini(handle->context);
     krb5_free_principal(handle->context, handle->current_caller);
     kadm5_free_config_params(handle->context, &handle->params);
@@ -393,9 +401,7 @@ kadm5_ret_t kadm5_flush(void *server_handle)
 
     if ((ret = krb5_db_fini(handle->context)) ||
         (ret = krb5_db_open(handle->context, handle->db_args,
-                            KRB5_KDB_OPEN_RW | KRB5_KDB_SRV_TYPE_ADMIN)) ||
-        (ret = adb_policy_close(handle)) ||
-        (ret = adb_policy_init(handle))) {
+                            KRB5_KDB_OPEN_RW | KRB5_KDB_SRV_TYPE_ADMIN))) {
         (void) kadm5_destroy(server_handle);
         return ret;
     }
@@ -431,10 +437,9 @@ kadm5_init_iprop(void *handle, char **db_args)
     iprop_h = handle;
     if (iprop_h->params.iprop_enabled) {
         ulog_set_role(iprop_h->context, IPROP_MASTER);
-        if ((retval = ulog_map(iprop_h->context,
-                               iprop_h->params.iprop_logfile,
-                               iprop_h->params.iprop_ulogsize,
-                               FKCOMMAND, db_args)) != 0)
+        retval = ulog_map(iprop_h->context, iprop_h->params.iprop_logfile,
+                          iprop_h->params.iprop_ulogsize);
+        if (retval)
             return (retval);
     }
     return (0);

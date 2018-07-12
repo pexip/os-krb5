@@ -8,9 +8,6 @@
 /* Define if AES-NI support is enabled */
 #undef AESNI
 
-/* Define if ANSI stdio is present (in particular "b" option to fopen) */
-#undef ANSI_STDIO
-
 /* Define if socket can't be bound to 0.0.0.0 */
 #undef BROKEN_STREAMS_SOCKETS
 
@@ -22,9 +19,6 @@
 
 /* Define if __attribute__((constructor)) works */
 #undef CONSTRUCTOR_ATTR_WORKS
-
-/* Define if crypto implementation is NSS */
-#undef CRYPTO_IMPL_NSS
 
 /* Define to default ccache name */
 #undef DEFCCNAME
@@ -130,9 +124,6 @@
 /* Define to 1 if you have the `chmod' function. */
 #undef HAVE_CHMOD
 
-/* Define to 1 if you have the `closelog' function. */
-#undef HAVE_CLOSELOG
-
 /* Define to 1 if you have the `compile' function. */
 #undef HAVE_COMPILE
 
@@ -144,6 +135,10 @@
 
 /* Define to 1 if you have the `daemon' function. */
 #undef HAVE_DAEMON
+
+/* Define to 1 if you have the declaration of `strerror_r', and to 0 if you
+   don't. */
+#undef HAVE_DECL_STRERROR_R
 
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
@@ -194,6 +189,12 @@
 /* Define to 1 if you have the `getnameinfo' function. */
 #undef HAVE_GETNAMEINFO
 
+/* Define if system getopt should be used. */
+#undef HAVE_GETOPT
+
+/* Define if system getopt_long should be used. */
+#undef HAVE_GETOPT_LONG
+
 /* Define if getpwnam_r is available and useful. */
 #undef HAVE_GETPWNAM_R
 
@@ -226,9 +227,6 @@
 
 /* Define to 1 if the system has the type `int32_t'. */
 #undef HAVE_INT32_T
-
-/* Define to 1 if the system has the type `int64_t'. */
-#undef HAVE_INT64_T
 
 /* Define to 1 if the system has the type `int8_t'. */
 #undef HAVE_INT8_T
@@ -284,9 +282,6 @@
 /* Define to 1 if you have the `localtime_r' function. */
 #undef HAVE_LOCALTIME_R
 
-/* Define to 1 if the system has the type `long long'. */
-#undef HAVE_LONG_LONG
-
 /* Define to 1 if you have the <machine/byte_order.h> header file. */
 #undef HAVE_MACHINE_BYTE_ORDER_H
 
@@ -317,8 +312,8 @@
 /* Define to 1 if you have the `ns_name_uncompress' function. */
 #undef HAVE_NS_NAME_UNCOMPRESS
 
-/* Define to 1 if you have the `openlog' function. */
-#undef HAVE_OPENLOG
+/* Define if OpenSSL supports cms. */
+#undef HAVE_OPENSSL_CMS
 
 /* Define to 1 if you have the <paths.h> header file. */
 #undef HAVE_PATHS_H
@@ -346,15 +341,6 @@
 
 /* Define to 1 if you have the <pwd.h> header file. */
 #undef HAVE_PWD_H
-
-/* Define to 1 if you have the <python2.3/Python.h> header file. */
-#undef HAVE_PYTHON2_3_PYTHON_H
-
-/* Define to 1 if you have the <python2.5/Python.h> header file. */
-#undef HAVE_PYTHON2_5_PYTHON_H
-
-/* Define to 1 if you have the <Python.h> header file. */
-#undef HAVE_PYTHON_H
 
 /* Define if building with GNU Readline. */
 #undef HAVE_READLINE
@@ -391,6 +377,9 @@
 
 /* Define to 1 if you have the `re_exec' function. */
 #undef HAVE_RE_EXEC
+
+/* Define to 1 if you have the <sasl/sasl.h> header file. */
+#undef HAVE_SASL_SASL_H
 
 /* Define if struct sockaddr contains sa_len */
 #undef HAVE_SA_LEN
@@ -500,12 +489,6 @@
 /* Define to 1 if the system has the type `struct rt_msghdr'. */
 #undef HAVE_STRUCT_RT_MSGHDR
 
-/* Define to 1 if `sin_len' is a member of `struct sockaddr_in'. */
-#undef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-
-/* Define to 1 if `sa_len' is a member of `struct sockaddr'. */
-#undef HAVE_STRUCT_SOCKADDR_SA_LEN
-
 /* Define to 1 if the system has the type `struct sockaddr_storage'. */
 #undef HAVE_STRUCT_SOCKADDR_STORAGE
 
@@ -517,12 +500,6 @@
 
 /* Define to 1 if `st_mtim.tv_nsec' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC
-
-/* Define to 1 if you have the `syslog' function. */
-#undef HAVE_SYSLOG
-
-/* Define to 1 if you have the <syslog.h> header file. */
-#undef HAVE_SYSLOG_H
 
 /* Define to 1 if you have the <sys/bswap.h> header file. */
 #undef HAVE_SYS_BSWAP_H
@@ -580,21 +557,6 @@
 /* Define to 1 if you have the <time.h> header file. */
 #undef HAVE_TIME_H
 
-/* Define to 1 if the system has the type `uint32_t'. */
-#undef HAVE_UINT32_T
-
-/* Define to 1 if the system has the type `uint64_t'. */
-#undef HAVE_UINT64_T
-
-/* Define to 1 if the system has the type `uintmax_t'. */
-#undef HAVE_UINTMAX_T
-
-/* Define to 1 if the system has the type `uintptr_t'. */
-#undef HAVE_UINTPTR_T
-
-/* Define to 1 if the system has the type `uint_least32_t'. */
-#undef HAVE_UINT_LEAST32_T
-
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
@@ -651,6 +613,10 @@
 
 /* Define if in6addr_any is not defined in libc */
 #undef NEED_INSIXADDR_ANY
+
+/* define if the system header files are missing prototype for
+   ss_execute_command() */
+#undef NEED_SS_EXECUTE_COMMAND_PROTO
 
 /* define if the system header files are missing prototype for strptime() */
 #undef NEED_STRPTIME_PROTO
@@ -722,11 +688,20 @@
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
+/* Define to 1 if strerror_r returns char *. */
+#undef STRERROR_R_CHAR_P
+
 /* Define if sys_errlist is defined in errno.h */
 #undef SYS_ERRLIST_DECLARED
 
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME
+
+/* Define if no TLS implementation is selected */
+#undef TLS_IMPL_NONE
+
+/* Define if TLS implementation is OpenSSL */
+#undef TLS_IMPL_OPENSSL
 
 /* Define if you have dirent.h functionality */
 #undef USE_DIRENT_H
@@ -752,6 +727,12 @@
 /* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
    `char[]'. */
 #undef YYTEXT_POINTER
+
+/* Define to enable extensions in glibc */
+#undef _GNU_SOURCE
+
+/* Define to enable C11 extensions */
+#undef __STDC_WANT_LIB_EXT1__
 
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const

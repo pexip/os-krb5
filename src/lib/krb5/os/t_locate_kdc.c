@@ -1,8 +1,7 @@
 /* -*- mode: c; c-basic-offset: 4; indent-tabs-mode: nil -*- */
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
+#include "k5-platform.h"
 #include "port-sockets.h"
+#include <sys/types.h>
 #include <com_err.h>
 
 #define TEST
@@ -29,18 +28,20 @@ kfatal (krb5_error_code err)
 }
 
 static const char *
-stypename (int stype)
+ttypename (k5_transport ttype)
 {
     static char buf[20];
-    switch (stype) {
-    case SOCK_STREAM:
-        return "stream";
-    case SOCK_DGRAM:
-        return "dgram";
-    case SOCK_RAW:
-        return "raw";
+    switch (ttype) {
+    case TCP_OR_UDP:
+        return "tcp or udp";
+    case TCP:
+        return "tcp";
+    case UDP:
+        return "udp";
+    case HTTPS:
+        return "https";
     default:
-        snprintf(buf, sizeof(buf), "?%d", stype);
+        snprintf(buf, sizeof(buf), "?%d", ttype);
         return buf;
     }
 }
@@ -57,8 +58,10 @@ print_addrs (void)
         char hostbuf[NI_MAXHOST], srvbuf[NI_MAXSERV];
 
         if (entry->hostname != NULL) {
-            printf("%2d: host %s\t%s\tport %d\n", (int)i, entry->hostname,
-                   stypename(entry->socktype), ntohs(entry->port));
+            printf("%d: h:%s t:%s p:%d m:%d P:%s\n", (int)i,
+                   entry->hostname, ttypename(entry->transport),
+                   entry->port, entry->master,
+                   entry->uri_path ? entry->uri_path : "");
             continue;
         }
         err = getnameinfo((struct sockaddr *)&entry->addr, entry->addrlen,
@@ -69,7 +72,7 @@ print_addrs (void)
                    gai_strerror(err));
         } else {
             printf("%2d: address %s\t%s\tport %s\n", (int)i, hostbuf,
-                   stypename(entry->socktype), srvbuf);
+                   ttypename(entry->transport), srvbuf);
         }
     }
 }
@@ -120,8 +123,7 @@ main (int argc, char *argv[])
 
     switch (how) {
     case LOOKUP_CONF:
-        err = krb5_locate_srv_conf(ctx, &realm, "kdc", &sl,
-                                   htons(88), htons(750));
+        err = krb5_locate_srv_conf(ctx, &realm, "kdc", &sl, htons(88));
         break;
 
     case LOOKUP_DNS:
@@ -129,7 +131,7 @@ main (int argc, char *argv[])
         break;
 
     case LOOKUP_WHATEVER:
-        err = k5_locate_kdc(ctx, &realm, &sl, master, 0);
+        err = k5_locate_kdc(ctx, &realm, &sl, master, FALSE);
         break;
     }
     if (err) kfatal (err);

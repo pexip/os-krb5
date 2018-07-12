@@ -38,7 +38,7 @@ krb5_k_verify_checksum -  Verify a checksum (operates on opaque key).
 
 
 
-This function verifies that *cksum* is a valid checksum for *data* . If the checksum type of *cksum* is a keyed checksum, *key* is used to verify the checksum. The actual checksum key will be derived from *key* and *usage* if key derivation is specified for the checksum type.
+This function verifies that *cksum* is a valid checksum for *data* . If the checksum type of *cksum* is a keyed checksum, *key* is used to verify the checksum. If the checksum type in *cksum* is 0 and *key* is not NULL, the mandatory checksum type for *key* will be used. The actual checksum key will be derived from *key* and *usage* if key derivation is specified for the checksum type.
 
 
 

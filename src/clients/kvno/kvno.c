@@ -25,17 +25,11 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <locale.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include "k5-platform.h"
+#include <locale.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef _WIN32
-#include <getopt.h>
-#endif
-
 #include <string.h>
 
 extern int optind;

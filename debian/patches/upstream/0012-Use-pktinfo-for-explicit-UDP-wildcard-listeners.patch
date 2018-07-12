@@ -1,0 +1,52 @@
+From 1bffb7f177dc7a9ed95bce03c607dd20c15d39fb Mon Sep 17 00:00:00 2001
+From: Greg Hudson <ghudson@mit.edu>
+Date: Mon, 26 Dec 2016 15:18:05 -0500
+Subject: Use pktinfo for explicit UDP wildcard listeners
+
+In net-server.c, use pktinfo on UDP server sockets if they are bound
+to wildcard addresses, whether that is explicit or implicit in the
+address specification.
+
+(cherry picked from commit d005beaa72c70bc28b2b0b49b9d83eff160ca8f1)
+
+ticket: 8530
+version_fixed: 1.15.1
+
+(cherry picked from commit e23d062471bf9071072aaf2df39054508fe74cc1)
+
+Patch-Category: upstream
+---
+ src/lib/apputils/net-server.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/src/lib/apputils/net-server.c b/src/lib/apputils/net-server.c
+index d64ffddd68..29ec84a15b 100644
+--- a/src/lib/apputils/net-server.c
++++ b/src/lib/apputils/net-server.c
+@@ -105,6 +105,17 @@ paddr(struct sockaddr *sa)
+     return buf;
+ }
+ 
++/* Return true if sa is an IPv4 or IPv6 wildcard address. */
++static int
++is_wildcard(struct sockaddr *sa)
++{
++    if (sa->sa_family == AF_INET6)
++        return IN6_IS_ADDR_UNSPECIFIED(&sa2sin6(sa)->sin6_addr);
++    else if (sa->sa_family == AF_INET)
++        return sa2sin(sa)->sin_addr.s_addr == INADDR_ANY;
++    return 0;
++}
++
+ /* KDC data.  */
+ 
+ enum conn_type {
+@@ -753,7 +764,7 @@ setup_socket(struct socksetup *data, struct bind_address *ba,
+     }
+ 
+     /* Try to turn on pktinfo for UDP wildcard sockets. */
+-    if (ba->type == UDP && ba->address == NULL) {
++    if (ba->type == UDP && is_wildcard(sock_address)) {
+         krb5_klog_syslog(LOG_DEBUG, _("Setting pktinfo on socket %s"),
+                          paddr(sock_address));
+         ret = set_pktinfo(sock, sock_address->sa_family);

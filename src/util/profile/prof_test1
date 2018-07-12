@@ -21,7 +21,7 @@ proc test1 {} {
 	}
     }
     if $verbose { puts "" }
-    #profile_iterator_free $iter
+    profile_iterator_free $iter
 
     set iter [profile_iterator_create $p $sect 0]
     set done 0
@@ -37,10 +37,10 @@ proc test1 {} {
 	}
     }
     if $verbose { puts "" }
-    #profile_iterator_free $iter
+    profile_iterator_free $iter
     catch {file delete $wd/test3.ini}
     profile_flush_to_file $p $wd/test3.ini
-    profile_release $p
+    profile_abandon $p
 
     if $verbose { puts "Reloading new profile" }
     set p [profile_init_path $wd/test3.ini]
@@ -58,7 +58,7 @@ proc test1 {} {
 	    if $verbose { puts -nonewline "\t$val" }
 	}
     }
-    #profile_iterator_free $iter
+    profile_iterator_free $iter
     profile_abandon $p
 
     if {$found_some} {
@@ -183,12 +183,15 @@ proc test4 {} {
     }
     profile_release $p
 
-    # Test including a directory.  (Put two copies of test2.ini inside
-    # it and check that we get two values for one of the variables.)
+    # Test including a directory.  Put four copies of test2.ini inside
+    # the directory, two with invalid names.  Check that we get two
+    # values for one of the variables.
     catch [file delete -force $wd/test_include_dir]
     exec mkdir $wd/test_include_dir
     exec cp $wd/test2.ini $wd/test_include_dir/a
-    exec cp $wd/test2.ini $wd/test_include_dir/b
+    exec cp $wd/test2.ini $wd/test_include_dir/a~
+    exec cp $wd/test2.ini $wd/test_include_dir/b.conf
+    exec cp $wd/test2.ini $wd/test_include_dir/b.conf.rpmsave
     catch [file delete $wd/testinc.ini]
     exec echo "includedir $wd/test_include_dir" >$wd/testinc.ini
     set p [profile_init_path $wd/testinc.ini]
@@ -196,6 +199,16 @@ proc test4 {} {
     if $verbose { puts "Read $x from included directory" }
     if ![string equal $x "foo foo"] {
 	puts stderr, "Error: test4: Did not get expected result from included directory."
+	exit 1
+    }
+    profile_release $p
+
+    # Directly list the directory in the profile path and try again.
+    set p [profile_init_path $wd/test_include_dir]
+    set x [profile_get_values $p {{test section 1} bar}]
+    if $verbose { puts "Read $x from directory" }
+    if ![string equal $x "foo foo"] {
+	puts stderr, "Error: test4: Did not get expected result from directory."
 	exit 1
     }
     profile_release $p
@@ -230,8 +243,102 @@ proc test5 {} {
 	puts stderr, "Error: test5: Wrong results from profile"
 	exit 1
     }
+    profile_release $p
 
     puts "OK: test5: syntax independence of included files"
+}
+
+proc test6 {} {
+    global wd verbose
+
+    # If a section is deleted and replaced, the new section should be
+    # used when retrieving values.
+    set p [profile_init_path $wd/test2.ini]
+    set sect {{test section 1}}
+    set newrel [concat $sect testkey]
+    set oldrel [concat $sect child]
+    if $verbose { puts "Removing and replacing {$sect}" }
+    profile_rename_section $p $sect
+    profile_add_relation $p $sect
+    if $verbose { puts "Adding {$newrel}" }
+    profile_add_relation $p $newrel 6
+    set x [profile_get_values $p $newrel]
+    if $verbose { puts "Read from new relation {$newrel}: $x" }
+    if { $x != 6 } {
+	puts stderr, "Error: test6: Could not get value from new section"
+	exit 1
+    }
+    if $verbose { puts "Reading old relation {$oldrel} which should be gone" }
+    catch {
+	profile_get_values $p $oldrel
+	puts stderr, "Error: test6: Got value from deleted section"
+	exit 1
+    }
+    profile_abandon $p
+
+    puts "OK: test6: section replacement"
+}
+
+proc test7 {} {
+    global wd verbose
+
+    # A deleted node at the end of a relation's value set should not cause
+    # profile_clear_relation to error, as long as some value is present.
+    set p [profile_init_path $wd/test2.ini]
+    set rel {{test section 1} testkey}
+    if $verbose { puts "Adding values 1 2 at {$rel}" }
+    profile_add_relation $p $rel 1
+    profile_add_relation $p $rel 2
+    if $verbose { puts "Removing value 2 at {$rel}" }
+    profile_update_relation $p $rel 2
+    if $verbose { puts "Clearing values at {$rel}" }
+    profile_clear_relation $p $rel
+    profile_abandon $p
+    puts "OK: test7: profile_clear_relation with deleted node at end"
+}
+
+proc test8 {} {
+    global wd verbose
+
+    # Order of relation operations should be reflected even if some of
+    # the relations were deleted.
+    set p [profile_init_path $wd/test2.ini]
+    set rel {{test section 1} testkey}
+    if $verbose { puts "Adding values 1 2 3 at {$rel}" }
+    profile_add_relation $p $rel 1
+    profile_add_relation $p $rel 2
+    profile_add_relation $p $rel 3
+    if $verbose { puts "Removing values 2 and adding 4 at {$rel}" }
+    profile_update_relation $p $rel 2
+    profile_add_relation $p $rel 4
+    set x [profile_get_values $p $rel]
+    if $verbose { puts "Read values from {$rel}: $x" }
+    if { $x != {1 3 4} } {
+	puts stderr, "Error: test8: Wrong order of values: $x"
+	exit 1
+    }
+    profile_abandon $p
+
+    puts "OK: test8: relation order in the presence of deletions"
+}
+
+proc test9 {} {
+    global wd verbose
+
+    # Regression test for #8431: profile_flush_to_file erroneously
+    # cleared the DIRTY and SHARED flags from the data object, which
+    # could lead to a dangling reference in g_shared_trees on release.
+    set p [profile_init_path $wd/test2.ini]
+    catch {file delete $wd/test3.ini}
+    profile_flush_to_file $p $wd/test3.ini
+    profile_release $p
+
+    # If a dangling reference was created in g_shared_trees, the next
+    # profile open will trigger an assertion failure.
+    set p [profile_init_path $wd/test2.ini]
+    profile_release $p
+
+    puts "OK: test9: profile_flush_to_file with no changes"
 }
 
 test1
@@ -239,5 +346,9 @@ test2
 test3
 test4
 test5
+test6
+test7
+test8
+test9
 
 exit 0

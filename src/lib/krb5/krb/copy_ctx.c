@@ -81,16 +81,17 @@ krb5_copy_context(krb5_context ctx, krb5_context *nctx_out)
     nctx->ccselect_handles = NULL;
     nctx->localauth_handles = NULL;
     nctx->hostrealm_handles = NULL;
+    nctx->tls = NULL;
     nctx->kdblog_context = NULL;
     nctx->trace_callback = NULL;
     nctx->trace_callback_data = NULL;
+    nctx->err_fmt = NULL;
+    if (ctx->err_fmt != NULL)
+        nctx->err_fmt = strdup(ctx->err_fmt);   /* It's OK if this fails */
     nctx->plugin_base_dir = NULL;
     nctx->os_context.default_ccname = NULL;
 
     memset(&nctx->libkrb5_plugins, 0, sizeof(nctx->libkrb5_plugins));
-    nctx->vtbl = NULL;
-    nctx->locate_fptrs = NULL;
-
     memset(&nctx->err, 0, sizeof(nctx->err));
     memset(&nctx->plugins, 0, sizeof(nctx->plugins));
 

@@ -46,12 +46,6 @@
 typedef krb5_error_code (*prf_fn)(krb5_key pass, krb5_data *salt,
                                   krb5_data *out);
 
-/* Not exported, for now.  */
-static krb5_error_code
-krb5int_pbkdf2 (prf_fn prf, size_t hlen, krb5_key pass,
-                const krb5_data *salt, unsigned long count,
-                const krb5_data *output);
-
 static int debug_hmac = 0;
 
 static void printd (const char *descr, krb5_data *d) {
@@ -75,12 +69,34 @@ static void printd (const char *descr, krb5_data *d) {
     printf("\n");
 }
 
+/*
+ * Implements the hmac-sha1 PRF.  pass has been pre-hashed (if
+ * necessary) and converted to a key already; salt has had the block
+ * index appended to the original salt.
+ */
 static krb5_error_code
-F(char *output, char *u_tmp1, char *u_tmp2, prf_fn prf, size_t hlen,
-  krb5_key pass, const krb5_data *salt, unsigned long count, int i)
+hmac(const struct krb5_hash_provider *hash, krb5_keyblock *pass,
+     krb5_data *salt, krb5_data *out)
+{
+    krb5_error_code err;
+    krb5_crypto_iov iov;
+
+    if (debug_hmac)
+        printd(" hmac input", salt);
+    iov.flags = KRB5_CRYPTO_TYPE_DATA;
+    iov.data = *salt;
+    err = krb5int_hmac_keyblock(hash, pass, &iov, 1, out);
+    if (err == 0 && debug_hmac)
+        printd(" hmac output", out);
+    return err;
+}
+
+static krb5_error_code
+F(char *output, char *u_tmp1, char *u_tmp2,
+  const struct krb5_hash_provider *hash, size_t hlen, krb5_keyblock *pass,
+  const krb5_data *salt, unsigned long count, int i)
 {
     unsigned char ibytes[4];
-    size_t tlen;
     unsigned int j, k;
     krb5_data sdata;
     krb5_data out;
@@ -94,24 +110,20 @@ F(char *output, char *u_tmp1, char *u_tmp2, prf_fn prf, size_t hlen,
     /* Compute U_1.  */
     store_32_be(i, ibytes);
 
-    tlen = salt->length;
-    memcpy(u_tmp2, salt->data, tlen);
-    memcpy(u_tmp2 + tlen, ibytes, 4);
-    tlen += 4;
-    sdata.data = u_tmp2;
-    sdata.length = tlen;
+    memcpy(u_tmp2, salt->data, salt->length);
+    memcpy(u_tmp2 + salt->length, ibytes, 4);
+    sdata = make_data(u_tmp2, salt->length + 4);
 
 #if 0
     printd("initial salt", &sdata);
 #endif
 
-    out.data = u_tmp1;
-    out.length = hlen;
+    out = make_data(u_tmp1, hlen);
 
 #if 0
     printf("F: computing hmac #1 (U_1) with %s\n", pdata.contents);
 #endif
-    err = (*prf)(pass, &sdata, &out);
+    err = hmac(hash, pass, &sdata, &out);
     if (err)
         return err;
 #if 0
@@ -126,7 +138,7 @@ F(char *output, char *u_tmp1, char *u_tmp2, prf_fn prf, size_t hlen,
         printf("F: computing hmac #%d (U_%d)\n", j, j);
 #endif
         memcpy(u_tmp2, u_tmp1, hlen);
-        err = (*prf)(pass, &sdata, &out);
+        err = hmac(hash, pass, &sdata, &out);
         if (err)
             return err;
 #if 0
@@ -146,13 +158,13 @@ F(char *output, char *u_tmp1, char *u_tmp2, prf_fn prf, size_t hlen,
 }
 
 static krb5_error_code
-krb5int_pbkdf2 (prf_fn prf, size_t hlen, krb5_key pass,
-                const krb5_data *salt, unsigned long count,
-                const krb5_data *output)
+pbkdf2(const struct krb5_hash_provider *hash, krb5_keyblock *pass,
+       const krb5_data *salt, unsigned long count, const krb5_data *output)
 {
+    size_t hlen = hash->hashsize;
     int l, i;
     char *utmp1, *utmp2;
-    char utmp3[20];             /* XXX length shouldn't be hardcoded! */
+    char utmp3[128];             /* XXX length shouldn't be hardcoded! */
 
     if (output->length == 0 || hlen == 0)
         abort();
@@ -183,7 +195,7 @@ krb5int_pbkdf2 (prf_fn prf, size_t hlen, krb5_key pass,
             out = utmp3;
         else
             out = output->data + (i-1) * hlen;
-        err = F(out, utmp1, utmp2, prf, hlen, pass, salt, count, i);
+        err = F(out, utmp1, utmp2, hash, hlen, pass, salt, count, i);
         if (err) {
             free(utmp1);
             free(utmp2);
@@ -205,46 +217,23 @@ krb5int_pbkdf2 (prf_fn prf, size_t hlen, krb5_key pass,
     return 0;
 }
 
-/*
- * Implements the hmac-sha1 PRF.  pass has been pre-hashed (if
- * necessary) and converted to a key already; salt has had the block
- * index appended to the original salt.
- */
-static krb5_error_code
-hmac_sha1(krb5_key pass, krb5_data *salt, krb5_data *out)
-{
-    const struct krb5_hash_provider *h = &krb5int_hash_sha1;
-    krb5_error_code err;
-    krb5_crypto_iov iov;
-
-    if (debug_hmac)
-        printd(" hmac input", salt);
-    iov.flags = KRB5_CRYPTO_TYPE_DATA;
-    iov.data = *salt;
-    err = krb5int_hmac(h, pass, &iov, 1, out);
-    if (err == 0 && debug_hmac)
-        printd(" hmac output", out);
-    return err;
-}
-
 krb5_error_code
-krb5int_pbkdf2_hmac_sha1(const krb5_data *out, unsigned long count,
-                         const krb5_data *pass, const krb5_data *salt)
+krb5int_pbkdf2_hmac(const struct krb5_hash_provider *hash,
+                    const krb5_data *out, unsigned long count,
+                    const krb5_data *pass, const krb5_data *salt)
 {
-    const struct krb5_hash_provider *h = &krb5int_hash_sha1;
     krb5_keyblock keyblock;
-    krb5_key key;
-    char tmp[40];
+    char tmp[128];
     krb5_data d;
     krb5_crypto_iov iov;
     krb5_error_code err;
 
-    assert(h->hashsize <= sizeof(tmp));
-    if (pass->length > h->blocksize) {
-        d = make_data(tmp, h->hashsize);
+    assert(hash->hashsize <= sizeof(tmp));
+    if (pass->length > hash->blocksize) {
+        d = make_data(tmp, hash->hashsize);
         iov.flags = KRB5_CRYPTO_TYPE_DATA;
         iov.data = *pass;
-        err = h->hash(&iov, 1, &d);
+        err = hash->hash(&iov, 1, &d);
         if (err)
             return err;
         keyblock.length = d.length;
@@ -255,11 +244,6 @@ krb5int_pbkdf2_hmac_sha1(const krb5_data *out, unsigned long count,
     }
     keyblock.enctype = ENCTYPE_NULL;
 
-    err = krb5_k_create_key(NULL, &keyblock, &key);
-    if (err)
-        return err;
-
-    err = krb5int_pbkdf2(hmac_sha1, 20, key, salt, count, out);
-    krb5_k_free_key(NULL, key);
+    err = pbkdf2(hash, &keyblock, salt, count, out);
     return err;
 }

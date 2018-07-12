@@ -12,6 +12,10 @@ __kdb2_bt_defcmp
 __kdb2_bt_defpfx
 __kdb2_bt_deleaf
 __kdb2_bt_delete
+__kdb2_bt_dmpage
+__kdb2_bt_dnpage
+__kdb2_bt_dpage
+__kdb2_bt_dump
 __kdb2_bt_fd
 __kdb2_bt_free
 __kdb2_bt_get
@@ -20,11 +24,13 @@ __kdb2_bt_open
 __kdb2_bt_pgin
 __kdb2_bt_pgout
 __kdb2_bt_put
+__kdb2_bt_relink
 __kdb2_bt_ret
 __kdb2_bt_search
 __kdb2_bt_seq
 __kdb2_bt_setcur
 __kdb2_bt_split
+__kdb2_bt_stat
 __kdb2_bt_sync
 __kdb2_call_hash
 __kdb2_cursor_creat
@@ -68,7 +74,6 @@ __kdb2_rec_sync
 __kdb2_rec_vmap
 __kdb2_rec_vpipe
 __kdb2_split_page
-kdb2_bt_rseq
 kdb2_dbm_clearerr
 kdb2_dbm_close
 kdb2_dbm_delete
@@ -94,6 +99,7 @@ kdb2_mpool_get
 kdb2_mpool_new
 kdb2_mpool_open
 kdb2_mpool_put
+kdb2_mpool_stat
 kdb2_mpool_sync
 kdb2_nextkey
 kdb2_store

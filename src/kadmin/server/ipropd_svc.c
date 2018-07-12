@@ -7,14 +7,12 @@
 /* #pragma ident	"@(#)ipropd_svc.c	1.2	04/02/20 SMI" */
 
 
-#include <stdio.h>
-#include <stdlib.h> /* getenv, exit */
+#include "k5-platform.h"
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/resource.h> /* rlimit */
 #include <syslog.h>
 
-#include "k5-platform.h"
 #include <kadm5/admin.h>
 #include <kadm5/kadm_rpc.h>
 #include <kadm5/server_internal.h>
@@ -38,6 +36,7 @@ extern short l_port;
 extern char *kdb5_util;
 extern char *kprop;
 extern char *dump_file;
+extern char *kprop_port;
 
 static char *reply_ok_str	= "UPDATE_OK";
 static char *reply_err_str	= "UPDATE_ERROR";
@@ -53,6 +52,7 @@ static char *reply_unknown_str	= "<UNKNOWN_CODE>";
 #ifdef	DPRINT
 #undef	DPRINT
 #endif
+#ifdef DEBUG
 #define	DPRINT(...)				\
     do {					\
 	if (nofork) {				\
@@ -60,7 +60,9 @@ static char *reply_unknown_str	= "<UNKNOWN_CODE>";
 	    fflush(stderr);			\
 	}					\
     } while (0)
-
+#else
+#define	DPRINT(...)
+#endif
 
 static void
 debprret(char *w, update_status_t ret, kdb_sno_t sno)
@@ -162,8 +164,6 @@ iprop_get_updates_1_svc(kdb_last_t *arg, struct svc_req *rqstp)
 	client_name = buf_to_string(&client_desc);
 	service_name = buf_to_string(&service_desc);
 	if (client_name == NULL || service_name == NULL) {
-	    free(client_name);
-	    free(service_name);
 	    krb5_klog_syslog(LOG_ERR,
 			     _("%s: out of memory recording principal names"),
 			     whoami);
@@ -190,7 +190,7 @@ iprop_get_updates_1_svc(kdb_last_t *arg, struct svc_req *rqstp)
 	goto out;
     }
 
-    kret = ulog_get_entries(handle->context, *arg, &ret);
+    kret = ulog_get_entries(handle->context, arg, &ret);
 
     if (ret.ret == UPDATE_OK) {
 	(void) snprintf(obuf, sizeof (obuf),
@@ -249,7 +249,7 @@ ipropx_resync(uint32_t vers, struct svc_req *rqstp)
 {
     static kdb_fullresync_result_t ret;
     char *ubuf = 0;
-    char clhost[MAXHOSTNAMELEN] = {0};
+    char clhost[NI_MAXHOST] = {0};
     int pret, fret;
     FILE *p;
     kadm5_server_handle_t handle = global_server_handle;
@@ -290,8 +290,6 @@ ipropx_resync(uint32_t vers, struct svc_req *rqstp)
 	client_name = buf_to_string(&client_desc);
 	service_name = buf_to_string(&service_desc);
 	if (client_name == NULL || service_name == NULL) {
-	    free(client_name);
-	    free(service_name);
 	    DPRINT("%s: out of memory\n", whoami);
 	    krb5_klog_syslog(LOG_ERR,
 			     _("%s: out of memory recording principal names"),
@@ -338,8 +336,8 @@ ipropx_resync(uint32_t vers, struct svc_req *rqstp)
      * and timestamp are in the ulog (then the slaves can get the
      * subsequent updates very iprop).
      */
-    if (asprintf(&ubuf, "%s dump -i%d -c %s",
-		 kdb5_util, vers, dump_file) < 0) {
+    if (asprintf(&ubuf, "%s -r %s dump -i%d -c %s", kdb5_util,
+		 handle->params.realm, vers, dump_file) < 0) {
 	krb5_klog_syslog(LOG_ERR,
 			 _("%s: cannot construct kdb5 util dump string too long; out of memory"),
 			 whoami);
@@ -393,14 +391,17 @@ ipropx_resync(uint32_t vers, struct svc_req *rqstp)
 	    _exit(1);
 	}
 
-	DPRINT("%s: exec `kprop -f %s %s' ...\n",
-		whoami, dump_file, clhost);
-	/* XXX Yuck!  */
-	if (getenv("KPROP_PORT")) {
-	    pret = execl(kprop, "kprop", "-f", dump_file, "-P",
-			 getenv("KPROP_PORT"), clhost, NULL);
+	if (kprop_port != NULL) {
+	    DPRINT("%s: exec `kprop -r %s -f %s -P %s %s' ...\n",
+		   whoami, handle->params.realm, dump_file, kprop_port,
+		   clhost);
+	    pret = execl(kprop, "kprop", "-r", handle->params.realm, "-f",
+			 dump_file, "-P", kprop_port, clhost, NULL);
 	} else {
-	    pret = execl(kprop, "kprop", "-f", dump_file, clhost, NULL);
+	    DPRINT("%s: exec `kprop -r %s -f %s %s' ...\n",
+		   whoami, handle->params.realm, dump_file, clhost);
+	    pret = execl(kprop, "kprop", "-r", handle->params.realm, "-f",
+			 dump_file, clhost, NULL);
 	}
 	perror(whoami);
 	krb5_klog_syslog(LOG_ERR,

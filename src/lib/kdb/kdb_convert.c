@@ -10,13 +10,12 @@
  * This file contains api's for conversion of the kdb_incr_update_t
  * struct(s) into krb5_db_entry struct(s) and vice-versa.
  */
+#include <k5-int.h>
 #include <sys/types.h>
 #include <com_err.h>
 #include <locale.h>
-#include <errno.h>
 #include <iprop_hdr.h>
 #include "iprop.h"
-#include <k5-int.h>
 #include <kdb.h>
 #include <kdb_log.h>
 
@@ -624,10 +623,9 @@ ulog_conv_2dbentry(krb5_context context, krb5_db_entry **entry,
      * Set ent->n_tl_data = 0 initially, if this is an ADD update
      */
     if (is_add) {
-        ent = krb5_db_alloc(context, NULL, sizeof(*ent));
+        ent = calloc(1, sizeof(*ent));
         if (ent == NULL)
             return (ENOMEM);
-        memset(ent, 0, sizeof(*ent));
         ent->n_tl_data = 0;
     }
 
@@ -705,7 +703,7 @@ ulog_conv_2dbentry(krb5_context context, krb5_db_entry **entry,
                 krb5_key_data *kp = &ent->key_data[j];
                 kdbe_key_t *kv = &ULOG_ENTRY_KEYVAL(update, i, j);
                 kp->key_data_ver = (krb5_int16)kv->k_ver;
-                kp->key_data_kvno = (krb5_int16)kv->k_kvno;
+                kp->key_data_kvno = (krb5_ui_2)kv->k_kvno;
                 if (kp->key_data_ver > 2) {
                     return EINVAL; /* XXX ? */
                 }

@@ -31,17 +31,8 @@
  * document, currently draft-ietf-krb-wg-pkinit-alg-agility-04.txt.
  */
 
-#include <errno.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <dlfcn.h>
-#include <unistd.h>
-#include <dirent.h>
-
 #include "k5-platform.h"
-
-#include "pkinit_crypto_openssl.h"
+#include "pkinit.h"
 
 /**
  * Initialize a krb5_data from @a s, a constant string. Note @a s is evaluated
@@ -91,11 +82,9 @@ main(int argc, char **argv)
 
     /* other local variables */
     int retval = 0;
-    int max_keylen = 2048;
     krb5_enctype enctype = 0;
     krb5_principal u_principal = NULL;
     krb5_principal v_principal = NULL;
-    krb5_keyblock *key_block_ptr = &key_block;
 
     /* initialize variables that get malloc'ed, so cleanup is safe */
     krb5_init_context (&context);
@@ -139,15 +128,6 @@ main(int argc, char **argv)
 
     enctype = enctype_aes;
 
-    /* set-up the key_block */
-    if (0 != (retval = krb5_init_keyblock(context, enctype, max_keylen,
-                                          &key_block_ptr))) {
-        printf("ERROR in pkinit_kdf_test: can't init keyblock, retval = %d",
-               retval);
-        goto cleanup;
-
-    }
-
     /* call pkinit_alg_agility_kdf() with test vector values*/
     if (0 != (retval = pkinit_alg_agility_kdf(context, &secret,
                                               &alg_id.algorithm,
@@ -179,15 +159,6 @@ main(int argc, char **argv)
     alg_id.algorithm.length = krb5_pkinit_sha256_oid_len;
 
     enctype = enctype_aes;
-
-    /* set-up the key_block */
-    if (0 != (retval = krb5_init_keyblock(context, enctype, max_keylen,
-                                          &key_block_ptr))) {
-        printf("ERROR in pkinit_kdf_test: can't init keyblock, retval = %d",
-               retval);
-        goto cleanup;
-
-    }
 
     /* call pkinit_alg_agility_kdf() with test vector values*/
     if (0 != (retval = pkinit_alg_agility_kdf(context, &secret,
@@ -221,15 +192,6 @@ main(int argc, char **argv)
 
     enctype = enctype_des3;
 
-    /* set-up the key_block */
-    if (0 != (retval = krb5_init_keyblock(context, enctype, max_keylen,
-                                          &key_block_ptr))) {
-        printf("ERROR in pkinit_kdf_test: can't init keyblock, retval = %d",
-               retval);
-        goto cleanup;
-
-    }
-
     /* call pkinit_alg_agility_kdf() with test vector values*/
     if (0 != (retval = pkinit_alg_agility_kdf(context, &secret,
                                               &alg_id.algorithm,
@@ -256,8 +218,8 @@ main(int argc, char **argv)
 cleanup:
     /* release all allocated resources, whether good or bad return */
     free(secret.data);
-    free(u_principal);
-    free(v_principal);
+    krb5_free_principal(context, u_principal);
+    krb5_free_principal(context, v_principal);
     krb5_free_keyblock_contents(context, &key_block);
     exit(retval);
 }

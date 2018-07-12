@@ -35,7 +35,15 @@ krb5_kt_resolve -  Get a handle for a key table.
 
 
 
-Resolve the key table name *name* and set *ktid* to a handle identifying the key table. The key table is not opened.
+Resolve the key table name *name* and set *ktid* to a handle identifying the key table. Use :c:func:`krb5_kt_close()` to free *ktid* when it is no longer needed.
+
+
+
+ *name* must be of the form **type:residual** , where *type* must be a type known to the library and *residual* portion should be specific to the particular keytab type. If no *type* is given, the default is **FILE** .
+
+
+
+If *name* is of type **FILE** , the keytab file is not opened by this call.
 
 
 
@@ -53,14 +61,6 @@ Resolve the key table name *name* and set *ktid* to a handle identifying the key
 ..
 
 
-
-
-
-
-.. note::
-
-	 *name* must be of the form **type:residual** , where *type* must be a type known to the library and *residual* portion should be specific to the particular keytab type.
- 
 
 
 

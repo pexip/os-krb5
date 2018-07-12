@@ -171,21 +171,21 @@ krb5int_fast_prep_req_body(krb5_context context,
 krb5_error_code
 krb5int_fast_as_armor(krb5_context context,
                       struct krb5int_fast_request_state *state,
-                      krb5_gic_opt_ext *opte,
-                      krb5_kdc_req *request)
+                      krb5_get_init_creds_opt *opt, krb5_kdc_req *request)
 {
     krb5_error_code retval = 0;
     krb5_ccache ccache = NULL;
     krb5_principal target_principal = NULL;
     krb5_data *target_realm;
+    const char *ccname = k5_gic_opt_get_fast_ccache_name(opt);
+    krb5_flags fast_flags;
 
     krb5_clear_error_message(context);
     target_realm = &request->server->realm;
-    if (opte->opt_private->fast_ccache_name) {
-        TRACE_FAST_ARMOR_CCACHE(context, opte->opt_private->fast_ccache_name);
+    if (ccname != NULL) {
+        TRACE_FAST_ARMOR_CCACHE(context, ccname);
         state->fast_state_flags |= KRB5INT_FAST_ARMOR_AVAIL;
-        retval = krb5_cc_resolve(context, opte->opt_private->fast_ccache_name,
-                                 &ccache);
+        retval = krb5_cc_resolve(context, ccname, &ccache);
         if (retval == 0) {
             retval = krb5int_tgtname(context, target_realm, target_realm,
                                      &target_principal);
@@ -202,7 +202,8 @@ krb5int_fast_as_armor(krb5_context context,
             krb5_free_data_contents(context, &config_data);
             retval = 0;
         }
-        if (opte->opt_private->fast_flags & KRB5_FAST_REQUIRED) {
+        fast_flags = k5_gic_opt_get_fast_flags(opt);
+        if (fast_flags & KRB5_FAST_REQUIRED) {
             TRACE_FAST_REQUIRED(context);
             state->fast_state_flags |= KRB5INT_FAST_DO_FAST;
         }
@@ -211,11 +212,8 @@ krb5int_fast_as_armor(krb5_context context,
                                            target_principal);
         }
         if (retval != 0) {
-            const char * errmsg;
-            errmsg = krb5_get_error_message(context, retval);
-            krb5_set_error_message(context, retval,
-                                   _("%s constructing AP-REQ armor"), errmsg);
-            krb5_free_error_message(context, errmsg);
+            k5_prependmsg(context, retval,
+                          _("Error constructing AP-REQ armor"));
         }
     }
     if (ccache)
@@ -392,21 +390,15 @@ decrypt_fast_reply(krb5_context context,
         retval = krb5_c_decrypt(context, state->armor_key,
                                 KRB5_KEYUSAGE_FAST_REP, NULL,
                                 encrypted_response, &scratch);
-    if (retval != 0) {
-        const char * errmsg;
-        errmsg = krb5_get_error_message(context, retval);
-        krb5_set_error_message(context, retval,
-                               _("%s while decrypting FAST reply"), errmsg);
-        krb5_free_error_message(context, errmsg);
-    }
+    if (retval != 0)
+        k5_prependmsg(context, retval, _("Failed to decrypt FAST reply"));
     if (retval == 0)
         retval = decode_krb5_fast_response(&scratch, &local_resp);
     if (retval == 0) {
         if (local_resp->nonce != state->nonce) {
             retval = KRB5_KDCREP_MODIFIED;
-            krb5_set_error_message(context, retval,
-                                   _("nonce modified in FAST response: "
-                                     "KDC response modified"));
+            k5_setmsg(context, retval, _("nonce modified in FAST response: "
+                                         "KDC response modified"));
         }
     }
     if (retval == 0) {
@@ -470,9 +462,9 @@ krb5int_fast_process_error(krb5_context context,
             fx_error_pa = krb5int_find_pa_data(context, fast_response->padata,
                                                KRB5_PADATA_FX_ERROR);
             if (fx_error_pa == NULL) {
-                krb5_set_error_message(context, KRB5KDC_ERR_PREAUTH_FAILED,
-                                       _("Expecting FX_ERROR pa-data inside "
-                                         "FAST container"));
+                k5_setmsg(context, KRB5KDC_ERR_PREAUTH_FAILED,
+                          _("Expecting FX_ERROR pa-data inside FAST "
+                            "container"));
                 retval = KRB5KDC_ERR_PREAUTH_FAILED;
             }
         }
@@ -541,9 +533,8 @@ krb5int_fast_process_response(krb5_context context,
     if (retval == 0) {
         if (fast_response->finished == 0) {
             retval = KRB5_KDCREP_MODIFIED;
-            krb5_set_error_message(context, retval,
-                                   _("FAST response missing finish message "
-                                     "in KDC reply"));
+            k5_setmsg(context, retval,
+                      _("FAST response missing finish message in KDC reply"));
         }
     }
     if (retval == 0)
@@ -556,8 +547,7 @@ krb5int_fast_process_response(krb5_context context,
                                         &cksum_valid);
     if (retval == 0 && cksum_valid == 0) {
         retval = KRB5_KDCREP_MODIFIED;
-        krb5_set_error_message(context, retval,
-                               _("Ticket modified in KDC reply"));
+        k5_setmsg(context, retval, _("Ticket modified in KDC reply"));
     }
     if (retval == 0) {
         krb5_free_principal(context, resp->client);
@@ -645,7 +635,19 @@ krb5int_find_pa_data(krb5_context context, krb5_pa_data *const *padata,
     return *tmppa;
 }
 
-
+/*
+ * Implement FAST negotiation as specified in RFC 6806 section 11.  If
+ * the encrypted part of rep sets the enc-pa-rep flag, look for and
+ * verify a PA-REQ-ENC-PA-REP entry in the encrypted padata.  If a
+ * PA-FX-FAST entry is also present in the encrypted padata, set
+ * *fast_avail to true.  This will result in a fast_avail config entry
+ * being written to the credential cache, if an output ccache was
+ * specified using krb5_get_init_creds_opt_set_out_ccache().  That
+ * entry will be detected in the armor ccache by
+ * krb5int_fast_as_armor(), allowing us to use FAST without a
+ * round-trip for the KDC to indicate support, and without a downgrade
+ * attack.
+ */
 krb5_error_code
 krb5int_fast_verify_nego(krb5_context context,
                          struct krb5int_fast_request_state *state,
@@ -690,18 +692,15 @@ krb5int_fast_verify_nego(krb5_context context,
 }
 
 krb5_boolean
-krb5int_upgrade_to_fast_p(krb5_context context,
-                          struct krb5int_fast_request_state *state,
-                          krb5_pa_data **padata)
+k5_upgrade_to_fast_p(krb5_context context,
+                     struct krb5int_fast_request_state *state,
+                     krb5_pa_data **padata)
 {
     if (state->armor_key != NULL)
         return FALSE; /* Already using FAST. */
     if (!(state->fast_state_flags & KRB5INT_FAST_ARMOR_AVAIL))
         return FALSE;
-    if (krb5int_find_pa_data(context, padata, KRB5_PADATA_FX_FAST) != NULL) {
-        TRACE_FAST_PADATA_UPGRADE(context);
-        state->fast_state_flags |= KRB5INT_FAST_DO_FAST;
+    if (krb5int_find_pa_data(context, padata, KRB5_PADATA_FX_FAST) != NULL)
         return TRUE;
-    }
     return FALSE;
 }

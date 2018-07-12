@@ -34,9 +34,7 @@
   Id: svc_auth_gss.c,v 1.28 2002/10/15 21:29:36 kwc Exp
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "k5-platform.h"
 #include <gssrpc/rpc.h>
 #include <gssrpc/auth_gssapi.h>
 #ifdef HAVE_HEIMDAL
@@ -46,7 +44,6 @@
 #include <gssapi/gssapi.h>
 #include <gssapi/gssapi_generic.h>
 #endif
-#include "k5-platform.h"	/* SIZE_MAX */
 
 #ifdef DEBUG_GSSAPI
 int svc_debug_gss = DEBUG_GSSAPI;
@@ -67,16 +64,6 @@ extern const gss_OID_desc * const gss_mech_spkm3;
 #endif /* SPKM */
 
 extern SVCAUTH svc_auth_none;
-
-/*
- * from mit-krb5-1.2.1 mechglue/mglueP.h:
- * Array of context IDs typed by mechanism OID
- */
-typedef struct gss_union_ctx_id_t {
-  gss_OID     mech_type;
-  gss_ctx_id_t    internal_ctx_id;
-} gss_union_ctx_id_desc, *gss_union_ctx_id_t;
-
 
 static auth_gssapi_log_badauth_func log_badauth = NULL;
 static caddr_t log_badauth_data = NULL;
@@ -104,6 +91,7 @@ struct svc_auth_ops svc_auth_gss_ops = {
 
 struct svc_rpc_gss_data {
 	bool_t			established;	/* context established */
+	gss_cred_id_t		cred;		/* credential */
 	gss_ctx_id_t		ctx;		/* context id */
 	struct rpc_gss_sec	sec;		/* security triple */
 	gss_buffer_desc		cname;		/* GSS client name */
@@ -119,7 +107,6 @@ struct svc_rpc_gss_data {
 	(*(struct svc_rpc_gss_data **)&(auth)->svc_ah_private)
 
 /* Global server credentials. */
-gss_cred_id_t		svcauth_gss_creds;
 static gss_name_t	svcauth_gss_name = NULL;
 
 bool_t
@@ -152,39 +139,28 @@ svcauth_gss_set_svc_name(gss_name_t name)
 }
 
 static bool_t
-svcauth_gss_acquire_cred(void)
+svcauth_gss_acquire_cred(struct svc_rpc_gss_data *gd)
 {
 	OM_uint32	maj_stat, min_stat;
 
 	log_debug("in svcauth_gss_acquire_cred()");
 
+	/* We don't need to acquire a credential if using the default name. */
+	if (svcauth_gss_name == GSS_C_NO_NAME)
+		return (TRUE);
+
+	/* Only acquire a credential once per authentication. */
+	if (gd->cred != GSS_C_NO_CREDENTIAL)
+		return (TRUE);
+
 	maj_stat = gss_acquire_cred(&min_stat, svcauth_gss_name, 0,
 				    GSS_C_NULL_OID_SET, GSS_C_ACCEPT,
-				    &svcauth_gss_creds, NULL, NULL);
+				    &gd->cred, NULL, NULL);
 
 	if (maj_stat != GSS_S_COMPLETE) {
 		log_status("gss_acquire_cred", maj_stat, min_stat);
 		return (FALSE);
 	}
-	return (TRUE);
-}
-
-static bool_t
-svcauth_gss_release_cred(void)
-{
-	OM_uint32	maj_stat, min_stat;
-
-	log_debug("in svcauth_gss_release_cred()");
-
-	maj_stat = gss_release_cred(&min_stat, &svcauth_gss_creds);
-
-	if (maj_stat != GSS_S_COMPLETE) {
-		log_status("gss_release_cred", maj_stat, min_stat);
-		return (FALSE);
-	}
-
-	svcauth_gss_creds = NULL;
-
 	return (TRUE);
 }
 
@@ -223,7 +199,7 @@ svcauth_gss_accept_sec_context(struct svc_req *rqst,
 
 	gr->gr_major = gss_accept_sec_context(&gr->gr_minor,
 					      &gd->ctx,
-					      svcauth_gss_creds,
+					      gd->cred,
 					      &recv_tok,
 					      GSS_C_NO_CHANNEL_BINDINGS,
 					      &gd->client_name,
@@ -242,16 +218,8 @@ svcauth_gss_accept_sec_context(struct svc_req *rqst,
 		gd->ctx = GSS_C_NO_CONTEXT;
 		goto errout;
 	}
-	/*
-	 * ANDROS: krb5 mechglue returns ctx of size 8 - two pointers,
-	 * one to the mechanism oid, one to the internal_ctx_id
-	 */
-	if ((gr->gr_ctx.value = mem_alloc(sizeof(gss_union_ctx_id_desc))) == NULL) {
-		fprintf(stderr, "svcauth_gss_accept_context: out of memory\n");
-		goto errout;
-	}
-	memcpy(gr->gr_ctx.value, gd->ctx, sizeof(gss_union_ctx_id_desc));
-	gr->gr_ctx.length = sizeof(gss_union_ctx_id_desc);
+	gr->gr_ctx.value = "xxxx";
+	gr->gr_ctx.length = 4;
 
 	/* gr->gr_win = 0x00000005; ANDROS: for debugging linux kernel version...  */
 	gr->gr_win = sizeof(gd->seqmask) * 8;
@@ -515,7 +483,7 @@ gssrpc__svcauth_gss(struct svc_req *rqst, struct rpc_msg *msg,
 		if (rqst->rq_proc != NULLPROC)
 			ret_freegc (AUTH_FAILED);		/* XXX ? */
 
-		if (!svcauth_gss_acquire_cred())
+		if (!svcauth_gss_acquire_cred(gd))
 			ret_freegc (AUTH_FAILED);
 
 		if (!svcauth_gss_accept_sec_context(rqst, &gr))
@@ -523,8 +491,6 @@ gssrpc__svcauth_gss(struct svc_req *rqst, struct rpc_msg *msg,
 
 		if (!svcauth_gss_nextverf(rqst, htonl(gr.gr_win))) {
 			gss_release_buffer(&min_stat, &gr.gr_token);
-			mem_free(gr.gr_ctx.value,
-				 sizeof(gss_union_ctx_id_desc));
 			ret_freegc (AUTH_FAILED);
 		}
 		*no_dispatch = TRUE;
@@ -534,7 +500,6 @@ gssrpc__svcauth_gss(struct svc_req *rqst, struct rpc_msg *msg,
 
 		gss_release_buffer(&min_stat, &gr.gr_token);
 		gss_release_buffer(&min_stat, &gd->checksum);
-		mem_free(gr.gr_ctx.value, sizeof(gss_union_ctx_id_desc));
 		if (!call_stat)
 			ret_freegc (AUTH_FAILED);
 
@@ -568,9 +533,6 @@ gssrpc__svcauth_gss(struct svc_req *rqst, struct rpc_msg *msg,
 
 		log_debug("sendreply in destroy: %d", call_stat);
 
-		if (!svcauth_gss_release_cred())
-			ret_freegc (AUTH_FAILED);
-
 		SVCAUTH_DESTROY(rqst->rq_xprt->xp_auth);
 		rqst->rq_xprt->xp_auth = &svc_auth_none;
 
@@ -598,6 +560,7 @@ svcauth_gss_destroy(SVCAUTH *auth)
 	gd = SVCAUTH_PRIVATE(auth);
 
 	gss_delete_sec_context(&min_stat, &gd->ctx, GSS_C_NO_BUFFER);
+	gss_release_cred(&min_stat, &gd->cred);
 	gss_release_buffer(&min_stat, &gd->cname);
 	gss_release_buffer(&min_stat, &gd->checksum);
 

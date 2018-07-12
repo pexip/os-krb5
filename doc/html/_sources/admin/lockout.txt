@@ -58,7 +58,7 @@ might see::
     Password for user@KRBTEST.COM:
     kinit: Password incorrect while getting initial credentials
     $ kinit user
-    kinit: Clients credentials have been revoked while getting initial credentials
+    kinit: Client's credentials have been revoked while getting initial credentials
 
 
 Account lockout principal state
@@ -138,3 +138,13 @@ have the largest positive impact on performance, and will still allow
 account lockout policies to operate.  However, it will make it
 impossible to observe the last successful authentication time with
 kadmin.
+
+
+KDC setup and account lockout
+-----------------------------
+
+To update the account lockout state on principals, the KDC must be
+able to write to the principal database.  For the DB2 module, no
+special setup is required.  For the LDAP module, the KDC DN must be
+granted write access to the principal objects.  If the KDC DN has only
+read access, account lockout will not function.

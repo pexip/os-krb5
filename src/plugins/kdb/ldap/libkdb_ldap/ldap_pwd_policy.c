@@ -314,16 +314,17 @@ krb5_ldap_get_password_policy_from_dn(krb5_context context, char *pol_name,
     LDAP_SEARCH(pol_dn, LDAP_SCOPE_BASE, "(objectclass=krbPwdPolicy)", password_policy_attributes);
 
     ent=ldap_first_entry(ld, result);
-    if (ent != NULL) {
-        if ((st = populate_policy(context, ld, ent, pol_name, *policy)) != 0)
-            goto cleanup;
+    if (ent == NULL) {
+        st = KRB5_KDB_NOENTRY;
+        goto cleanup;
     }
+    st = populate_policy(context, ld, ent, pol_name, *policy);
 
 cleanup:
     ldap_msgfree(result);
     if (st != 0) {
         if (*policy != NULL) {
-            krb5_ldap_free_password_policy(context, *policy);
+            krb5_db_free_policy(context, *policy);
             *policy = NULL;
         }
     }
@@ -452,27 +453,17 @@ krb5_ldap_iterate_password_policy(krb5_context context, char *match_expr,
             goto cleanup;
 
         (*func)(func_arg, entry);
-        /* XXX this will free policy so don't free it */
-        krb5_ldap_free_password_policy(context, entry);
+        krb5_db_free_policy(context, entry);
         entry = NULL;
+
+        free(policy);
+        policy = NULL;
     }
-    ldap_msgfree(result);
 
 cleanup:
     free(entry);
-
+    free(policy);
+    ldap_msgfree(result);
     krb5_ldap_put_handle_to_pool(ldap_context, ldap_server_handle);
     return st;
-}
-
-void
-krb5_ldap_free_password_policy (context, entry)
-    krb5_context                context;
-    osa_policy_ent_t            entry;
-{
-    if (entry) {
-        free(entry->name);
-        free(entry);
-    }
-    return;
 }

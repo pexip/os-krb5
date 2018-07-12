@@ -79,10 +79,11 @@ krb5.conf
 
 If you are not using DNS TXT records (see :ref:`mapping_hostnames`),
 you must specify the **default_realm** in the :ref:`libdefaults`
-section.  If you are not using DNS SRV records (see
-:ref:`kdc_hostnames`), you must include the **kdc** tag for each
-*realm* in the :ref:`realms` section.  To communicate with the kadmin
-server in each realm, the **admin_server** tag must be set in the
+section.  If you are not using DNS URI or SRV records (see
+:ref:`kdc_hostnames` and :ref:`kdc_discovery`), you must include the
+**kdc** tag for each *realm* in the :ref:`realms` section.  To
+communicate with the kadmin server in each realm, the **admin_server**
+tag must be set in the
 :ref:`realms` section.
 
 An example krb5.conf file::
@@ -108,7 +109,8 @@ and location, and logging.
 An example kdc.conf file::
 
     [kdcdefaults]
-        kdc_ports = 88,750
+        kdc_listen = 88
+        kdc_tcp_listen = 88
 
     [realms]
         ATHENA.MIT.EDU = {
@@ -328,8 +330,8 @@ Next, extract ``host`` random keys for all participating KDCs and
 store them in each host's default keytab file.  Ideally, you should
 extract each keytab locally on its own KDC.  If this is not feasible,
 you should use an encrypted session to send them across the network.
-To extract a keytab on a slave KDC called ``kerberos-1.mit.edu``, you
-would execute the following command::
+To extract a keytab directly on a slave KDC called
+``kerberos-1.mit.edu``, you would execute the following command::
 
     kadmin: ktadd host/kerberos-1.mit.edu
     Entry for principal host/kerberos-1.mit.edu with kvno 2, encryption
@@ -340,6 +342,19 @@ would execute the following command::
         type des3-cbc-sha1 added to keytab FILE:/etc/krb5.keytab.
     Entry for principal host/kerberos-1.mit.edu with kvno 2, encryption
         type arcfour-hmac added to keytab FILE:/etc/krb5.keytab.
+
+If you are instead extracting a keytab for the slave KDC called
+``kerberos-1.mit.edu`` on the master KDC, you should use a dedicated
+temporary keytab file for that machine's keytab::
+
+    kadmin: ktadd -k /tmp/kerberos-1.keytab host/kerberos-1.mit.edu
+    Entry for principal host/kerberos-1.mit.edu with kvno 2, encryption
+        type aes256-cts-hmac-sha1-96 added to keytab FILE:/etc/krb5.keytab.
+    Entry for principal host/kerberos-1.mit.edu with kvno 2, encryption
+        type aes128-cts-hmac-sha1-96 added to keytab FILE:/etc/krb5.keytab.
+
+The file ``/tmp/kerberos-1.keytab`` can then be installed as
+``/etc/krb5.keytab`` on the host ``kerberos-1.mit.edu``.
 
 
 Configure slave KDCs
@@ -455,40 +470,13 @@ the krb5kdc daemon automatically at boot time.
 Propagation failed?
 ###################
 
-.. _prop_failed_start:
+You may encounter the following error messages. For a more detailed
+discussion on possible causes and solutions click on the error link
+to be redirected to :ref:`troubleshoot` section.
 
-.. error::
-
-           kprop: No route to host while connecting to server
-
-Make sure that the hostname of the slave (as given to kprop) is
-correct, and that any firewalls between the master and the slave allow
-a connection on port 754.
-
-.. error::
-
-           kprop: Connection refused while connecting to server
-
-If the slave is intended to run kpropd out of inetd, make sure that
-inetd is configured to accept krb5_prop connections.  inetd may need
-to be restarted or sent a SIGHUP to recognize the new configuration.
-If the slave is intended to run kpropd in standalone mode, make sure
-that it is running.
-
-.. error::
-
-           kprop: Server rejected authentication (during sendauth
-           exchange) while authenticating to server
-
-Make sure that:
-
-#. The time is synchronized between the master and slave KDCs.
-#. The master stash file was copied from the master to the expected
-   location on the slave.
-#. The slave has a keytab file in the default location containing a
-   ``host`` principal for the slave's hostname.
-
-.. _prop_failed_end:
+.. include:: ./troubleshoot.rst
+   :start-after:  _prop_failed_start:
+   :end-before: _prop_failed_end:
 
 
 Add Kerberos principals to the database

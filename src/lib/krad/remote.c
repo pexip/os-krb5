@@ -41,11 +41,11 @@
 #define FLAGS_WRITE VERTO_EV_FLAG_IO_WRITE
 #define FLAGS_BASE  VERTO_EV_FLAG_PERSIST | VERTO_EV_FLAG_IO_ERROR
 
-TAILQ_HEAD(request_head, request_st);
+K5_TAILQ_HEAD(request_head, request_st);
 
 typedef struct request_st request;
 struct request_st {
-    TAILQ_ENTRY(request_st) list;
+    K5_TAILQ_ENTRY(request_st) list;
     krad_remote *rr;
     krad_packet *request;
     krad_cb cb;
@@ -83,7 +83,7 @@ iterator(request **out)
     if (tmp == NULL)
         return NULL;
 
-    *out = TAILQ_NEXT(tmp, list);
+    *out = K5_TAILQ_NEXT(tmp, list);
     return tmp->request;
 }
 
@@ -115,7 +115,7 @@ request_finish(request *req, krb5_error_code retval,
                const krad_packet *response)
 {
     if (retval != ETIMEDOUT)
-        TAILQ_REMOVE(&req->rr->list, req, list);
+        K5_TAILQ_REMOVE(&req->rr->list, req, list);
 
     req->cb(retval, req->request, response, req->data);
 
@@ -144,7 +144,8 @@ request_start_timer(request *r, verto_ctx *vctx)
 static void
 remote_disconnect(krad_remote *rr)
 {
-    close(rr->fd);
+    if (rr->fd >= 0)
+        close(rr->fd);
     verto_del(rr->io);
     rr->fd = -1;
     rr->io = NULL;
@@ -224,7 +225,7 @@ remote_shutdown(krad_remote *rr)
     remote_disconnect(rr);
 
     /* Start timers for all unsent packets. */
-    TAILQ_FOREACH(r, &rr->list, list) {
+    K5_TAILQ_FOREACH(r, &rr->list, list) {
         if (r->timer == NULL) {
             retval = request_start_timer(r, rr->vctx);
             if (retval != 0)
@@ -243,7 +244,7 @@ on_timeout(verto_ctx *ctx, verto_ev *ev)
     req->timer = NULL;          /* Void the timer event. */
 
     /* If we have more retries to perform, resend the packet. */
-    if (req->retries-- > 1) {
+    if (req->retries-- > 0) {
         req->sent = 0;
         retval = remote_add_flags(req->rr, FLAGS_WRITE);
         if (retval == 0)
@@ -261,7 +262,7 @@ on_io_write(krad_remote *rr)
     ssize_t written;
     request *r;
 
-    TAILQ_FOREACH(r, &rr->list, list) {
+    K5_TAILQ_FOREACH(r, &rr->list, list) {
         tmp = krad_packet_encode(r->request);
 
         /* If the packet has already been sent, do nothing. */
@@ -314,7 +315,7 @@ on_io_read(krad_remote *rr)
     request *tmp, *r;
     int i;
 
-    pktlen = sizeof(rr->buffer_);
+    pktlen = sizeof(rr->buffer_) - rr->buffer.length;
     if (rr->info->ai_socktype == SOCK_STREAM) {
         pktlen = krad_packet_bytes_needed(&rr->buffer);
         if (pktlen < 0) {
@@ -327,17 +328,16 @@ on_io_read(krad_remote *rr)
 
     /* Read the packet. */
     i = recv(verto_get_fd(rr->io), rr->buffer.data + rr->buffer.length,
-             pktlen - rr->buffer.length, 0);
-    if (i < 0) {
-        /* Should we try again? */
-        if (errno == EWOULDBLOCK || errno == EAGAIN || errno == EINTR)
-            return;
+             pktlen, 0);
 
-        /* The socket is unrecoverable. */
+    /* On these errors, try again. */
+    if (i < 0 && (errno == EWOULDBLOCK || errno == EAGAIN || errno == EINTR))
+        return;
+
+    /* On any other errors or on EOF, the socket is unrecoverable. */
+    if (i <= 0) {
         remote_shutdown(rr);
         return;
-    } else if (i == 0) {
-        remote_del_flags(rr, FLAGS_READ);
     }
 
     /* If we have a partial read or just the header, try again. */
@@ -347,7 +347,7 @@ on_io_read(krad_remote *rr)
         return;
 
     /* Decode the packet. */
-    tmp = TAILQ_FIRST(&rr->list);
+    tmp = K5_TAILQ_FIRST(&rr->list);
     retval = krad_packet_decode_response(rr->kctx, rr->secret, &rr->buffer,
                                          (krad_packet_iter_cb)iterator, &tmp,
                                          &req, &rsp);
@@ -357,7 +357,7 @@ on_io_read(krad_remote *rr)
 
     /* Match the response with an outstanding request. */
     if (req != NULL) {
-        TAILQ_FOREACH(r, &rr->list, list) {
+        K5_TAILQ_FOREACH(r, &rr->list, list) {
             if (r->request == req &&
                 r->sent == krad_packet_encode(req)->length) {
                 request_finish(r, 0, rsp);
@@ -396,7 +396,7 @@ kr_remote_new(krb5_context kctx, verto_ctx *vctx, const struct addrinfo *info,
     tmp->kctx = kctx;
     tmp->vctx = vctx;
     tmp->buffer = make_data(tmp->buffer_, 0);
-    TAILQ_INIT(&tmp->list);
+    K5_TAILQ_INIT(&tmp->list);
     tmp->fd = -1;
 
     tmp->secret = strdup(secret);
@@ -427,8 +427,8 @@ kr_remote_free(krad_remote *rr)
     if (rr == NULL)
         return;
 
-    while (!TAILQ_EMPTY(&rr->list))
-        request_finish(TAILQ_FIRST(&rr->list), ECANCELED, NULL);
+    while (!K5_TAILQ_EMPTY(&rr->list))
+        request_finish(K5_TAILQ_FIRST(&rr->list), ECANCELED, NULL);
 
     free(rr->secret);
     if (rr->info != NULL)
@@ -447,13 +447,16 @@ kr_remote_send(krad_remote *rr, krad_code code, krad_attrset *attrs,
     krb5_error_code retval;
     request *r;
 
-    r = TAILQ_FIRST(&rr->list);
+    if (rr->info->ai_socktype == SOCK_STREAM)
+        retries = 0;
+
+    r = K5_TAILQ_FIRST(&rr->list);
     retval = krad_packet_new_request(rr->kctx, rr->secret, code, attrs,
                                      (krad_packet_iter_cb)iterator, &r, &tmp);
     if (retval != 0)
         goto error;
 
-    TAILQ_FOREACH(r, &rr->list, list) {
+    K5_TAILQ_FOREACH(r, &rr->list, list) {
         if (r->request == tmp) {
             retval = EALREADY;
             goto error;
@@ -469,7 +472,7 @@ kr_remote_send(krad_remote *rr, krad_code code, krad_attrset *attrs,
     if (retval != 0)
         goto error;
 
-    TAILQ_INSERT_TAIL(&rr->list, r, list);
+    K5_TAILQ_INSERT_TAIL(&rr->list, r, list);
     if (pkt != NULL)
         *pkt = tmp;
     return 0;
@@ -484,7 +487,7 @@ kr_remote_cancel(krad_remote *rr, const krad_packet *pkt)
 {
     request *r;
 
-    TAILQ_FOREACH(r, &rr->list, list) {
+    K5_TAILQ_FOREACH(r, &rr->list, list) {
         if (r->request == pkt) {
             request_finish(r, ECANCELED, NULL);
             return;

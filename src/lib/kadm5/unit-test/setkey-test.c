@@ -1,5 +1,4 @@
 /* -*- mode: c; c-basic-offset: 4; indent-tabs-mode: nil -*- */
-#include <stdio.h>
 #include <k5-int.h>
 #include <kadm5/admin.h>
 
@@ -24,11 +23,11 @@ krb5_keyblock test1[] = {
     {-1},
 };
 krb5_keyblock test2[] = {
-    {0, ENCTYPE_DES_CBC_RAW, 0, 0},
+    {0, ENCTYPE_DES_CBC_CRC, 0, 0},
     {-1},
 };
 krb5_keyblock test3[] = {
-    {0, ENCTYPE_DES_CBC_MD5, 0, 0},
+    {0, ENCTYPE_DES_CBC_CRC, 0, 0},
     {-1},
 };
 
@@ -63,22 +62,24 @@ main(int argc, char **argv)
     krb5_keytab_entry ktent;
     krb5_encrypt_block eblock;
     krb5_creds my_creds;
+    krb5_get_init_creds_opt *opt;
     kadm5_principal_ent_rec princ_ent;
     krb5_principal princ, server;
     char pw[16];
-    char *whoami, *principal, *authprinc;
+    char *whoami, *principal, *authprinc, *authpwd;
     krb5_data pwdata;
     void *handle;
     int ret, i, test, encnum;
 
     whoami = argv[0];
 
-    if (argc != 2 && argc != 3) {
-        fprintf(stderr, "Usage: %s principal [authuser]\n", whoami);
+    if (argc < 2 || argc > 4) {
+        fprintf(stderr, "Usage: %s principal [authuser] [authpwd]\n", whoami);
         exit(1);
     }
     principal = argv[1];
-    authprinc = argv[2] ? argv[2] : argv[0];
+    authprinc = (argc > 2) ? argv[2] : argv[0];
+    authpwd = (argc > 3) ? argv[3] : NULL;
 
     /*
      * Setup.  Initialize data structures, open keytab, open connection
@@ -105,21 +106,13 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    /* register the WRFILE keytab type  */
-    ret = krb5_kt_register(context, &krb5_ktf_writable_ops);
-    if (ret) {
-        com_err(whoami, ret,
-                "while registering writable key table functions");
-        exit(1);
-    }
-
     ret = krb5_kt_default(context, &kt);
     if (ret) {
         com_err(whoami, ret, "while opening keytab");
         exit(1);
     }
 
-    ret = kadm5_init(context, authprinc, NULL, KADM5_ADMIN_SERVICE, NULL,
+    ret = kadm5_init(context, authprinc, authpwd, KADM5_ADMIN_SERVICE, NULL,
                      KADM5_STRUCT_VERSION, KADM5_API_VERSION_4, NULL,
                      &handle);
     if (ret) {
@@ -138,12 +131,14 @@ main(int argc, char **argv)
      * For each enctype in the test, construct a random password/key.
      * Assign all keys to principal with kadm5_setkey_principal.  Add
      * each key to the keytab, and acquire an initial ticket with the
-     * keytab (XXX can I specify the enctype & kvno explicitly?).  If
-     * krb5_get_in_tkt_with_keytab succeeds, then the keys were set
+     * keytab (XXX can I specify the kvno explicitly?).  If
+     * krb5_get_init_creds_keytab succeeds, then the keys were set
      * successfully.
      */
     for (test = 0; tests[test] != NULL; test++) {
         krb5_keyblock *testp = tests[test];
+        kadm5_key_data *extracted;
+        int n_extracted, match;
         printf("+ Test %d:\n", test);
 
         for (encnum = 0; testp[encnum].magic != -1; encnum++) {
@@ -172,8 +167,30 @@ main(int argc, char **argv)
             exit(1);
         }
 
+        ret = kadm5_get_principal_keys(handle, princ, 0, &extracted,
+                                       &n_extracted);
+        if (ret) {
+            com_err(whoami, ret, "while extracting keys");
+            exit(1);
+        }
+
         for (encnum = 0; testp[encnum].magic != -1; encnum++) {
             printf("+   enctype %d\n", testp[encnum].enctype);
+
+            for (match = 0; match < n_extracted; match++) {
+                if (extracted[match].key.enctype == testp[encnum].enctype)
+                    break;
+            }
+            if (match >= n_extracted) {
+                com_err(whoami, KRB5_WRONG_ETYPE, "while matching enctypes");
+                exit(1);
+            }
+            if (extracted[match].key.length != testp[encnum].length ||
+                memcmp(extracted[match].key.contents, testp[encnum].contents,
+                       testp[encnum].length) != 0) {
+                com_err(whoami, KRB5_KDB_NO_MATCHING_KEY, "verifying keys");
+                exit(1);
+            }
 
             memset(&ktent, 0, sizeof(ktent));
             ktent.principal = princ;
@@ -191,17 +208,21 @@ main(int argc, char **argv)
             my_creds.server = server;
 
             ktypes[0] = testp[encnum].enctype;
-            ret = krb5_get_in_tkt_with_keytab(context,
-                                              0 /* options */,
-                                              NULL /* addrs */,
-                                              ktypes,
-                                              NULL /* preauth */,
-                                              kt, 0,
-                                              &my_creds, 0);
+            ret = krb5_get_init_creds_opt_alloc(context, &opt);
+            if (ret) {
+                com_err(whoami, ret, "while allocating gic opts");
+                exit(1);
+            }
+            krb5_get_init_creds_opt_set_etype_list(opt, ktypes, 1);
+            ret = krb5_get_init_creds_keytab(context, &my_creds, princ,
+                                             kt, 0, NULL /* in_tkt_service */,
+                                             opt);
+            krb5_get_init_creds_opt_free(context, opt);
             if (ret) {
                 com_err(whoami, ret, "while acquiring initial ticket");
                 exit(1);
             }
+            krb5_free_cred_contents(context, &my_creds);
 
             /* since I can't specify enctype explicitly ... */
             ret = krb5_kt_remove_entry(context, kt, &ktent);
@@ -210,6 +231,8 @@ main(int argc, char **argv)
                 exit(1);
             }
         }
+
+        (void)kadm5_free_kadm5_key_data(context, n_extracted, extracted);
     }
 
     ret = krb5_kt_close(context, kt);
@@ -224,5 +247,8 @@ main(int argc, char **argv)
         exit(1);
     }
 
+    krb5_free_principal(context, princ);
+    krb5_free_principal(context, server);
+    krb5_free_context(context);
     return 0;
 }

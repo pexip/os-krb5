@@ -20,7 +20,7 @@ sub new { # no args
 }
 
 __DATA__
-
+
 /*
  * array type, derived from template
  *
@@ -41,9 +41,7 @@ __DATA__
 #include <errno.h>
 #include <limits.h>
 #include <string.h>
-#ifdef HAVE_STDINT_H
-# include <stdint.h>
-#endif
+#include <stdint.h>
 
 struct <NAME>__header {
     size_t allocated;
@@ -77,7 +75,7 @@ static inline unsigned long
 	upper_bound = ULONG_MAX;
     return (unsigned long) upper_bound;
 }
-
+
 static inline int
 <NAME>_grow(<NAME> *arr, unsigned long newcount)
 {

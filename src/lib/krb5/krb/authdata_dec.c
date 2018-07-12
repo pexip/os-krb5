@@ -92,8 +92,8 @@ grow_find_authdata(krb5_context context, struct find_authdata_context *fctx,
     if (fctx->length == fctx->space) {
         krb5_authdata **new;
         if (fctx->space >= 256) {
-            krb5_set_error_message(context, ERANGE,
-                                   "More than 256 authdata matched a query");
+            k5_setmsg(context, ERANGE,
+                      "More than 256 authdata matched a query");
             return ERANGE;
         }
         new       = realloc(fctx->out,
@@ -142,6 +142,8 @@ find_authdata_1(krb5_context context, krb5_authdata *const *in_authdat,
         case KRB5_AUTHDATA_SIGNTICKET:
         case KRB5_AUTHDATA_KDC_ISSUED:
         case KRB5_AUTHDATA_WIN2K_PAC:
+        case KRB5_AUTHDATA_CAMMAC:
+        case KRB5_AUTHDATA_AUTH_INDICATOR:
             if (from_ap_req)
                 continue;
         default:
@@ -246,4 +248,49 @@ krb5_verify_authdata_kdc_issued(krb5_context context,
     krb5_free_ad_kdcissued(context, ad_kdci);
 
     return 0;
+}
+
+/*
+ * Decode authentication indicator strings from authdata and return as an
+ * allocated array of krb5_data pointers.  The caller must initialize
+ * *indicators to NULL for the first call, and successive calls will reallocate
+ * and append to the indicators array.
+ */
+krb5_error_code
+k5_authind_decode(const krb5_authdata *ad, krb5_data ***indicators)
+{
+    krb5_error_code ret = 0;
+    krb5_data der_ad, **strdata = NULL, **ai_list = *indicators;
+    size_t count, scount;
+
+    if (ad == NULL || ad->ad_type != KRB5_AUTHDATA_AUTH_INDICATOR)
+        goto cleanup;
+
+    /* Count existing auth indicators. */
+    for (count = 0; ai_list != NULL && ai_list[count] != NULL; count++);
+
+    der_ad = make_data(ad->contents, ad->length);
+    ret = decode_utf8_strings(&der_ad, &strdata);
+    if (ret)
+        return ret;
+
+    /* Count new auth indicators. */
+    for (scount = 0; strdata[scount] != NULL; scount++);
+
+    ai_list = realloc(ai_list, (count + scount + 1) * sizeof(*ai_list));
+    if (ai_list == NULL) {
+        ret = ENOMEM;
+        goto cleanup;
+    }
+    *indicators = ai_list;
+
+    /* Steal decoder-allocated pointers and free the container array. */
+    memcpy(ai_list + count, strdata, scount * sizeof(*strdata));
+    ai_list[count + scount] = NULL;
+    free(strdata);
+    strdata = NULL;
+
+cleanup:
+    k5_free_data_ptr_list(strdata);
+    return ret;
 }

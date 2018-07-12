@@ -16,6 +16,7 @@ SYNOPSIS
 [[**-c** *cache_name*]\|[**-k** [**-t** *keytab*]]\|\ **-n**]
 [**-w** *password*]
 [**-s** *admin_server*\ [:*port*]]
+[command args...]
 
 **kadmin.local**
 [**-r** *realm*]
@@ -25,6 +26,7 @@ SYNOPSIS
 [**-e** *enc*:*salt* ...]
 [**-m**]
 [**-x** *db_args*]
+[command args...]
 
 .. _kadmin_synopsis_end:
 
@@ -112,8 +114,7 @@ OPTIONS
     via the process list.
 
 **-q** *query*
-    Perform the specified query and then exit.  This can be useful for
-    writing scripts.
+    Perform the specified query and then exit.
 
 **-d** *dbname*
     Specifies the name of the KDC database.  This option does not
@@ -138,32 +139,91 @@ OPTIONS
     Prevent fallback to AUTH_GSSAPI authentication flavor.
 
 **-x** *db_args*
-    Specifies the database specific arguments.  Options supported for
-    the LDAP database module are:
+    Specifies the database specific arguments.  See the next section
+    for supported options.
 
-    **-x host=**\ *hostname*
+.. _kadmin_options_end:
+
+Starting with release 1.14, if any command-line arguments remain after
+the options, they will be treated as a single query to be executed.
+This mode of operation is intended for scripts and behaves differently
+from the interactive mode in several respects:
+
+* Query arguments are split by the shell, not by kadmin.
+* Informational and warning messages are suppressed.  Error messages
+  and query output (e.g. for **get_principal**) will still be
+  displayed.
+* Confirmation prompts are disabled (as if **-force** was given).
+  Password prompts will still be issued as required.
+* The exit status will be non-zero if the query fails.
+
+The **-q** option does not carry these behavior differences; the query
+will be processed as if it was entered interactively.  The **-q**
+option cannot be used in combination with a query in the remaining
+arguments.
+
+.. _dboptions:
+
+DATABASE OPTIONS
+----------------
+
+Database options can be used to override database-specific defaults.
+Supported options for the DB2 module are:
+
+    **-x dbname=**\ \*filename*
+        Specifies the base filename of the DB2 database.
+
+    **-x lockiter**
+        Make iteration operations hold the lock for the duration of
+        the entire operation, rather than temporarily releasing the
+        lock while handling each principal.  This is the default
+        behavior, but this option exists to allow command line
+        override of a [dbmodules] setting.  First introduced in
+        release 1.13.
+
+    **-x unlockiter**
+        Make iteration operations unlock the database for each
+        principal, instead of holding the lock for the duration of the
+        entire operation.  First introduced in release 1.13.
+
+Supported options for the LDAP module are:
+
+    **-x host=**\ *ldapuri*
         Specifies the LDAP server to connect to by a LDAP URI.
 
     **-x binddn=**\ *bind_dn*
-        Specifies the DN of the object used by the administration
-        server to bind to the LDAP server.  This object should have
-        the read and write privileges on the realm container, the
-        principal container, and the subtree that is referenced by the
-        realm.
+        Specifies the DN used to bind to the LDAP server.
 
-    **-x bindpwd=**\ *bind_password*
-        Specifies the password for the above mentioned binddn.  Using
-        this option may expose the password to other users on the
-        system via the process list; to avoid this, instead stash the
-        password using the **stashsrvpw** command of
+    **-x bindpwd=**\ *password*
+        Specifies the password or SASL secret used to bind to the LDAP
+        server.  Using this option may expose the password to other
+        users on the system via the process list; to avoid this,
+        instead stash the password using the **stashsrvpw** command of
         :ref:`kdb5_ldap_util(8)`.
+
+    **-x sasl_mech=**\ *mechanism*
+        Specifies the SASL mechanism used to bind to the LDAP server.
+        The bind DN is ignored if a SASL mechanism is used.  New in
+        release 1.13.
+
+    **-x sasl_authcid=**\ *name*
+        Specifies the authentication name used when binding to the
+        LDAP server with a SASL mechanism, if the mechanism requires
+        one.  New in release 1.13.
+
+    **-x sasl_authzid=**\ *name*
+        Specifies the authorization name used when binding to the LDAP
+        server with a SASL mechanism.  New in release 1.13.
+
+    **-x sasl_realm=**\ *realm*
+        Specifies the realm used when binding to the LDAP server with
+        a SASL mechanism, if the mechanism uses one.  New in release
+        1.13.
 
     **-x debug=**\ *level*
         sets the OpenLDAP client library debug level.  *level* is an
         integer to be interpreted by the library.  Debugging messages
         are printed to standard error.  New in release 1.12.
-
-.. _kadmin_options_end:
 
 
 COMMANDS
@@ -200,11 +260,12 @@ Options:
     (:ref:`getdate` string) The password expiration date.
 
 **-maxlife** *maxlife*
-    (:ref:`getdate` string) The maximum ticket life for the principal.
+    (:ref:`duration` or :ref:`getdate` string) The maximum ticket life
+    for the principal.
 
 **-maxrenewlife** *maxrenewlife*
-    (:ref:`getdate` string) The maximum renewable life of tickets for
-    the principal.
+    (:ref:`duration` or :ref:`getdate` string) The maximum renewable
+    life of tickets for the principal.
 
 **-kvno** *kvno*
     The initial key version number.
@@ -293,6 +354,17 @@ Options:
     **+no_auth_data_required** prevents PAC or AD-SIGNEDPATH data from
     being added to service tickets for the principal.
 
+{-\|+}\ **lockdown_keys**
+    **+lockdown_keys** prevents keys for this principal from leaving
+    the KDC via kadmind.  The chpass and extract operations are denied
+    for a principal with this attribute.  The chrand operation is
+    allowed, but will not return the new keys.  The delete and rename
+    operations are also denied if this attribute is set, in order to
+    prevent a malicious administrator from replacing principals like
+    krbtgt/* or kadmin/* with new principals without the attribute.
+    This attribute can be set via the network protocol, but can only
+    be removed using kadmin.local.
+
 **-randkey**
     Sets the key of the principal to a random value.
 
@@ -341,9 +413,7 @@ Options:
         - *dn* and *containerdn* should be within the subtrees or
           principal container configured in the realm.
 
-Example:
-
- ::
+Example::
 
     kadmin: addprinc jennifer
     WARNING: no policy specified for "jennifer@ATHENA.MIT.EDU";
@@ -448,9 +518,7 @@ The following options are available:
     Keeps the existing keys in the database.  This flag is usually not
     necessary except perhaps for ``krbtgt`` principals.
 
-Example:
-
- ::
+Example::
 
     kadmin: cpw systest
     Enter password for principal systest@BLEEP.COM:
@@ -492,9 +560,7 @@ running the the program to be the same as the one being listed.
 
 Alias: **getprinc**
 
-Examples:
-
- ::
+Examples::
 
     kadmin: getprinc tlyu/admin
     Principal: tlyu/admin@BLEEP.COM
@@ -508,8 +574,8 @@ Examples:
     Last failed authentication: [never]
     Failed password attempts: 0
     Number of keys: 2
-    Key: vno 1, DES cbc mode with CRC-32, no salt
-    Key: vno 1, DES cbc mode with CRC-32, Version 4
+    Key: vno 1, des-cbc-crc
+    Key: vno 1, des-cbc-crc:v4
     Attributes:
     Policy: [none]
 
@@ -540,9 +606,7 @@ This command requires the **list** privilege.
 
 Alias: **listprincs**, **get_principals**, **get_princs**
 
-Example:
-
- ::
+Example::
 
     kadmin:  listprincs test*
     test3@SECURE-TEST.OV.COM
@@ -573,11 +637,18 @@ Alias: **getstr**
 set_string
 ~~~~~~~~~~
 
-    **set_string** *principal* *key* *value*
+    **set_string** *principal* *name* *value*
 
 Sets a string attribute on *principal*.  String attributes are used to
 supply per-principal configuration to the KDC and some KDC plugin
-modules.  The following string attributes are recognized by the KDC:
+modules.  The following string attribute names are recognized by the
+KDC:
+
+**require_auth**
+    Specifies an authentication indicator which is required to
+    authenticate to the principal as a service.  Multiple indicators
+    can be specified, separated by spaces; in this case any of the
+    specified indicators will be accepted.  (New in release 1.14.)
 
 **session_enctypes**
     Specifies the encryption types supported for session keys when the
@@ -585,9 +656,19 @@ modules.  The following string attributes are recognized by the KDC:
     :ref:`Encryption_types` in :ref:`kdc.conf(5)` for a list of the
     accepted values.
 
+**otp**
+    Enables One Time Passwords (OTP) preauthentication for a client
+    *principal*.  The *value* is a JSON string representing an array
+    of objects, each having optional ``type`` and ``username`` fields.
+
 This command requires the **modify** privilege.
 
 Alias: **setstr**
+
+Example::
+
+    set_string host/foo.mit.edu session_enctypes aes128-cts
+    set_string user@FOO.COM otp "[{""type"":""hotp"",""username"":""al""}]"
 
 .. _set_string_end:
 
@@ -622,10 +703,12 @@ Alias: **addpol**
 The following options are available:
 
 **-maxlife** *time*
-    (:ref:`getdate` string) Sets the maximum lifetime of a password.
+    (:ref:`duration` or :ref:`getdate` string) Sets the maximum
+    lifetime of a password.
 
 **-minlife** *time*
-    (:ref:`getdate` string) Sets the minimum lifetime of a password.
+    (:ref:`duration` or :ref:`getdate` string) Sets the minimum
+    lifetime of a password.
 
 **-minlength** *length*
     Sets the minimum length of a password.
@@ -651,21 +734,21 @@ The following options are available:
 .. _policy_failurecountinterval:
 
 **-failurecountinterval** *failuretime*
-    (:ref:`getdate` string) Sets the allowable time between
-    authentication failures.  If an authentication failure happens
-    after *failuretime* has elapsed since the previous failure,
-    the number of authentication failures is reset to 1.  A
+    (:ref:`duration` or :ref:`getdate` string) Sets the allowable time
+    between authentication failures.  If an authentication failure
+    happens after *failuretime* has elapsed since the previous
+    failure, the number of authentication failures is reset to 1.  A
     *failuretime* value of 0 (the default) means forever.
 
 .. _policy_lockoutduration:
 
 **-lockoutduration** *lockouttime*
-    (:ref:`getdate` string) Sets the duration for which the principal
-    is locked from authenticating if too many authentication failures
-    occur without the specified failure count interval elapsing.
-    A duration of 0 (the default) means the principal remains locked
-    out until it is administratively unlocked with ``modprinc
-    -unlock``.
+    (:ref:`duration` or :ref:`getdate` string) Sets the duration for
+    which the principal is locked from authenticating if too many
+    authentication failures occur without the specified failure count
+    interval elapsing.  A duration of 0 (the default) means the
+    principal remains locked out until it is administratively unlocked
+    with ``modprinc -unlock``.
 
 **-allowedkeysalts**
     Specifies the key/salt tuples supported for long-term keys when
@@ -675,9 +758,7 @@ The following options are available:
     with commas (',') only.  To clear the allowed key/salt policy use
     a value of '-'.
 
-Example:
-
- ::
+Example::
 
     kadmin: add_policy -maxlife "2 days" -minlength 5 guests
     kadmin:
@@ -715,9 +796,7 @@ This command requires the **delete** privilege.
 
 Alias: **delpol**
 
-Example:
-
- ::
+Example::
 
     kadmin: del_policy guests
     Are you sure you want to delete the policy "guests"?
@@ -741,9 +820,7 @@ This command requires the **inquire** privilege.
 
 Alias: getpol
 
-Examples:
-
- ::
+Examples::
 
     kadmin: get_policy admin
     Policy: admin
@@ -781,9 +858,7 @@ This command requires the **list** privilege.
 
 Aliases: **listpols**, **get_policies**, **getpols**.
 
-Examples:
-
- ::
+Examples::
 
     kadmin:  listpols
     test-pol
@@ -830,16 +905,14 @@ The options are:
 
 **-norandkey**
     Do not randomize the keys. The keys and their version numbers stay
-    unchanged.  This option is only available in kadmin.local, and
-    cannot be specified in combination with the **-e** option.
+    unchanged.  This option cannot be specified in combination with the
+    **-e** option.
 
 An entry for each of the principal's unique encryption types is added,
 ignoring multiple keys with the same encryption type but different
 salt types.
 
-Example:
-
- ::
+Example::
 
     kadmin: ktadd -k /tmp/foo-new-keytab host/foo.mit.edu
     Entry for principal host/foo.mit.edu@ATHENA.MIT.EDU with kvno 3,
@@ -874,9 +947,7 @@ The options are:
 **-q**
     Display less verbose information.
 
-Example:
-
- ::
+Example::
 
     kadmin: ktremove kadmin/admin all
     Entry for principal kadmin/admin with kvno 3 removed from keytab

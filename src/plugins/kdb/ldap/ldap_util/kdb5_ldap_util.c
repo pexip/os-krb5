@@ -75,11 +75,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <locale.h>
-#include <stdio.h>
-#include <time.h>
-
 #include <k5-int.h>
+#include <locale.h>
+#include <time.h>
 #include <kadm5/admin.h>
 #include <adm_proto.h>
 #include "kdb5_ldap_util.h"
@@ -394,8 +392,8 @@ main(int argc, char *argv[])
                 exit_status++;
                 goto cleanup;
             }
-        } else
-            util_context->default_realm = temp;
+        }
+        krb5_free_default_realm(util_context, temp);
     }
     /* If we have the realm name, we can safely say that
      * realm_name is required so that we don't neglect any information.
@@ -587,7 +585,7 @@ cleanup:
     if (util_context) {
         if (gp_is_static == 0)
             kadm5_free_config_params(util_context, &global_params);
-        krb5_ldap_close(util_context);
+        krb5_db_fini(util_context);
         krb5_free_context(util_context);
     }
 

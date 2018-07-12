@@ -2,4 +2,4 @@
 
 version=3
 opts=dversionmangle=s/\+dfsg// \
-    http://web.mit.edu/kerberos/dist/ krb5/[\d.]+/krb5-([\d.]+)-signed.tar$
+    http://web.mit.edu/kerberos/dist/ krb5/[\d.]+/krb5-([\d.]+).tar.gz$

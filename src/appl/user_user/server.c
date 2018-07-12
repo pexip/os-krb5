@@ -1,3 +1,4 @@
+
 /* -*- mode: c; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /* appl/user_user/server.c - One end of user-user client-server pair */
 /*
@@ -24,20 +25,17 @@
  * or implied warranty.
  */
 
+#include "k5-int.h"
+#include "port-sockets.h"
+#include "com_err.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <stdio.h>
-#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <errno.h>
-
-#include "port-sockets.h"
-#include "k5-int.h"
-#include "com_err.h"
 
 /* fd 0 is a tcp socket used to talk to the client */
 
@@ -113,8 +111,10 @@ int main(argc, argv)
     }
 #endif
 
+    /* principal name must be sent null-terminated. */
     retval = krb5_read_message(context, (krb5_pointer) &sock, &pname_data);
-    if (retval) {
+    if (retval || pname_data.length == 0 ||
+        pname_data.data[pname_data.length - 1] != '\0') {
         com_err ("uu-server", retval, "reading pname");
         return 2;
     }

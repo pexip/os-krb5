@@ -10,8 +10,6 @@
  * Use is subject to license terms.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
 #include "k5-int.h"
 #include <kadm5/admin.h>
 #include "server_internal.h"
@@ -43,11 +41,14 @@ krb5_error_code kdb_init_master(kadm5_server_handle_t handle,
         realm = r;
     }
 
+    krb5_free_principal(handle->context, master_princ);
+    master_princ = NULL;
     if ((ret = krb5_db_setup_mkey_name(handle->context,
                                        handle->params.mkey_name,
                                        realm, NULL, &master_princ)))
         goto done;
 
+    krb5_free_keyblock_contents(handle->context, &master_keyblock);
     master_keyblock.enctype = handle->params.enctype;
 
     /*
@@ -190,8 +191,8 @@ kdb_get_hist_key(kadm5_server_handle_t handle, krb5_keyblock **keyblocks_out,
 
     if (kdb->n_key_data <= 0) {
         ret = KRB5_KDB_NO_MATCHING_KEY;
-        krb5_set_error_message(handle->context, ret,
-                               _("History entry contains no key data"));
+        k5_setmsg(handle->context, ret,
+                  _("History entry contains no key data"));
         goto done;
     }
 
@@ -439,7 +440,7 @@ kdb_iter_entry(kadm5_server_handle_t handle, char *match_entry,
     id.func = iter_fct;
     id.data = data;
 
-    ret = krb5_db_iterate(handle->context, match_entry, kdb_iter_func, &id);
+    ret = krb5_db_iterate(handle->context, match_entry, kdb_iter_func, &id, 0);
     if (ret)
         return(ret);
 

@@ -1,4 +1,4 @@
-AC_PREREQ(2.52)
+AC_PREREQ(2.63)
 AC_COPYRIGHT([Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
 Massachusetts Institute of Technology.
 ])
@@ -50,6 +50,11 @@ AC_DEFUN(CONFIG_RULES,[dnl
 AC_REQUIRE([V5_SET_TOPDIR]) dnl
 EXTRA_FILES=""
 AC_SUBST(EXTRA_FILES)
+dnl Consider using AC_USE_SYSTEM_EXTENSIONS when we require autoconf
+dnl 2.59c or later, but be sure to test on Solaris first.
+AC_DEFINE([_GNU_SOURCE], 1, [Define to enable extensions in glibc])
+AC_DEFINE([__STDC_WANT_LIB_EXT1__], 1, [Define to enable C11 extensions])
+
 WITH_CC dnl
 AC_REQUIRE_CPP
 if test -z "$LD" ; then LD=$CC; fi
@@ -523,7 +528,7 @@ if test "$GCC" = yes ; then
     TRY_WARN_CC_FLAG(-Wno-format-zero-length)
     # Other flags here may not be supported on some versions of
     # gcc that people want to use.
-    for flag in overflow strict-overflow missing-format-attribute missing-prototypes return-type missing-braces parentheses switch unused-function unused-label unused-variable unused-value unknown-pragmas sign-compare newline-eof error=uninitialized error=pointer-arith ; do
+    for flag in overflow strict-overflow missing-format-attribute missing-prototypes return-type missing-braces parentheses switch unused-function unused-label unused-variable unused-value unknown-pragmas sign-compare newline-eof error=uninitialized error=pointer-arith error=int-conversion error=incompatible-pointer-types error=discarded-qualifiers ; do
       TRY_WARN_CC_FLAG(-W$flag)
     done
     #  old-style-definition? generates many, many warnings
@@ -1043,6 +1048,7 @@ AC_SUBST(PFLIBEXT)
 AC_SUBST(LIBINSTLIST)
 AC_SUBST(DYNOBJEXT)
 AC_SUBST(MAKE_DYNOBJ_COMMAND)
+AC_SUBST(UNDEF_CHECK)
 ])
 
 dnl
@@ -1480,6 +1486,7 @@ int main(int argc, char *argv[]) {
 }], krb5_cv_system_ss_okay=yes, AC_MSG_ERROR(cannot run test program),
   krb5_cv_system_ss_okay="assumed")])
   LIBS="$old_LIBS"
+  KRB5_NEED_PROTO([#include <ss/ss.h>],ss_execute_command,1)
 else
   SS_VERSION=k5
   AC_MSG_RESULT(krb5)
