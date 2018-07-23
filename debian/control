@@ -4,7 +4,7 @@ Priority: standard
 Build-Depends: debhelper (>= 9), byacc | bison,
  comerr-dev, docbook-to-man, doxygen,
  libkeyutils-dev [linux-any], libldap2-dev,
- libncurses5-dev, libssl-dev,  ss-dev, 
+ libncurses5-dev, libssl1.0-dev | libssl-dev (<< 1.1),  ss-dev, 
  libverto-dev (>= 0.2.4), pkg-config, dh-systemd
 Build-Depends-Indep: python, python-cheetah, python-lxml, python-sphinx, doxygen-latex, texlive-generic-extra
 Standards-Version: 3.9.8
