@@ -141,7 +141,7 @@ extern int set_ldap_error (krb5_context ctx, int st, int op);
 #define UNSTORE16_INT(ptr, val) (val = load_16_be(ptr))
 #define UNSTORE32_INT(ptr, val) (val = load_32_be(ptr))
 
-#define  KDB_TL_USER_INFO      0x7ffe
+#define  KDB_TL_USER_INFO      0xff
 
 #define KDB_TL_PRINCTYPE          0x01
 #define KDB_TL_PRINCCOUNT         0x02
@@ -171,7 +171,6 @@ typedef struct _krb5_ldap_server_info krb5_ldap_server_info;
 typedef struct  _krb5_ldap_server_handle {
     int                              msgid;
     LDAP                             *ldap_handle;
-    krb5_boolean                     server_info_update_pending;
     krb5_ldap_server_info            *server_info;
     struct _krb5_ldap_server_handle  *next;
 } krb5_ldap_server_handle;
@@ -282,8 +281,10 @@ krb5_ldap_check_policy_as(krb5_context kcontext, krb5_kdc_req *request,
 
 void
 krb5_ldap_audit_as_req(krb5_context kcontext, krb5_kdc_req *request,
-                       krb5_db_entry *client, krb5_db_entry *server,
-                       krb5_timestamp authtime, krb5_error_code error_code);
+                       const krb5_address *local_addr,
+                       const krb5_address *remote_addr, krb5_db_entry *client,
+                       krb5_db_entry *server, krb5_timestamp authtime,
+                       krb5_error_code error_code);
 
 krb5_error_code
 krb5_ldap_check_allowed_to_delegate(krb5_context context,
@@ -299,15 +300,6 @@ krb5_ldap_lock( krb5_context, int );
 
 krb5_error_code
 krb5_ldap_unlock( krb5_context );
-
-#ifndef HAVE_LDAP_INITIALIZE
-int
-ldap_initialize(LDAP **, char *);
-#endif
-#ifndef HAVE_LDAP_UNBIND_EXT_S
-int
-ldap_unbind_ext_s(LDAP *, LDAPControl **, LDAPControl **);
-#endif
 
 /* lockout.c */
 krb5_error_code

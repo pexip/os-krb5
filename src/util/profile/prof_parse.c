@@ -222,11 +222,15 @@ static errcode_t parse_include_file(const char *filename,
 }
 
 /* Return non-zero if filename contains only alphanumeric characters, dashes,
- * and underscores, or if the filename ends in ".conf". */
+ * and underscores, or if the filename ends in ".conf" and is not a dotfile. */
 static int valid_name(const char *filename)
 {
     const char *p;
     size_t len = strlen(filename);
+
+    /* Ignore dotfiles, which might be editor or filesystem artifacts. */
+    if (*filename == '.')
+        return 0;
 
     if (len >= 5 && !strcmp(filename + len - 5, ".conf"))
         return 1;
@@ -242,59 +246,22 @@ static int valid_name(const char *filename)
  * Include files within dirname.  Only files with names ending in ".conf", or
  * consisting entirely of alphanumeric characters, dashes, and underscores are
  * included.  This restriction avoids including editor backup files, .rpmsave
- * files, and the like.
+ * files, and the like.  Files are processed in alphanumeric order.
  */
 static errcode_t parse_include_dir(const char *dirname,
                                    struct profile_node *root_section)
 {
-#ifdef _WIN32
-    char *wildcard = NULL, *pathname;
-    WIN32_FIND_DATA ffd;
-    HANDLE handle;
     errcode_t retval = 0;
+    char **fnames, *pathname;
+    int i;
 
-    if (asprintf(&wildcard, "%s\\*", dirname) < 0)
-        return ENOMEM;
-
-    handle = FindFirstFile(wildcard, &ffd);
-    if (handle == INVALID_HANDLE_VALUE) {
-        retval = PROF_FAIL_INCLUDE_DIR;
-        goto cleanup;
-    }
-
-    do {
-        if (!valid_name(ffd.cFileName))
-            continue;
-        if (asprintf(&pathname, "%s\\%s", dirname, ffd.cFileName) < 0) {
-            retval = ENOMEM;
-            break;
-        }
-        retval = parse_include_file(pathname, root_section);
-        free(pathname);
-        if (retval)
-            break;
-    } while (FindNextFile(handle, &ffd) != 0);
-
-    FindClose(handle);
-
-cleanup:
-    free(wildcard);
-    return retval;
-
-#else /* not _WIN32 */
-
-    DIR     *dir;
-    char    *pathname;
-    errcode_t retval = 0;
-    struct dirent *ent;
-
-    dir = opendir(dirname);
-    if (dir == NULL)
+    if (k5_dir_filenames(dirname, &fnames) != 0)
         return PROF_FAIL_INCLUDE_DIR;
-    while ((ent = readdir(dir)) != NULL) {
-        if (!valid_name(ent->d_name))
+
+    for (i = 0; fnames != NULL && fnames[i] != NULL; i++) {
+        if (!valid_name(fnames[i]))
             continue;
-        if (asprintf(&pathname, "%s/%s", dirname, ent->d_name) < 0) {
+        if (asprintf(&pathname, "%s/%s", dirname, fnames[i]) < 0) {
             retval = ENOMEM;
             break;
         }
@@ -303,9 +270,8 @@ cleanup:
         if (retval)
             break;
     }
-    closedir(dir);
+    k5_free_filenames(fnames);
     return retval;
-#endif /* not _WIN32 */
 }
 
 static errcode_t parse_line(char *line, struct parse_state *state,

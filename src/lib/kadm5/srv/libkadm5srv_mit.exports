@@ -1,10 +1,5 @@
 _kadm5_check_handle
 _kadm5_chpass_principal_util
-kadm5int_acl_check
-kadm5int_acl_check_krb
-kadm5int_acl_finish
-kadm5int_acl_impose_restrictions
-kadm5int_acl_init
 hist_princ
 kadm5_set_use_password_server
 kadm5_chpass_principal
@@ -76,6 +71,7 @@ krb5_keysalt_iterate
 krb5_klog_close
 krb5_klog_init
 krb5_klog_reopen
+krb5_klog_set_context
 krb5_klog_syslog
 krb5_string_to_keysalts
 master_db

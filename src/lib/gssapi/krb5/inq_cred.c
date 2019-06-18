@@ -90,7 +90,7 @@ krb5_gss_inquire_cred(minor_status, cred_handle, name, lifetime_ret,
     krb5_deltat lifetime;
     krb5_gss_name_t ret_name;
     krb5_principal princ;
-    gss_OID_set mechs;
+    gss_OID_set mechs = GSS_C_NO_OID_SET;
     OM_uint32 major, tmpmin, ret;
 
     ret = GSS_S_FAILURE;
@@ -130,8 +130,9 @@ krb5_gss_inquire_cred(minor_status, cred_handle, name, lifetime_ret,
         goto fail;
     }
 
-    if (cred->expire > 0) {
-        if ((lifetime = cred->expire - now) < 0)
+    if (cred->expire != 0) {
+        lifetime = ts_delta(cred->expire, now);
+        if (lifetime < 0)
             lifetime = 0;
     }
     else
@@ -191,8 +192,10 @@ krb5_gss_inquire_cred(minor_status, cred_handle, name, lifetime_ret,
         *cred_usage = cred->usage;
     k5_mutex_unlock(&cred->lock);
 
-    if (mechanisms)
+    if (mechanisms) {
         *mechanisms = mechs;
+        mechs = GSS_C_NO_OID_SET;
+    }
 
     if (cred_handle == GSS_C_NO_CREDENTIAL)
         krb5_gss_release_cred(minor_status, (gss_cred_id_t *)&cred);
@@ -204,6 +207,7 @@ fail:
     k5_mutex_unlock(&cred->lock);
     krb5_gss_release_cred(&tmpmin, &defcred);
     krb5_free_context(context);
+    (void)generic_gss_release_oid_set(&tmpmin, &mechs);
     return ret;
 }
 
@@ -244,4 +248,45 @@ krb5_gss_inquire_cred_by_mech(minor_status, cred_handle,
             *acceptor_lifetime = lifetime;
     }
     return(mstat);
+}
+
+OM_uint32
+gss_krb5int_get_cred_impersonator(OM_uint32 *minor_status,
+                                  const gss_cred_id_t cred_handle,
+                                  const gss_OID desired_object,
+                                  gss_buffer_set_t *data_set)
+{
+    krb5_gss_cred_id_t cred = (krb5_gss_cred_id_t)cred_handle;
+    gss_buffer_desc rep = GSS_C_EMPTY_BUFFER;
+    krb5_context context = NULL;
+    char *impersonator = NULL;
+    krb5_error_code ret;
+    OM_uint32 major;
+
+    *data_set = GSS_C_NO_BUFFER_SET;
+
+    /* Return an empty buffer set if no impersonator is present */
+    if (cred->impersonator == NULL)
+        return generic_gss_create_empty_buffer_set(minor_status, data_set);
+
+    ret = krb5_gss_init_context(&context);
+    if (ret) {
+        *minor_status = ret;
+        return GSS_S_FAILURE;
+    }
+
+    ret = krb5_unparse_name(context, cred->impersonator, &impersonator);
+    if (ret) {
+        krb5_free_context(context);
+        *minor_status = ret;
+        return GSS_S_FAILURE;
+    }
+
+    rep.value = impersonator;
+    rep.length = strlen(impersonator);
+    major = generic_gss_add_buffer_set_member(minor_status, &rep, data_set);
+
+    krb5_free_unparsed_name(context, impersonator);
+    krb5_free_context(context);
+    return major;
 }

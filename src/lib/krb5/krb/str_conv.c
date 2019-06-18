@@ -117,12 +117,6 @@ krb5_salttype_to_string(krb5_int32 salttype, char *buffer, size_t buflen)
 
 /* (absolute) time conversions */
 
-#ifndef HAVE_STRFTIME
-#undef strftime
-#define strftime my_strftime
-static size_t strftime (char *, size_t, const char *, const struct tm *);
-#endif
-
 #ifdef HAVE_STRPTIME
 #ifdef NEED_STRPTIME_PROTO
 extern char *strptime (const char *, const char *,
@@ -207,16 +201,13 @@ krb5_error_code KRB5_CALLCONV
 krb5_timestamp_to_string(krb5_timestamp timestamp, char *buffer, size_t buflen)
 {
     size_t ret;
-    time_t timestamp2 = timestamp;
+    time_t timestamp2 = ts2tt(timestamp);
     struct tm tmbuf;
     const char *fmt = "%c"; /* This is to get around gcc -Wall warning that
                                the year returned might be two digits */
 
-#ifdef HAVE_LOCALTIME_R
-    (void) localtime_r(&timestamp2, &tmbuf);
-#else
-    memcpy(&tmbuf, localtime(&timestamp2), sizeof(tmbuf));
-#endif
+    if (localtime_r(&timestamp2, &tmbuf) == NULL)
+        return(ENOMEM);
     ret = strftime(buffer, buflen, fmt, &tmbuf);
     if (ret == 0 || ret == buflen)
         return(ENOMEM);
@@ -229,7 +220,7 @@ krb5_timestamp_to_sfstring(krb5_timestamp timestamp, char *buffer, size_t buflen
     struct tm   *tmp;
     size_t i;
     size_t      ndone;
-    time_t timestamp2 = timestamp;
+    time_t timestamp2 = ts2tt(timestamp);
     struct tm tmbuf;
 
     static const char * const sftime_format_table[] = {
@@ -246,11 +237,9 @@ krb5_timestamp_to_sfstring(krb5_timestamp timestamp, char *buffer, size_t buflen
     static const unsigned int sftime_format_table_nents =
         sizeof(sftime_format_table)/sizeof(sftime_format_table[0]);
 
-#ifdef HAVE_LOCALTIME_R
     tmp = localtime_r(&timestamp2, &tmbuf);
-#else
-    memcpy((tmp = &tmbuf), localtime(&timestamp2), sizeof(tmbuf));
-#endif
+    if (tmp == NULL)
+        return errno;
     ndone = 0;
     for (i=0; i<sftime_format_table_nents; i++) {
         if ((ndone = strftime(buffer, buflen, sftime_format_table[i], tmp)))
@@ -296,7 +285,7 @@ krb5_deltat_to_string(krb5_deltat deltat, char *buffer, size_t buflen)
 #undef __P
 #define __P(X) X
 
-#if !defined (HAVE_STRFTIME) || !defined (HAVE_STRPTIME)
+#ifndef HAVE_STRPTIME
 #undef _CurrentTimeLocale
 #define _CurrentTimeLocale (&dummy_locale_info)
 
@@ -327,26 +316,6 @@ static const struct dummy_locale_info_t dummy_locale_info = {
 };
 #undef  TM_YEAR_BASE
 #define TM_YEAR_BASE 1900
-#endif
 
-#ifndef HAVE_STRFTIME
-#undef  DAYSPERLYEAR
-#define DAYSPERLYEAR 366
-#undef  DAYSPERNYEAR
-#define DAYSPERNYEAR 365
-#undef  DAYSPERWEEK
-#define DAYSPERWEEK 7
-#undef  isleap
-#define isleap(N)       ((N % 4) == 0 && (N % 100 != 0 || N % 400 == 0))
-#undef  tzname
-#define tzname my_tzname
-static const char *const tzname[2] = { 0, 0 };
-#undef  tzset
-#define tzset()
-
-#include "strftime.c"
-#endif
-
-#ifndef HAVE_STRPTIME
 #include "strptime.c"
 #endif

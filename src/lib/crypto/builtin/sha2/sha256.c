@@ -211,14 +211,14 @@ k5_sha256_update(SHA256_CTX *m, const void *v, size_t len)
 #if !defined(WORDS_BIGENDIAN) || defined(_CRAY)
 	    int i;
 	    uint32_t current[16];
-	    struct x32 *u = (struct x32*)m->save;
+	    struct x32 *u = (struct x32*)(void*)m->save;
 	    for(i = 0; i < 8; i++){
 		current[2*i+0] = swap_uint32_t(u[i].a);
 		current[2*i+1] = swap_uint32_t(u[i].b);
 	    }
 	    calc(m, current);
 #else
-	    calc(m, (uint32_t*)m->save);
+	    calc(m, (uint32_t*)(void*)m->save);
 #endif
 	    offset = 0;
 	}
@@ -257,12 +257,14 @@ k5_sha256_final(void *res, SHA256_CTX *m)
 }
 
 krb5_error_code
-k5_sha256(const krb5_data *in, uint8_t out[K5_SHA256_HASHLEN])
+k5_sha256(const krb5_data *in, size_t n, uint8_t out[K5_SHA256_HASHLEN])
 {
     SHA256_CTX ctx;
+    size_t i;
 
     k5_sha256_init(&ctx);
-    k5_sha256_update(&ctx, in->data, in->length);
+    for (i = 0; i < n; i++)
+        k5_sha256_update(&ctx, in[i].data, in[i].length);
     k5_sha256_final(out, &ctx);
     return 0;
 }

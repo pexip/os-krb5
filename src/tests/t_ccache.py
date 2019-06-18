@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 # Copyright (C) 2011 by the Massachusetts Institute of Technology.
 # All rights reserved.
 
@@ -34,18 +32,17 @@ if not test_keyring:
     skipped('keyring ccache tests', 'keyring support not built')
 
 # Test kdestroy and klist of a non-existent ccache.
+mark('no ccache')
 realm.run([kdestroy])
-output = realm.run([klist], expected_code=1)
-if 'No credentials cache found' not in output:
-    fail('Expected error message not seen in klist output')
+realm.run([klist], expected_code=1, expected_msg='No credentials cache found')
 
 # Test kinit with an inaccessible ccache.
-out = realm.run([kinit, '-c', 'testdir/xx/yy', realm.user_princ],
-                input=(password('user') + '\n'), expected_code=1)
-if 'Failed to store credentials' not in out:
-    fail('Expected error message not seen in kinit output')
+mark('inaccessible ccache')
+realm.kinit(realm.user_princ, password('user'), flags=['-c', 'testdir/xx/yy'],
+            expected_code=1, expected_msg='Failed to store credentials')
 
 # Test klist -s with a single ccache.
+mark('klist -s single ccache')
 realm.run([klist, '-s'], expected_code=1)
 realm.kinit(realm.user_princ, password('user'))
 realm.run([klist, '-s'])
@@ -59,15 +56,17 @@ realm.run([klist, '-s'], expected_code=1)
 realm.addprinc('alice', password('alice'))
 realm.addprinc('bob', password('bob'))
 realm.addprinc('carol', password('carol'))
+realm.addprinc('doug', password('doug'))
 
 def collection_test(realm, ccname):
+    cctype = ccname.partition(':')[0]
+    oldccname = realm.env['KRB5CCNAME']
     realm.env['KRB5CCNAME'] = ccname
 
+    mark('%s collection, single cache' % cctype)
     realm.run([klist, '-A', '-s'], expected_code=1)
     realm.kinit('alice', password('alice'))
-    output = realm.run([klist])
-    if 'Default principal: alice@' not in output:
-        fail('Initial kinit failed to get credentials for alice.')
+    realm.run([klist], expected_msg='Default principal: alice@')
     realm.run([klist, '-A', '-s'])
     realm.run([kdestroy])
     output = realm.run([klist], expected_code=1)
@@ -78,6 +77,7 @@ def collection_test(realm, ccname):
         fail('Initial kdestroy failed to empty cache collection.')
     realm.run([klist, '-A', '-s'], expected_code=1)
 
+    mark('%s collection, multiple caches' % cctype)
     realm.kinit('alice', password('alice'))
     realm.kinit('carol', password('carol'))
     output = realm.run([klist, '-l'])
@@ -87,26 +87,38 @@ def collection_test(realm, ccname):
     output = realm.run([klist, '-l'])
     if '---\nalice@' not in output or output.count('\n') != 4:
         fail('klist -l did not show expected output after re-kinit for alice.')
+    realm.kinit('doug', password('doug'))
     realm.kinit('bob', password('bob'))
-    output = realm.run([klist, '-A'])
+    output = realm.run([klist, '-A', ccname])
     if 'bob@' not in output.splitlines()[1] or 'alice@' not in output or \
-            'carol' not in output or output.count('Default principal:') != 3:
-        fail('klist -A did not show expected output after kinit for bob.')
+       'carol@' not in output or 'doug@' not in output or \
+       output.count('Default principal:') != 4:
+        fail('klist -A did not show expected output after kinit doug+bob.')
     realm.run([kswitch, '-p', 'carol'])
     output = realm.run([klist, '-l'])
-    if '---\ncarol@' not in output or output.count('\n') != 5:
+    if '---\ncarol@' not in output or output.count('\n') != 6:
         fail('klist -l did not show expected output after kswitch to carol.')
-    realm.run([kdestroy])
-    output = realm.run([klist, '-l'])
-    if 'carol@' in output or 'bob@' not in output or output.count('\n') != 4:
+
+    # Switch to specifying the collection name on the command line
+    # (only works with klist/kdestroy for now, not kinit/kswitch).
+    realm.env['KRB5CCNAME'] = oldccname
+
+    mark('%s collection, command-line specifier' % cctype)
+    realm.run([kdestroy, '-c', ccname])
+    output = realm.run([klist, '-l', ccname])
+    if 'carol@' in output or 'bob@' not in output or output.count('\n') != 5:
         fail('kdestroy failed to remove only primary ccache.')
-    realm.run([klist, '-s'], expected_code=1)
-    realm.run([klist, '-A', '-s'])
-    realm.run([kdestroy, '-A'])
-    output = realm.run([klist, '-l'], expected_code=1)
+    realm.run([klist, '-s', ccname], expected_code=1)
+    realm.run([klist, '-A', '-s', ccname])
+    realm.run([kdestroy, '-p', 'alice', '-c', ccname])
+    output = realm.run([klist, '-l', ccname])
+    if 'alice@' in output or 'bob@' not in output or output.count('\n') != 4:
+        fail('kdestroy -p failed to remove alice')
+    realm.run([kdestroy, '-A', '-c', ccname])
+    output = realm.run([klist, '-l', ccname], expected_code=1)
     if not output.endswith('---\n') or output.count('\n') != 2:
         fail('kdestroy -a failed to empty cache collection.')
-    realm.run([klist, '-A', '-s'], expected_code=1)
+    realm.run([klist, '-A', '-s', ccname], expected_code=1)
 
 
 collection_test(realm, 'DIR:' + os.path.join(realm.testdir, 'cc'))
@@ -127,41 +139,37 @@ if test_keyring:
     cleanup_keyring('@s', col_ringname)
 
     # Test legacy keyring cache linkage.
+    mark('legacy keyring cache linkage')
     realm.env['KRB5CCNAME'] = 'KEYRING:' + cname
     realm.run([kdestroy, '-A'])
     realm.kinit(realm.user_princ, password('user'))
-    out = realm.run([klist, '-l'])
-    if 'KEYRING:legacy:' + cname + ':' + cname not in out:
-        fail('Wrong initial primary name in keyring legacy collection')
+    msg = 'KEYRING:legacy:' + cname + ':' + cname
+    realm.run([klist, '-l'], expected_msg=msg)
     # Make sure this cache is linked to the session keyring.
     id = realm.run([keyctl, 'search', '@s', 'keyring', cname])
-    out = realm.run([keyctl, 'list', id.strip()])
-    if 'user: __krb5_princ__' not in out:
-        fail('Legacy cache not linked into session keyring')
+    realm.run([keyctl, 'list', id.strip()],
+              expected_msg='user: __krb5_princ__')
     # Remove the collection keyring.  When the collection is
     # reinitialized, the legacy cache should reappear inside it
     # automatically as the primary cache.
     cleanup_keyring('@s', col_ringname)
-    out = realm.run([klist])
-    if realm.user_princ not in out:
-        fail('Cannot see legacy cache after removing collection')
+    realm.run([klist], expected_msg=realm.user_princ)
     coll_id = realm.run([keyctl, 'search', '@s', 'keyring', '_krb_' + cname])
-    out = realm.run([keyctl, 'list', coll_id.strip()])
-    if (id.strip() + ':') not in out:
-        fail('Legacy cache did not reappear in collection after klist')
+    msg = id.strip() + ':'
+    realm.run([keyctl, 'list', coll_id.strip()], expected_msg=msg)
     # Destroy the cache and check that it is unlinked from the session keyring.
     realm.run([kdestroy])
     realm.run([keyctl, 'search', '@s', 'keyring', cname], expected_code=1)
     cleanup_keyring('@s', col_ringname)
 
 # Test parameter expansion in default_ccache_name
+mark('default_ccache_name parameter expansion')
 realm.stop()
 conf = {'libdefaults': {'default_ccache_name': 'testdir/%{null}abc%{uid}'}}
 realm = K5Realm(krb5_conf=conf, create_kdb=False)
 del realm.env['KRB5CCNAME']
 uidstr = str(os.getuid())
-out = realm.run([klist], expected_code=1)
-if 'testdir/abc%s' % uidstr not in out:
-    fail('Wrong ccache in klist')
+msg = 'testdir/abc%s' % uidstr
+realm.run([klist], expected_code=1, expected_msg=msg)
 
 success('Credential cache tests')

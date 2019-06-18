@@ -139,11 +139,13 @@ krb5_init_context_profile(profile_t profile, krb5_flags flags,
     krb5_context ctx = 0;
     krb5_error_code retval;
     struct {
-        krb5_int32 now, now_usec;
+        krb5_timestamp now;
+        krb5_int32 now_usec;
         long pid;
     } seed_data;
     krb5_data seed;
     int tmp;
+    char *plugin_dir = NULL;
 
     /* Verify some assumptions.  If the assumptions hold and the
        compiler is optimizing, this should result in no code being
@@ -231,13 +233,6 @@ krb5_init_context_profile(profile_t profile, krb5_flags flags,
     get_integer(ctx, KRB5_CONF_CLOCKSKEW, DEFAULT_CLOCKSKEW, &tmp);
     ctx->clockskew = tmp;
 
-#if 0
-    /* Default ticket lifetime is currently not supported */
-    profile_get_integer(ctx->profile, KRB5_CONF_LIBDEFAULTS, "tkt_lifetime",
-                        0, 10 * 60 * 60, &tmp);
-    ctx->tkt_lifetime = tmp;
-#endif
-
     /* DCE 1.1 and below only support CKSUMTYPE_RSA_MD4 (2)  */
     /* DCE add kdc_req_checksum_type = 2 to krb5.conf */
     get_integer(ctx, KRB5_CONF_KDC_REQ_CHECKSUM_TYPE, CKSUMTYPE_RSA_MD5,
@@ -260,8 +255,9 @@ krb5_init_context_profile(profile_t profile, krb5_flags flags,
 
     retval = profile_get_string(ctx->profile, KRB5_CONF_LIBDEFAULTS,
                                 KRB5_CONF_PLUGIN_BASE_DIR, 0,
-                                DEFAULT_PLUGIN_BASE_DIR,
-                                &ctx->plugin_base_dir);
+                                DEFAULT_PLUGIN_BASE_DIR, &plugin_dir);
+    if (!retval)
+        retval = k5_expand_path_tokens(ctx, plugin_dir, &ctx->plugin_base_dir);
     if (retval) {
         TRACE_PROFILE_ERR(ctx, KRB5_CONF_PLUGIN_BASE_DIR,
                           KRB5_CONF_LIBDEFAULTS, retval);
@@ -287,9 +283,10 @@ krb5_init_context_profile(profile_t profile, krb5_flags flags,
     (void)profile_get_string(ctx->profile, KRB5_CONF_LIBDEFAULTS,
                              KRB5_CONF_ERR_FMT, NULL, NULL, &ctx->err_fmt);
     *context_out = ctx;
-    return 0;
+    ctx = NULL;
 
 cleanup:
+    profile_release_string(plugin_dir);
     krb5_free_context(ctx);
     return retval;
 }

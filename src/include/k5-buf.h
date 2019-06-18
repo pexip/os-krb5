@@ -45,7 +45,7 @@
  */
 
 /* Buffer type values */
-enum k5buftype { K5BUF_ERROR, K5BUF_FIXED, K5BUF_DYNAMIC };
+enum k5buftype { K5BUF_ERROR, K5BUF_FIXED, K5BUF_DYNAMIC, K5BUF_DYNAMIC_ZAP };
 
 struct k5buf {
     enum k5buftype buftype;
@@ -63,6 +63,10 @@ void k5_buf_init_fixed(struct k5buf *buf, char *data, size_t space);
 /* Initialize a k5buf using an internally allocated dynamic buffer. */
 void k5_buf_init_dynamic(struct k5buf *buf);
 
+/* Initialize a k5buf using an internally allocated dynamic buffer, zeroing
+ * memory when reallocating or freeing. */
+void k5_buf_init_dynamic_zap(struct k5buf *buf);
+
 /* Add a C string to BUF. */
 void k5_buf_add(struct k5buf *buf, const char *data);
 
@@ -73,6 +77,14 @@ void k5_buf_add_len(struct k5buf *buf, const void *data, size_t len);
 void k5_buf_add_fmt(struct k5buf *buf, const char *fmt, ...)
 #if !defined(__cplusplus) && (__GNUC__ > 2)
     __attribute__((__format__(__printf__, 2, 3)))
+#endif
+    ;
+
+/* Add sprintf-style formatted data to BUF, with a va_list.  The value of ap is
+ * undefined after the call. */
+void k5_buf_add_vfmt(struct k5buf *buf, const char *fmt, va_list ap)
+#if !defined(__cplusplus) && (__GNUC__ > 2)
+    __attribute__((__format__(__printf__, 2, 0)))
 #endif
     ;
 

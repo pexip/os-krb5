@@ -378,7 +378,7 @@ k5_time_to_seconds_since_1970(int64_t ntTime, krb5_timestamp *elapsedSeconds)
 
     abstime = ntTime > 0 ? ntTime - NT_TIME_EPOCH : -ntTime;
 
-    if (abstime > KRB5_INT32_MAX)
+    if (abstime > UINT32_MAX)
         return ERANGE;
 
     *elapsedSeconds = abstime;
@@ -403,7 +403,8 @@ krb5_error_code
 k5_pac_validate_client(krb5_context context,
                        const krb5_pac pac,
                        krb5_timestamp authtime,
-                       krb5_const_principal principal)
+                       krb5_const_principal principal,
+                       krb5_boolean with_realm)
 {
     krb5_error_code ret;
     krb5_data client_info;
@@ -413,6 +414,7 @@ k5_pac_validate_client(krb5_context context,
     krb5_ui_2 pac_princname_length;
     int64_t pac_nt_authtime;
     krb5_principal pac_principal;
+    int flags = 0;
 
     ret = k5_pac_locate_buffer(context, pac, KRB5_PAC_CLIENT_INFO,
                                &client_info);
@@ -436,13 +438,21 @@ k5_pac_validate_client(krb5_context context,
         pac_princname_length % 2)
         return ERANGE;
 
-    ret = krb5int_ucs2lecs_to_utf8s(p, (size_t)pac_princname_length / 2,
-                                    &pac_princname, NULL);
+    ret = k5_utf16le_to_utf8(p, pac_princname_length, &pac_princname);
     if (ret != 0)
         return ret;
 
-    ret = krb5_parse_name_flags(context, pac_princname,
-                                KRB5_PRINCIPAL_PARSE_NO_REALM, &pac_principal);
+    /* Parse the UTF-8 name as an enterprise principal if we are matching
+     * against one; otherwise parse it as a regular principal. */
+    if (principal->type == KRB5_NT_ENTERPRISE_PRINCIPAL)
+        flags |= KRB5_PRINCIPAL_PARSE_ENTERPRISE;
+
+    if (with_realm)
+        flags |= KRB5_PRINCIPAL_PARSE_REQUIRE_REALM;
+    else
+        flags |= KRB5_PRINCIPAL_PARSE_NO_REALM;
+
+    ret = krb5_parse_name_flags(context, pac_princname, flags, &pac_principal);
     if (ret != 0) {
         free(pac_princname);
         return ret;
@@ -454,6 +464,7 @@ k5_pac_validate_client(krb5_context context,
         !krb5_principal_compare_flags(context,
                                       pac_principal,
                                       principal,
+                                      with_realm ? 0 :
                                       KRB5_PRINCIPAL_COMPARE_IGNORE_REALM))
         ret = KRB5KRB_AP_WRONG_PRINC;
 
@@ -619,6 +630,19 @@ krb5_pac_verify(krb5_context context,
                 const krb5_keyblock *server,
                 const krb5_keyblock *privsvr)
 {
+    return krb5_pac_verify_ext(context, pac, authtime, principal, server,
+                               privsvr, FALSE);
+}
+
+krb5_error_code KRB5_CALLCONV
+krb5_pac_verify_ext(krb5_context context,
+                    const krb5_pac pac,
+                    krb5_timestamp authtime,
+                    krb5_const_principal principal,
+                    const krb5_keyblock *server,
+                    const krb5_keyblock *privsvr,
+                    krb5_boolean with_realm)
+{
     krb5_error_code ret;
 
     if (server != NULL) {
@@ -634,7 +658,8 @@ krb5_pac_verify(krb5_context context,
     }
 
     if (principal != NULL) {
-        ret = k5_pac_validate_client(context, pac, authtime, principal);
+        ret = k5_pac_validate_client(context, pac, authtime,
+                                     principal, with_realm);
         if (ret != 0)
             return ret;
     }
@@ -792,8 +817,8 @@ mspac_verify(krb5_context kcontext,
      * If the above verification failed, don't fail the whole authentication,
      * just don't mark the PAC as verified.  A checksum mismatch can occur if
      * the PAC was copied from a cross-realm TGT by an ignorant KDC, and Apple
-     * Mac OS X Server Open Directory (as of 10.6) generates PACs with no
-     * server checksum at all.
+     * macOS Server Open Directory (as of 10.6) generates PACs with no server
+     * checksum at all.
      */
     return 0;
 }

@@ -1,33 +1,31 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>kvno &mdash; MIT Kerberos Documentation</title>
-    
+    <title>kvno &#8212; MIT Kerberos Documentation</title>
     <link rel="stylesheet" href="../../_static/agogo.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/kerb.css" type="text/css" />
-    
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '1.15',
+        VERSION:     '1.17',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
       };
     </script>
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
     <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
     <link rel="copyright" title="Copyright" href="../../copyright.html" />
-    <link rel="top" title="MIT Kerberos Documentation" href="../../index.html" />
-    <link rel="up" title="User commands" href="index.html" />
     <link rel="next" title="sclient" href="sclient.html" />
     <link rel="prev" title="kswitch" href="kswitch.html" /> 
   </head>
@@ -61,7 +59,7 @@
             
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="kvno">
 <span id="kvno-1"></span><h1>kvno<a class="headerlink" href="#kvno" title="Permalink to this headline">¶</a></h1>
@@ -75,7 +73,8 @@
 [<strong>-P</strong>]
 [<strong>-S</strong> <em>sname</em>]
 [<strong>-U</strong> <em>for_user</em>]
-<em>service1 service2</em> ...</p>
+[<strong>–u2u</strong> <em>ccache</em>]
+<em>service1 service2</em> …</p>
 </div>
 <div class="section" id="description">
 <h2>DESCRIPTION<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h2>
@@ -99,12 +98,12 @@ kvno will exit with nonzero status.</dd>
 <dt><strong>-h</strong></dt>
 <dd>Prints a usage statement and exits.</dd>
 <dt><strong>-P</strong></dt>
-<dd>Specifies that the <em>service1 service2</em> ...  arguments are to be
+<dd>Specifies that the <em>service1 service2</em> …  arguments are to be
 treated as services for which credentials should be acquired using
 constrained delegation.  This option is only valid when used in
 conjunction with protocol transition.</dd>
 <dt><strong>-S</strong> <em>sname</em></dt>
-<dd>Specifies that the <em>service1 service2</em> ... arguments are
+<dd>Specifies that the <em>service1 service2</em> … arguments are
 interpreted as hostnames, and the service principals are to be
 constructed from those hostnames and the service name <em>sname</em>.
 The service hostnames will be canonicalized according to the usual
@@ -114,26 +113,28 @@ rules for constructing service principals.</dd>
 acquire a ticket on behalf of <em>for_user</em>.  If constrained
 delegation is not requested, the service name must match the
 credentials cache client principal.</dd>
+<dt><strong>–u2u</strong> <em>ccache</em></dt>
+<dd>Requests a user-to-user ticket.  <em>ccache</em> must contain a local
+krbtgt ticket for the server principal.  The reported version
+number will typically be 0, as the resulting ticket is not
+encrypted in the server’s long-term key.</dd>
 </dl>
 </div>
 <div class="section" id="environment">
 <h2>ENVIRONMENT<a class="headerlink" href="#environment" title="Permalink to this headline">¶</a></h2>
-<p>kvno uses the following environment variable:</p>
-<dl class="docutils">
-<dt><strong>KRB5CCNAME</strong></dt>
-<dd>Location of the credentials (ticket) cache.</dd>
-</dl>
+<p>See <a class="reference internal" href="../user_config/kerberos.html#kerberos-7"><span class="std std-ref">kerberos</span></a> for a description of Kerberos environment
+variables.</p>
 </div>
 <div class="section" id="files">
 <h2>FILES<a class="headerlink" href="#files" title="Permalink to this headline">¶</a></h2>
 <dl class="docutils">
-<dt><a class="reference internal" href="../../mitK5defaults.html#paths"><em>DEFCCNAME</em></a></dt>
+<dt><a class="reference internal" href="../../mitK5defaults.html#paths"><span class="std std-ref">DEFCCNAME</span></a></dt>
 <dd>Default location of the credentials cache</dd>
 </dl>
 </div>
 <div class="section" id="see-also">
 <h2>SEE ALSO<a class="headerlink" href="#see-also" title="Permalink to this headline">¶</a></h2>
-<p><a class="reference internal" href="kinit.html#kinit-1"><em>kinit</em></a>, <a class="reference internal" href="kdestroy.html#kdestroy-1"><em>kdestroy</em></a></p>
+<p><a class="reference internal" href="kinit.html#kinit-1"><span class="std std-ref">kinit</span></a>, <a class="reference internal" href="kdestroy.html#kdestroy-1"><span class="std std-ref">kdestroy</span></a>, <a class="reference internal" href="../user_config/kerberos.html#kerberos-7"><span class="std std-ref">kerberos</span></a></p>
 </div>
 </div>
 
@@ -171,7 +172,7 @@ credentials cache client principal.</dd>
 <li class="toctree-l3"><a class="reference internal" href="krb5-config.html">krb5-config</a></li>
 <li class="toctree-l3"><a class="reference internal" href="ksu.html">ksu</a></li>
 <li class="toctree-l3"><a class="reference internal" href="kswitch.html">kswitch</a></li>
-<li class="toctree-l3 current"><a class="current reference internal" href="">kvno</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">kvno</a></li>
 <li class="toctree-l3"><a class="reference internal" href="sclient.html">sclient</a></li>
 </ul>
 </li>
@@ -205,8 +206,8 @@ credentials cache client principal.</dd>
 
     <div class="footer-wrapper">
         <div class="footer" >
-            <div class="right" ><i>Release: 1.15</i><br />
-                &copy; <a href="../../copyright.html">Copyright</a> 1985-2016, MIT.
+            <div class="right" ><i>Release: 1.17</i><br />
+                &copy; <a href="../../copyright.html">Copyright</a> 1985-2019, MIT.
             </div>
             <div class="left">
                 

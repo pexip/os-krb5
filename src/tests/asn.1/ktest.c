@@ -725,6 +725,8 @@ ktest_make_sample_pk_authenticator(krb5_pk_authenticator *p)
     ktest_make_sample_checksum(&p->paChecksum);
     /* We don't encode the checksum type, only the contents. */
     p->paChecksum.checksum_type = 0;
+    p->freshnessToken = ealloc(sizeof(krb5_data));
+    ktest_make_sample_data(p->freshnessToken);
 }
 
 static void
@@ -1014,6 +1016,66 @@ ktest_make_sample_secure_cookie(krb5_secure_cookie *p)
 {
     ktest_make_sample_pa_data_array(&p->data);
     p->time = SAMPLE_TIME;
+}
+
+void
+ktest_make_minimal_spake_factor(krb5_spake_factor *p)
+{
+    p->type = 1;
+    p->data = NULL;
+}
+
+void
+ktest_make_maximal_spake_factor(krb5_spake_factor *p)
+{
+    p->type = 2;
+    p->data = ealloc(sizeof(*p->data));
+    krb5_data_parse(p->data, "fdata");
+}
+
+void
+ktest_make_support_pa_spake(krb5_pa_spake *p)
+{
+    krb5_spake_support *s = &p->u.support;
+
+    s->ngroups = 2;
+    s->groups = ealloc(s->ngroups * sizeof(*s->groups));
+    s->groups[0] = 1;
+    s->groups[1] = 2;
+    p->choice = SPAKE_MSGTYPE_SUPPORT;
+}
+
+void
+ktest_make_challenge_pa_spake(krb5_pa_spake *p)
+{
+    krb5_spake_challenge *c = &p->u.challenge;
+
+    c->group = 1;
+    krb5_data_parse(&c->pubkey, "T value");
+    c->factors = ealloc(3 * sizeof(*c->factors));
+    c->factors[0] = ealloc(sizeof(*c->factors[0]));
+    ktest_make_minimal_spake_factor(c->factors[0]);
+    c->factors[1] = ealloc(sizeof(*c->factors[1]));
+    ktest_make_maximal_spake_factor(c->factors[1]);
+    c->factors[2] = NULL;
+    p->choice = SPAKE_MSGTYPE_CHALLENGE;
+}
+
+void
+ktest_make_response_pa_spake(krb5_pa_spake *p)
+{
+    krb5_spake_response *r = &p->u.response;
+
+    krb5_data_parse(&r->pubkey, "S value");
+    ktest_make_sample_enc_data(&r->factor);
+    p->choice = SPAKE_MSGTYPE_RESPONSE;
+}
+
+void
+ktest_make_encdata_pa_spake(krb5_pa_spake *p)
+{
+    ktest_make_sample_enc_data(&p->u.encdata);
+    p->choice = SPAKE_MSGTYPE_ENCDATA;
 }
 
 /****************************************************************/
@@ -1651,6 +1713,8 @@ ktest_empty_pk_authenticator(krb5_pk_authenticator *p)
 {
     ktest_empty_checksum(&p->paChecksum);
     p->paChecksum.contents = NULL;
+    krb5_free_data(NULL, p->freshnessToken);
+    p->freshnessToken = NULL;
 }
 
 static void
@@ -1853,4 +1917,41 @@ void
 ktest_empty_secure_cookie(krb5_secure_cookie *p)
 {
     ktest_empty_pa_data_array(p->data);
+}
+
+void
+ktest_empty_spake_factor(krb5_spake_factor *p)
+{
+    krb5_free_data(NULL, p->data);
+    p->data = NULL;
+}
+
+void
+ktest_empty_pa_spake(krb5_pa_spake *p)
+{
+    krb5_spake_factor **f;
+
+    switch (p->choice) {
+    case SPAKE_MSGTYPE_SUPPORT:
+        free(p->u.support.groups);
+        break;
+    case SPAKE_MSGTYPE_CHALLENGE:
+        ktest_empty_data(&p->u.challenge.pubkey);
+        for (f = p->u.challenge.factors; *f != NULL; f++) {
+            ktest_empty_spake_factor(*f);
+            free(*f);
+        }
+        free(p->u.challenge.factors);
+        break;
+    case SPAKE_MSGTYPE_RESPONSE:
+        ktest_empty_data(&p->u.response.pubkey);
+        ktest_destroy_enc_data(&p->u.response.factor);
+        break;
+    case SPAKE_MSGTYPE_ENCDATA:
+        ktest_destroy_enc_data(&p->u.encdata);
+        break;
+    default:
+        break;
+    }
+    p->choice = SPAKE_MSGTYPE_UNKNOWN;
 }

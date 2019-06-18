@@ -94,8 +94,8 @@ static void
 reseed_random(krb5_context kdc_err_context)
 {
     krb5_error_code retval;
-    krb5_int32 now, now_usec;
-    krb5_int32 usec_difference;
+    krb5_timestamp now;
+    krb5_int32 now_usec, usec_difference;
     krb5_data data;
 
     retval = krb5_crypto_us_timeofday(&now, &now_usec);
@@ -104,7 +104,7 @@ reseed_random(krb5_context kdc_err_context)
         if (last_os_random == 0)
             last_os_random = now;
         /* Grab random data from OS every hour*/
-        if (now-last_os_random >= 60 * 60) {
+        if (ts_delta(now, last_os_random) >= 60 * 60) {
             krb5_c_random_os_entropy(kdc_err_context, 0, NULL);
             last_os_random = now;
         }
@@ -119,12 +119,12 @@ reseed_random(krb5_context kdc_err_context)
 }
 
 void
-dispatch(void *cb, struct sockaddr *local_saddr,
-         const krb5_fulladdr *from, krb5_data *pkt, int is_tcp,
+dispatch(void *cb, const krb5_fulladdr *local_addr,
+         const krb5_fulladdr *remote_addr, krb5_data *pkt, int is_tcp,
          verto_ctx *vctx, loop_respond_fn respond, void *arg)
 {
     krb5_error_code retval;
-    krb5_kdc_req *as_req;
+    krb5_kdc_req *req = NULL;
     krb5_data *response = NULL;
     struct dispatch_state *state;
     struct server_handle *handle = cb;
@@ -150,8 +150,8 @@ dispatch(void *cb, struct sockaddr *local_saddr,
         const char *name = 0;
         char buf[46];
 
-        name = inet_ntop (ADDRTYPE2FAMILY (from->address->addrtype),
-                          from->address->contents, buf, sizeof (buf));
+        name = inet_ntop(ADDRTYPE2FAMILY(remote_addr->address->addrtype),
+                         remote_addr->address->contents, buf, sizeof(buf));
         if (name == 0)
             name = "[unknown address type]";
         if (response)
@@ -176,28 +176,35 @@ dispatch(void *cb, struct sockaddr *local_saddr,
 
     /* try TGS_REQ first; they are more common! */
 
-    if (krb5_is_tgs_req(pkt)) {
-        retval = process_tgs_req(handle, pkt, from, &response);
-    } else if (krb5_is_as_req(pkt)) {
-        if (!(retval = decode_krb5_as_req(pkt, &as_req))) {
-            /*
-             * setup_server_realm() sets up the global realm-specific data
-             * pointer.
-             * process_as_req frees the request if it is called
-             */
-            state->active_realm = setup_server_realm(handle, as_req->server);
-            if (state->active_realm != NULL) {
-                process_as_req(as_req, pkt, from, state->active_realm, vctx,
-                               finish_dispatch_cache, state);
-                return;
-            } else {
-                retval = KRB5KDC_ERR_WRONG_REALM;
-                krb5_free_kdc_req(kdc_err_context, as_req);
-            }
-        }
-    } else
+    if (krb5_is_tgs_req(pkt))
+        retval = decode_krb5_tgs_req(pkt, &req);
+    else if (krb5_is_as_req(pkt))
+        retval = decode_krb5_as_req(pkt, &req);
+    else
         retval = KRB5KRB_AP_ERR_MSG_TYPE;
+    if (retval)
+        goto done;
 
+    state->active_realm = setup_server_realm(handle, req->server);
+    if (state->active_realm == NULL) {
+        retval = KRB5KDC_ERR_WRONG_REALM;
+        goto done;
+    }
+
+    if (krb5_is_tgs_req(pkt)) {
+        /* process_tgs_req frees the request */
+        retval = process_tgs_req(req, pkt, remote_addr, state->active_realm,
+                                 &response);
+        req = NULL;
+    } else if (krb5_is_as_req(pkt)) {
+        /* process_as_req frees the request and calls finish_dispatch_cache. */
+        process_as_req(req, pkt, local_addr, remote_addr, state->active_realm,
+                       vctx, finish_dispatch_cache, state);
+        return;
+    }
+
+done:
+    krb5_free_kdc_req(kdc_err_context, req);
     finish_dispatch_cache(state, retval, response);
 }
 

@@ -22,6 +22,8 @@ AC_SUBST(KRB5_VERSION)
 
 AC_REQUIRE_CPP
 
+PKG_PROG_PKG_CONFIG
+
 AC_CHECK_HEADER([stdint.h], [],
   [AC_MSG_ERROR([stdint.h is required])])
 
@@ -106,7 +108,7 @@ AC_ARG_ENABLE([athena],
 KRB5_BUILD_LIBOBJS
 KRB5_BUILD_LIBRARY
 KRB5_BUILD_PROGRAM
-# for slave
+# for kprop
 AC_TYPE_MODE_T
 AC_PROG_INSTALL
 KRB5_AC_NEED_DAEMON
@@ -118,21 +120,35 @@ LIBUTIL=-lutil
 ])
 AC_SUBST(LIBUTIL)
 
-AC_CHECK_HEADER(libintl.h, [
-	AC_SEARCH_LIBS(dgettext, intl, [
-		AC_DEFINE(ENABLE_NLS, 1,
-			[Define if translation functions should be used.])])])
-
-AC_CHECK_PROG(MSGFMT,msgfmt,msgfmt)
+# Determine if NLS is desired and supported.
 po=
-if test x"$MSGFMT" != x; then
-	po=po
+AC_ARG_ENABLE([nls],
+AC_HELP_STRING([--disable-nls], [disable native language support]),
+              [], [enable_nls=check])
+if test "$enable_nls" != no; then
+  AC_CHECK_HEADER(libintl.h, [
+    AC_SEARCH_LIBS(dgettext, intl, [
+      AC_DEFINE(ENABLE_NLS, 1,
+                [Define if translation functions should be used.])
+      nls_enabled=yes])])
+
+  AC_CHECK_PROG(MSGFMT,msgfmt,msgfmt)
+  if test x"$MSGFMT" != x; then
+    po=po
+  fi
+
+  # Error out if --enable-nls was explicitly requested but can't be enabled.
+  if test "$enable_nls" = yes; then
+    if test "$nls_enabled" != yes -o "x$po" = x; then
+      AC_MSG_ERROR([NLS support requested but cannot be built])
+    fi
+  fi
 fi
 AC_SUBST(po)
 
 # for kdc
 AC_CHECK_HEADERS(sys/sockio.h ifaddrs.h unistd.h fnmatch.h)
-AC_CHECK_FUNCS(strftime vsprintf vasprintf vsnprintf strlcpy fnmatch)
+AC_CHECK_FUNCS(vsprintf vasprintf vsnprintf strlcpy fnmatch)
 
 EXTRA_SUPPORT_SYMS=
 AC_CHECK_FUNC(strlcpy,
@@ -264,51 +280,6 @@ if test "$PRNG_ALG" = fortuna; then
 	AC_DEFINE(FORTUNA,1,[Define if Fortuna PRNG is selected])
 fi
 
-# WITH_PKINIT_CRYPTO_IMPL
-
-PKINIT_CRYPTO_IMPL="$CRYPTO_IMPL"
-AC_ARG_WITH([pkinit-crypto-impl],
-AC_HELP_STRING([--with-pkinit-crypto-impl=IMPL], [use specified pkinit crypto implementation @<:@openssl@:>@]),
-[PKINIT_CRYPTO_IMPL=$withval
-AC_MSG_NOTICE(pkinit will use '$withval')
-], withval=$PKINIT_CRYPTO_IMPL)
-case "$withval" in
-builtin|openssl)
-  AC_CHECK_LIB(crypto, PKCS7_get_signer_info, PKINIT_CRYPTO_IMPL_LIBS=-lcrypto)
-  PKINIT_CRYPTO_IMPL=openssl
-  AC_CHECK_LIB(crypto, CMS_get0_content,
-               [AC_DEFINE([HAVE_OPENSSL_CMS], 1,
-                          [Define if OpenSSL supports cms.])])
-  ;;
-nss)
-  if test "${PKINIT_CRYPTO_IMPL_CFLAGS+set}" != set; then
-    PKINIT_CRYPTO_IMPL_CFLAGS=`pkg-config --cflags nss`
-  fi
-  if test "${PKINIT_CRYPTO_IMPL_LIBS+set}" != set; then
-    PKINIT_CRYPTO_IMPL_LIBS=`pkg-config --libs nss`
-  fi
-  AC_DEFINE(PKINIT_CRYPTO_IMPL_NSS,1,[Define if pkinit crypto implementation is NSS])
-  save_CFLAGS=$CFLAGS
-  CFLAGS="$CFLAGS $PKINIT_CRYPTO_IMPL_CFLAGS"
-  AC_COMPILE_IFELSE([AC_LANG_SOURCE([
-#include <nss.h>
-#if NSS_VMAJOR < 3 || (NSS_VMAJOR == 3 && NSS_VMINOR < 12)
-#error
-#elif NSS_VMAJOR == 3 && NSS_VMINOR == 12 && NSS_VPATCH < 11
-#error
-#endif
-  ])], [], [AC_MSG_ERROR([NSS version 3.12.11 or later required.])])
-  CFLAGS=$save_CFLAGS
-  ;;
-*)
-  AC_MSG_ERROR([Unknown crypto implementation $withval])
-  ;;
-esac
-AC_CONFIG_COMMANDS(PKINIT_CRYPTO_IMPL,,PKINIT_CRYPTO_IMPL=$PKINIT_CRYPTO_IMPL)
-AC_SUBST(PKINIT_CRYPTO_IMPL)
-AC_SUBST(PKINIT_CRYPTO_IMPL_CFLAGS)
-AC_SUBST(PKINIT_CRYPTO_IMPL_LIBS)
-
 # WITH_TLS_IMPL
 
 AC_ARG_WITH([tls-impl],
@@ -351,6 +322,25 @@ fi
 AC_SUBST(TLS_IMPL)
 AC_SUBST(TLS_IMPL_CFLAGS)
 AC_SUBST(TLS_IMPL_LIBS)
+
+# The SPAKE preauth plugin currently supports edwards25519 natively,
+# and can support three NIST groups using OpenSSL.
+HAVE_SPAKE_OPENSSL=no
+AC_ARG_WITH([spake-openssl],
+AC_HELP_STRING([--with-spake-openssl],
+               [use OpenSSL for SPAKE preauth @<:@auto@:>@]),,[withval=auto])
+if test "$withval" = auto -o "$withval" = yes; then
+  AC_CHECK_LIB([crypto],[EC_POINT_new],[have_crypto=true],[have_crypto=false])
+  if test "$have_crypto" = true; then
+    AC_DEFINE(SPAKE_OPENSSL,1,[Define to use OpenSSL for SPAKE preauth])
+    SPAKE_OPENSSL_LIBS=-lcrypto
+    HAVE_SPAKE_OPENSSL=yes
+  elif test "$withval" = yes; then
+    AC_MSG_ERROR([OpenSSL libcrypto not found])
+  fi
+fi
+AC_SUBST(HAVE_SPAKE_OPENSSL)
+AC_SUBST(SPAKE_OPENSSL_LIBS)
 
 AC_ARG_ENABLE([aesni],
 AC_HELP_STRING([--disable-aesni],[Do not build with AES-NI support]), ,
@@ -431,7 +421,7 @@ AC_PROG_LEX
 AC_C_CONST
 AC_HEADER_DIRENT
 AC_FUNC_STRERROR_R
-AC_CHECK_FUNCS(strdup setvbuf seteuid setresuid setreuid setegid setresgid setregid setsid flock fchmod chmod strftime strptime geteuid setenv unsetenv getenv gmtime_r localtime_r bswap16 bswap64 mkstemp getusershell access getcwd srand48 srand srandom stat strchr strerror timegm)
+AC_CHECK_FUNCS(strdup setvbuf seteuid setresuid setreuid setegid setresgid setregid setsid flock fchmod chmod strptime geteuid setenv unsetenv getenv gmtime_r localtime_r bswap16 bswap64 mkstemp getusershell access getcwd srand48 srand srandom stat strchr strerror timegm)
 
 AC_CHECK_FUNC(mkstemp,
 [MKSTEMP_ST_OBJ=
@@ -586,6 +576,10 @@ fi
 ])
 
 
+# PTHREAD_CFLAGS changes which variant of these functions is declared
+# on Solaris 11, so use it for these tests.
+old_CFLAGS=$CFLAGS
+CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
 AC_CHECK_FUNC(getpwnam_r,ac_cv_func_getpwnam_r=yes,ac_cv_func_getpwnam_r=no)
 AC_CHECK_FUNC(getpwuid_r,ac_cv_func_getpwuid_r=yes,ac_cv_func_getpwuid_r=no)
 if test "$ac_cv_func_getpwnam_r" = yes; then
@@ -635,6 +629,7 @@ if test "$ac_cv_func_getpwnam_r" = yes; then
     fi
   fi
 fi
+CFLAGS=$old_CFLAGS
 
 if test "$ac_cv_func_getpwnam_r" = no && test "$ac_cv_func_getpwuid_r" = yes; then
   # Actually, we could do this check, and the corresponding checks
@@ -744,6 +739,9 @@ fi
 
 AC_HEADER_TIME
 AC_CHECK_TYPE(time_t, long)
+AC_CHECK_SIZEOF(time_t)
+SIZEOF_TIME_T=$ac_cv_sizeof_time_t
+AC_SUBST(SIZEOF_TIME_T)
 
 # Determine where to put the replay cache.
 
@@ -843,6 +841,10 @@ AC_CHECK_TYPES([struct rt_msghdr], , , [
 #include <net/if.h>
 #include <net/route.h>
 ])
+
+# Tests for 64-bit edwards25519 code.
+AC_CHECK_SIZEOF([size_t])
+AC_CHECK_TYPES([__int128_t, __uint128_t])
 
 # stuff for util/profile
 
@@ -1085,6 +1087,7 @@ fi
 if test "$k5_cv_openssl_version_okay" = yes && (test "$enable_pkinit" = yes || test "$enable_pkinit" = try); then
   K5_GEN_MAKEFILE(plugins/preauth/pkinit)
   PKINIT=yes
+  AC_CHECK_LIB(crypto, CMS_get0_content, [AC_DEFINE([HAVE_OPENSSL_CMS], 1, [Define if OpenSSL supports cms.])])
 elif test "$k5_cv_openssl_version_okay" = no && test "$enable_pkinit" = yes; then
   AC_MSG_ERROR([Version of OpenSSL is too old; cannot enable PKINIT.])
 else
@@ -1106,13 +1109,14 @@ fi
 AC_SUBST(HAVE_RUNTEST)
 
 # For Python tests.
-AC_CHECK_PROG(PYTHON,python,python)
+AC_CHECK_PROG(PYTHON,python3,python3)
+if text x"$PYTHON" = x; then
+	AC_CHECK_PROG(PYTHON,python,python)
+fi
 HAVE_PYTHON=no
 if test x"$PYTHON" != x; then
-	# k5test.py requires python 2.4 (for the subprocess module).
-	# Some code needs python 2.5 (for syntax like conditional expressions).
-	vercheck="import sys;sys.exit((sys.hexversion < 0x2050000) and 1 or 0)"
-	if python -c "$vercheck"; then
+	wantver="(sys.hexversion >= 0x3000000)"
+	if "$PYTHON" -c "import sys; sys.exit(not $wantver and 1 or 0)"; then
 		HAVE_PYTHON=yes
 	fi
 fi
@@ -1131,6 +1135,7 @@ AC_CHECK_LIB(cmocka, _cmocka_run_group_tests, [HAVE_CMOCKA_LIB=yes])
 if test "$HAVE_CMOCKA_LIB" = yes && test "$HAVE_CMOCKA_H" = yes; then
     HAVE_CMOCKA=yes
     CMOCKA_LIBS='-lcmocka'
+    AC_DEFINE([HAVE_CMOCKA],1,[Define if cmocka library is available.])
 fi
 AC_SUBST(HAVE_CMOCKA)
 AC_SUBST(CMOCKA_LIBS)
@@ -1138,9 +1143,7 @@ AC_SUBST(CMOCKA_LIBS)
 # For URI lookup tests. Requires resolv_wrapper >= 1.1.5 for URI
 # support.
 HAVE_RESOLV_WRAPPER=0
-if pkg-config --atleast-version=1.1.5 resolv_wrapper; then
-    HAVE_RESOLV_WRAPPER=1
-fi
+PKG_CHECK_EXISTS([resolv_wrapper >= 1.1.5], [HAVE_RESOLV_WRAPPER=1])
 AC_SUBST(HAVE_RESOLV_WRAPPER)
 
 # for plugins/kdb/db2
@@ -1213,11 +1216,7 @@ ldap_plugin_dir=""
 ldap_lib=""
 if test -n "$OPENLDAP_PLUGIN"; then
   AC_CHECK_HEADERS(ldap.h lber.h, :, [AC_MSG_ERROR($ac_header not found)])
-  AC_CHECK_LIB(ldap, ldap_init, :, [AC_MSG_ERROR(libldap not found or missing ldap_init)])
-  old_LIBS="$LIBS"
-  LIBS="$LIBS -lldap"
-  AC_CHECK_FUNCS(ldap_initialize ldap_url_parse_nodn ldap_unbind_ext_s ldap_str2dn ldap_explode_dn)
-  LIBS="$old_LIBS"
+  AC_CHECK_LIB(ldap, ldap_str2dn, :, [AC_MSG_ERROR(libldap not found or missing ldap_str2dn)])
 
   BER_OKAY=0
   AC_CHECK_LIB(ldap, ber_init, [BER_OKAY=1])
@@ -1262,6 +1261,27 @@ AC_CHECK_LIB(aceclnt, SD_Init, [
 AC_SUBST(sam2_plugin)
 CFLAGS=$old_CFLAGS
 
+lmdb_plugin_dir=""
+HAVE_LMDB=no
+AC_ARG_WITH([lmdb],
+AC_HELP_STRING([--with-lmdb],
+	    [compile LMDB database backend module @<:@auto@:>@]),,
+	    [withval=auto])
+if test "$withval" = auto -o "$withval" = yes; then
+  AC_CHECK_LIB([lmdb],[mdb_env_create],[have_lmdb=true],[have_lmdb=false])
+  if test "$have_lmdb" = true; then
+    LMDB_LIBS=-llmdb
+    HAVE_LMDB=yes
+    lmdb_plugin_dir='plugins/kdb/lmdb'
+    K5_GEN_MAKEFILE(plugins/kdb/lmdb)
+  elif test "$withval" = yes; then
+    AC_MSG_ERROR([liblmdb not found])
+  fi
+fi
+AC_SUBST(HAVE_LMDB)
+AC_SUBST(LMDB_LIBS)
+AC_SUBST(lmdb_plugin_dir)
+
 # Kludge for simple server --- FIXME is this the best way to do this?
 
 if test "$ac_cv_lib_socket" = "yes" -a "$ac_cv_lib_nsl" = "yes"; then
@@ -1277,32 +1297,32 @@ AC_ARG_WITH([libedit],
 AC_ARG_WITH([readline],
 	    AC_HELP_STRING([--with-readline], [compile with GNU Readline]),
 	    [], [with_readline=no])
-AC_MSG_CHECKING([for readline support])
 if test "x$with_readline" = xyes; then
   with_libedit=no
 fi
 RL_CFLAGS=
 RL_LIBS=
 if test "x$with_libedit" != xno; then
-  if rl_cflags=`pkg-config --cflags libedit 2>&1`; then
-    RL_CFLAGS=$rl_cflags
-    RL_LIBS=`pkg-config --libs libedit`
+  PKG_CHECK_MODULES(LIBEDIT, libedit, [have_libedit=yes], [have_libedit=no])
+  if test "x$have_libedit" = xyes; then
+    RL_CFLAGS=$LIBEDIT_CFLAGS
+    RL_LIBS=$LIBEDIT_LIBS
     AC_DEFINE([HAVE_LIBEDIT], 1, [Define if building with libedit.])
-    AC_MSG_RESULT([using libedit])
-  elif test "x$with_libedit" = yes; then
+    AC_MSG_NOTICE([Using libedit for readline support])
+  elif test "x$with_libedit" = xyes; then
     # We were explicitly asked for libedit and couldn't find it.
-    AC_MSG_ERROR([Could not detect libedit with pkg-config.])
+    AC_MSG_ERROR([Could not detect libedit with pkg-config])
   else
-    AC_MSG_RESULT([not using any])
+    AC_MSG_NOTICE([Not using any readline support])
   fi
 elif test "x$with_readline" = xyes; then
-  AC_MSG_RESULT([using GNU Readline])
+  AC_MSG_NOTICE([Using GNU Readline])
   AC_CHECK_LIB([readline], [main], :,
 	       AC_MSG_FAILURE([Cannot find readline library.]), [-lncurses])
   AC_DEFINE([HAVE_READLINE], 1, [Define if building with GNU Readline.])
   RL_LIBS='-lreadline -lhistory -lncurses'
 else
-  AC_MSG_RESULT([not using any])
+  AC_MSG_RESULT([Not using any readline support])
 fi
 AC_SUBST([RL_CFLAGS])
 AC_SUBST([RL_LIBS])
@@ -1310,25 +1330,21 @@ AC_SUBST([RL_LIBS])
 AC_ARG_WITH([system-verto],
   [AC_HELP_STRING([--with-system-verto], [always use system verto library])],
   [], [with_system_verto=default])
-VERTO_CFLAGS=
-VERTO_LIBS="-lverto"
 VERTO_VERSION=k5
 if test "x$with_system_verto" != xno; then
-  if verto_cflags=`pkg-config --cflags libverto 2>&1`; then
-    VERTO_CFLAGS=$verto_cflags
-    VERTO_LIBS=`pkg-config --libs libverto`
+  PKG_CHECK_MODULES(VERTO, libverto, [have_sysverto=yes], [have_sysverto=no])
+  if test "x$have_sysverto" = xyes; then
     VERTO_VERSION=sys
-  else
-    AC_CHECK_LIB([verto], [verto_set_flags], [VERTO_VERSION=sys],
-      [if test "x$with_system_verto" = xyes; then
-        AC_MSG_ERROR([cannot detect system libverto])
-      fi])
+  elif test "x$with_system_verto" = xyes; then
+    AC_MSG_ERROR([cannot detect system libverto])
   fi
 fi
 if test "x$VERTO_VERSION" = xsys; then
   AC_MSG_NOTICE([Using system libverto])
 else
-  AC_MSG_RESULT([Using built-in libverto])
+  VERTO_CFLAGS=
+  VERTO_LIBS="-lverto"
+  AC_MSG_NOTICE([Using built-in libverto])
 fi
 AC_SUBST([VERTO_CFLAGS])
 AC_SUBST([VERTO_LIBS])
@@ -1342,7 +1358,7 @@ if test "${localedir+set}" != set; then
 fi
 AC_SUBST(localedir)
 
-# For KCM lib/krb5/ccache to build KCM Mach RPC support for OS X only.
+# For KCM lib/krb5/ccache to build KCM Mach RPC support for macOS only.
 case $host in
 *-*-darwin* | *-*-rhapsody*) OSX=osx ;;
 *)                           OSX=no ;;
@@ -1376,10 +1392,10 @@ dnl brackets in the glob patterns.
 if test "${DEFCCNAME+set}" != set; then
 	[case $host in
 	*-*-darwin[0-9].* | *-*-darwin10.*)
-		# Use the normal default for OS X 10.6 (Darwin 10) and prior.
+		# Use the normal default for macOS 10.6 (Darwin 10) and prior.
 		;;
 	*-*-darwin*)
-		# For OS X 10.7 (Darwin 11) and later, the native ccache uses
+		# For macOS 10.7 (Darwin 11) and later, the native ccache uses
 		# the KCM daemon.
 		DEFCCNAME=KCM:
 		;;
@@ -1392,7 +1408,7 @@ if test "${DEFKTNAME+set}" != set; then
 	DEFKTNAME=FILE:/etc/krb5.keytab
 fi
 if test "${DEFCKTNAME+set}" != set; then
-	adl_RECURSIVE_EVAL($localstatedir, exp_localstatedir)
+	AX_RECURSIVE_EVAL($localstatedir, exp_localstatedir)
 	DEFCKTNAME=FILE:$exp_localstatedir/krb5/user/%{euid}/client.keytab
 fi
 AC_MSG_NOTICE([Default ccache name: $DEFCCNAME])
@@ -1445,11 +1461,13 @@ dnl	lib/krb5/ccache/ccapi
 
 dnl	ccapi ccapi/lib ccapi/lib/unix ccapi/server ccapi/server/unix ccapi/test
 
-	kdc slave config-files build-tools man doc include
+	kdc kprop config-files build-tools man doc include
 
+	plugins/certauth/test
 	plugins/hostrealm/test
 	plugins/localauth/test
 	plugins/kadm5_hook/test
+	plugins/kadm5_auth/test
 	plugins/pwqual/test
 	plugins/audit
 	plugins/audit/test
@@ -1462,7 +1480,9 @@ dnl	ccapi ccapi/lib ccapi/lib/unix ccapi/server ccapi/server/unix ccapi/test
 	plugins/kdb/db2/libdb2/recno
 	plugins/kdb/db2/libdb2/test
 	plugins/kdb/test
+	plugins/kdcpolicy/test
 	plugins/preauth/otp
+	plugins/preauth/spake
 	plugins/preauth/test
 	plugins/authdata/greet_client
 	plugins/authdata/greet_server

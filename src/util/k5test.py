@@ -118,6 +118,9 @@ keyword arguments:
 
 * get_creds=False: Don't get user credentials.
 
+* bdb_only=True: Use the DB2 KDB module even if K5TEST_LMDB is set in
+  the environment.
+
 Scripts may use the following functions and variables:
 
 * fail(message): Display message (plus leading marker and trailing
@@ -141,6 +144,11 @@ Scripts may use the following functions and variables:
   added newline) in testlog, and write it to stdout if running
   verbosely.
 
+* mark(message): Place a divider message in the test output, to make
+  it easier to determine what part of the test script a command
+  invocation belongs to.  The last mark message will also be displayed
+  if a command invocation fails.  Do not include a newline in message.
+
 * which(progname): Return the location of progname in the executable
   path, or None if it is not found.
 
@@ -159,6 +167,12 @@ Scripts may use the following functions and variables:
   keyword with the exception of krbtgt_keysalt, which will not be
   honored.  If keywords contains krb5_conf and/or kdc_conf fragments,
   they will be merged with the default and per-pass specifications.
+
+* multidb_realms(**keywords): Yields a realm for multiple DB modules.
+  Currently DB2 and LMDB are included.  Ideally LDAP would be
+  included, but setting up a test LDAP server currently requires a
+  one-second delay, so all LDAP tests are currently confined to
+  t_kdb.py.  keywords may contain any K5Realm initializer.
 
 * cross_realms(num, xtgts=None, args=None, **keywords): This function
   returns a list of num realms, where each realm's configuration knows
@@ -223,8 +237,11 @@ Scripts may use the following realm methods and attributes:
   command-line debugging options.  Fail if the command does not return
   0.  Log the command output appropriately, and return it as a single
   multi-line string.  Keyword arguments can contain input='string' to
-  send an input string to the command, and expected_code=N to expect a
-  return code other than 0.
+  send an input string to the command, expected_code=N to expect a
+  return code other than 0, expected_msg=MSG to expect a substring in
+  the command output, and expected_trace=('a', 'b', ...) to expect an
+  ordered series of line substrings in the command's KRB5_TRACE
+  output.
 
 * realm.kprop_port(): Returns a port number based on realm.portbase
   intended for use by kprop and kpropd.
@@ -305,13 +322,13 @@ Scripts may use the following realm methods and attributes:
   or similar methods.
 
 * realm.start_kpropd(env, args=[]): Start a kpropd process.  Pass an
-  environment created with realm.special_env() for the slave.  If args
-  is given, it contains a list of additional kpropd arguments.
+  environment created with realm.special_env() for the replica.  If
+  args is given, it contains a list of additional kpropd arguments.
   Returns a handle to the kpropd process.
 
 * realm.run_kpropd_once(env, args=[]): Run kpropd once, using the -t
   flag.  Pass an environment created with realm.special_env() for the
-  slave.  If args is given, it contains a list of additional kpropd
+  replica.  If args is given, it contains a list of additional kpropd
   arguments.  Returns the kpropd output.
 
 * realm.realm: The realm's name.
@@ -372,14 +389,18 @@ import imp
 def fail(msg):
     """Print a message and exit with failure."""
     global _current_pass
-    print "*** Failure:", msg
+    print("*** Failure:", msg)
+    if _last_mark:
+        print("*** Last mark: %s" % _last_mark)
     if _last_cmd:
-        print "*** Last command (#%d): %s" % (_cmd_index - 1, _last_cmd)
+        print("*** Last command (#%d): %s" % (_cmd_index - 1, _last_cmd))
     if _last_cmd_output:
-        print "*** Output of last command:"
+        print("*** Output of last command:")
         sys.stdout.write(_last_cmd_output)
     if _current_pass:
-        print "*** Failed in test pass:", _current_pass
+        print("*** Failed in test pass:", _current_pass)
+    if _current_db:
+        print("*** Failed with db:", _current_db)
     sys.exit(1)
 
 
@@ -387,6 +408,12 @@ def success(msg):
     global _success
     output('*** Success: %s\n' % msg)
     _success = True
+
+
+def mark(msg):
+    global _last_mark
+    output('\n====== %s ======\n' % msg)
+    _last_mark = msg
 
 
 def skipped(whatmsg, whymsg):
@@ -441,6 +468,7 @@ def _onexit():
     if _debug or _stop_before or _stop_after or _shell_before or _shell_after:
         # Wait before killing daemons in case one is being debugged.
         sys.stdout.write('*** Press return to kill daemons and exit script: ')
+        sys.stdout.flush()
         sys.stdin.readline()
     for proc in _daemons:
         os.kill(proc.pid, signal.SIGTERM)
@@ -449,15 +477,16 @@ def _onexit():
         if not verbose:
             testlogfile = os.path.join(os.getcwd(), 'testlog')
             utildir = os.path.join(srctop, 'util')
-            print 'For details, see: %s' % testlogfile
-            print 'Or re-run this test script with the -v flag:'
-            print '    cd %s' % os.getcwd()
-            print '    PYTHONPATH=%s %s %s -v' % \
-                (utildir, sys.executable, sys.argv[0])
-            print
-        print 'Use --debug=NUM to run a command under a debugger.  Use'
-        print '--stop-after=NUM to stop after a daemon is started in order to'
-        print 'attach to it with a debugger.  Use --help to see other options.'
+            print('For details, see: %s' % testlogfile)
+            print('Or re-run this test script with the -v flag:')
+            print('    cd %s' % os.getcwd())
+            print('    PYTHONPATH=%s %s %s -v' %
+                  (utildir, sys.executable, sys.argv[0]))
+            print()
+        print('Use --debug=NUM to run a command under a debugger.  Use')
+        print('--stop-after=NUM to stop after a daemon is started in order to')
+        print('attach to it with a debugger.  Use --help to see other')
+        print('options.')
 
 
 def _onsigint(signum, frame):
@@ -507,8 +536,8 @@ def _get_hostname():
     hostname = socket.gethostname()
     try:
         ai = socket.getaddrinfo(hostname, None, 0, 0, 0, socket.AI_CANONNAME)
-    except socket.gaierror, (error, errstr):
-        fail('Local hostname "%s" does not resolve: %s.' % (hostname, errstr))
+    except socket.gaierror as e:
+        fail('Local hostname "%s" does not resolve: %s.' % (hostname, e[1]))
     (family, socktype, proto, canonname, sockaddr) = ai[0]
     try:
         name = socket.getnameinfo(sockaddr, socket.NI_NAMEREQD)
@@ -578,7 +607,7 @@ def _match_cmdnum(cmdnum, ind):
 def _build_env():
     global buildtop, runenv
     env = os.environ.copy()
-    for (k, v) in runenv.env.iteritems():
+    for (k, v) in runenv.env.items():
         if v.find('./') == 0:
             env[k] = os.path.join(buildtop, v)
         else:
@@ -641,15 +670,37 @@ def _valgrind(args):
 def _stop_or_shell(stop, shell, env, ind):
     if (_match_cmdnum(stop, ind)):
         sys.stdout.write('*** [%d] Waiting for return: ' % ind)
+        sys.stdout.flush()
         sys.stdin.readline()
     if (_match_cmdnum(shell, ind)):
         output('*** [%d] Spawning shell\n' % ind, True)
         subprocess.call(os.getenv('SHELL'), env=env)
 
 
-def _run_cmd(args, env, input=None, expected_code=0):
+# Read tracefile and look for the expected strings in successive lines.
+def _check_trace(tracefile, expected):
+    output('*** Trace output for previous command:\n')
+    i = 0
+    with open(tracefile, 'r') as f:
+        for line in f:
+            output(line)
+            if i < len(expected) and expected[i] in line:
+                i += 1
+    if i < len(expected):
+        fail('Expected string not found in trace output: ' + expected[i])
+
+
+def _run_cmd(args, env, input=None, expected_code=0, expected_msg=None,
+             expected_trace=None):
     global null_input, _cmd_index, _last_cmd, _last_cmd_output, _debug
     global _stop_before, _stop_after, _shell_before, _shell_after
+
+    if expected_trace is not None:
+        tracefile = 'testtrace'
+        if os.path.exists(tracefile):
+            os.remove(tracefile)
+        env = env.copy()
+        env['KRB5_TRACE'] = tracefile
 
     if (_match_cmdnum(_debug, _cmd_index)):
         return _debug_cmd(args, env, input)
@@ -667,7 +718,8 @@ def _run_cmd(args, env, input=None, expected_code=0):
 
     # Run the command and log the result, folding stderr into stdout.
     proc = subprocess.Popen(args, stdin=infile, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, env=env)
+                            stderr=subprocess.STDOUT, env=env,
+                            universal_newlines=True)
     (outdata, dummy_errdata) = proc.communicate(input)
     _last_cmd_output = outdata
     code = proc.returncode
@@ -679,6 +731,13 @@ def _run_cmd(args, env, input=None, expected_code=0):
     # Check the return code and return the output.
     if code != expected_code:
         fail('%s failed with code %d.' % (args[0], code))
+
+    if expected_msg is not None and expected_msg not in outdata:
+        fail('Expected string not found in command output: ' + expected_msg)
+
+    if expected_trace is not None:
+        _check_trace(tracefile, expected_trace)
+
     return outdata
 
 
@@ -690,10 +749,10 @@ def _debug_cmd(args, env, input):
            (_cmd_index, _shell_equiv(args)), True)
     if input:
         print
-        print '*** Enter the following input when appropriate:'
-        print 
-        print input
-        print
+        print('*** Enter the following input when appropriate:')
+        print()
+        print(input)
+        print()
     code = subprocess.call(args, env=env)
     output('*** [%d] Completed in debugger with return code %d\n' %
            (_cmd_index, code))
@@ -721,7 +780,8 @@ def _start_daemon(args, env, sentinel):
 
     # Start the daemon and look for the sentinel in stdout or stderr.
     proc = subprocess.Popen(args, stdin=null_input, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, env=env)
+                            stderr=subprocess.STDOUT, env=env,
+                            universal_newlines=True)
     _last_cmd_output = ''
     while True:
         line = proc.stdout.readline()
@@ -766,8 +826,9 @@ class K5Realm(object):
                  krb5_conf=None, kdc_conf=None, create_kdb=True,
                  krbtgt_keysalt=None, create_user=True, get_creds=True,
                  create_host=True, start_kdc=True, start_kadmind=False,
-                 start_kpropd=False):
+                 start_kpropd=False, bdb_only=False):
         global hostname, _default_krb5_conf, _default_kdc_conf
+        global _lmdb_kdc_conf, _current_db
 
         self.realm = realm
         self.testdir = os.path.join(os.getcwd(), testdir)
@@ -782,7 +843,11 @@ class K5Realm(object):
         self.ccache = os.path.join(self.testdir, 'ccache')
         self.kadmin_ccache = os.path.join(self.testdir, 'kadmin_ccache')
         self._krb5_conf = _cfg_merge(_default_krb5_conf, krb5_conf)
-        self._kdc_conf = _cfg_merge(_default_kdc_conf, kdc_conf)
+        base_kdc_conf = _default_kdc_conf
+        if (os.getenv('K5TEST_LMDB') is not None and
+            not bdb_only and not _current_db):
+            base_kdc_conf = _cfg_merge(base_kdc_conf, _lmdb_kdc_conf)
+        self._kdc_conf = _cfg_merge(base_kdc_conf, kdc_conf)
         self._kdc_proc = None
         self._kadmind_proc = None
         self._kpropd_procs = []
@@ -954,15 +1019,19 @@ class K5Realm(object):
         self._kadmind_proc = None
 
     def _kpropd_args(self):
-        slavedump_path = os.path.join(self.testdir, 'incoming-slave-datatrans')
+        datatrans_path = os.path.join(self.testdir, 'incoming-datatrans')
         kpropdacl_path = os.path.join(self.testdir, 'kpropd-acl')
         return [kpropd, '-D', '-P', str(self.kprop_port()),
-                '-f', slavedump_path, '-p', kdb5_util, '-a', kpropdacl_path]
+                '-f', datatrans_path, '-p', kdb5_util, '-a', kpropdacl_path]
 
     def start_kpropd(self, env, args=[]):
         proc = _start_daemon(self._kpropd_args() + args, env, 'ready')
         self._kpropd_procs.append(proc)
         return proc
+
+    def stop_kpropd(self, proc):
+        stop_daemon(proc)
+        self._kpropd_procs.remove(proc)
 
     def run_kpropd_once(self, env, args=[]):
         return self.run(self._kpropd_args() + ['-t'] + args, env=env)
@@ -1056,6 +1125,20 @@ def multipass_realms(**keywords):
         yield realm
         realm.stop()
         _current_pass = None
+
+
+def multidb_realms(**keywords):
+    global _current_db, _dbpasses
+    caller_kdc_conf = keywords.get('kdc_conf')
+    for p in _dbpasses:
+        (name, kdc_conf) = p
+        output('*** Using DB type %s\n' % name)
+        keywords['kdc_conf'] = _cfg_merge(kdc_conf, caller_kdc_conf)
+        _current_db = name
+        realm = K5Realm(**keywords)
+        yield realm
+        realm.stop()
+        _current_db = None
 
 
 def cross_realms(num, xtgts=None, args=None, **keywords):
@@ -1154,6 +1237,10 @@ _default_kdc_conf = {
         'default': 'FILE:$testdir/others.log'}}
 
 
+_lmdb_kdc_conf = {'dbmodules': {'db': {'db_library': 'klmdb',
+                                       'nosync': 'true'}}}
+
+
 # A pass is a tuple of: name, krbtgt_keysalt, krb5_conf, kdc_conf.
 _passes = [
     # No special settings; exercises AES256.
@@ -1238,12 +1325,14 @@ _passes = [
 
 _success = False
 _current_pass = None
+_current_db = None
 _daemons = []
 _parse_args()
 atexit.register(_onexit)
 signal.signal(signal.SIGINT, _onsigint)
 _outfile = open('testlog', 'w')
 _cmd_index = 1
+_last_mark = None
 _last_cmd = None
 _last_cmd_output = None
 buildtop = _find_buildtop()
@@ -1252,6 +1341,11 @@ plugins = os.path.join(buildtop, 'plugins')
 runenv = _import_runenv()
 hostname = _get_hostname()
 null_input = open(os.devnull, 'r')
+
+# A DB pass is a tuple of: name, kdc_conf.
+_dbpasses = [('db2', None)]
+if runenv.have_lmdb == 'yes':
+    _dbpasses.append(('lmdb', _lmdb_kdc_conf))
 
 krb5kdc = os.path.join(buildtop, 'kdc', 'krb5kdc')
 kadmind = os.path.join(buildtop, 'kadmin', 'server', 'kadmind')
@@ -1268,6 +1362,6 @@ kvno = os.path.join(buildtop, 'clients', 'kvno', 'kvno')
 kdestroy = os.path.join(buildtop, 'clients', 'kdestroy', 'kdestroy')
 kpasswd = os.path.join(buildtop, 'clients', 'kpasswd', 'kpasswd')
 t_inetd = os.path.join(buildtop, 'tests', 'dejagnu', 't_inetd')
-kproplog = os.path.join(buildtop, 'slave', 'kproplog')
-kpropd = os.path.join(buildtop, 'slave', 'kpropd')
-kprop = os.path.join(buildtop, 'slave', 'kprop')
+kproplog = os.path.join(buildtop, 'kprop', 'kproplog')
+kpropd = os.path.join(buildtop, 'kprop', 'kpropd')
+kprop = os.path.join(buildtop, 'kprop', 'kprop')

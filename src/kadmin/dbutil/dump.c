@@ -181,34 +181,44 @@ finish_ofile(char *ofile, char **tmpname)
 }
 
 /* Create the .dump_ok file. */
-static int
-prep_ok_file(krb5_context context, char *file_name, int *fd)
+static krb5_boolean
+prep_ok_file(krb5_context context, char *file_name, int *fd_out)
 {
     static char ok[] = ".dump_ok";
     krb5_error_code retval;
-    char *file_ok;
+    char *file_ok = NULL;
+    int fd = -1;
+    krb5_boolean success = FALSE;
+
+    *fd_out = -1;
 
     if (asprintf(&file_ok, "%s%s", file_name, ok) < 0) {
         com_err(progname, ENOMEM, _("while allocating dump_ok filename"));
-        exit_status++;
-        return 0;
+        goto cleanup;
     }
 
-    *fd = open(file_ok, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-    if (*fd == -1) {
+    fd = open(file_ok, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd == -1) {
         com_err(progname, errno, _("while creating 'ok' file, '%s'"), file_ok);
-        exit_status++;
-        free(file_ok);
-        return 0;
+        goto cleanup;
     }
-    retval = krb5_lock_file(context, *fd, KRB5_LOCKMODE_EXCLUSIVE);
+    retval = krb5_lock_file(context, fd, KRB5_LOCKMODE_EXCLUSIVE);
     if (retval) {
         com_err(progname, retval, _("while locking 'ok' file, '%s'"), file_ok);
-        free(file_ok);
-        return 0;
+        goto cleanup;
     }
+
+    *fd_out = fd;
+    fd = -1;
+    success = TRUE;
+
+cleanup:
     free(file_ok);
-    return 1;
+    if (fd != -1)
+        close(fd);
+    if (!success)
+        exit_status++;
+    return success;
 }
 
 /*
@@ -370,11 +380,12 @@ k5beta7_common(krb5_context context, krb5_db_entry *entry,
     fprintf(fp, "princ\t%d\t%lu\t%d\t%d\t%d\t%s\t", (int)entry->len,
             (unsigned long)strlen(name), counter, (int)entry->n_key_data,
             (int)entry->e_length, name);
-    fprintf(fp, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d", entry->attributes,
-            entry->max_life, entry->max_renewable_life, entry->expiration,
-            entry->pw_expiration,
-            omit_nra ? 0 : entry->last_success,
-            omit_nra ? 0 : entry->last_failed,
+    fprintf(fp, "%d\t%d\t%d\t%u\t%u\t%u\t%u\t%d", entry->attributes,
+            entry->max_life, entry->max_renewable_life,
+            (unsigned int)entry->expiration,
+            (unsigned int)entry->pw_expiration,
+            (unsigned int)(omit_nra ? 0 : entry->last_success),
+            (unsigned int)(omit_nra ? 0 : entry->last_failed),
             omit_nra ? 0 : entry->fail_auth_count);
 
     /* Write out tagged data. */
@@ -688,6 +699,10 @@ process_tl_data(const char *fname, FILE *filep, int lineno,
                      _("cannot read tagged data type and length"));
             return EINVAL;
         }
+        if (i1 < INT16_MIN || i1 > INT16_MAX || u1 > UINT16_MAX) {
+            load_err(fname, lineno, _("data type or length overflowed"));
+            return EINVAL;
+        }
         tl->tl_data_type = i1;
         tl->tl_data_length = u1;
         if (read_octets_or_minus1(filep, tl->tl_data_length,
@@ -708,7 +723,7 @@ process_k5beta7_princ(krb5_context context, const char *fname, FILE *filep,
 {
     int retval, nread, i, j;
     krb5_db_entry *dbentry;
-    int t1, t2, t3, t4, t5, t6, t7;
+    int t1, t2, t3, t4;
     unsigned int u1, u2, u3, u4, u5;
     char *name = NULL;
     krb5_key_data *kp = NULL, *kd;
@@ -735,6 +750,10 @@ process_k5beta7_princ(krb5_context context, const char *fname, FILE *filep,
         goto fail;
 
     /* Get memory for and form tagged data linked list */
+    if (u3 > UINT16_MAX) {
+        load_err(fname, *linenop, _("cannot allocate tl_data (too large)"));
+        goto fail;
+    }
     if (alloc_tl_data(u3, &dbentry->tl_data))
         goto fail;
     dbentry->n_tl_data = u3;
@@ -764,8 +783,8 @@ process_k5beta7_princ(krb5_context context, const char *fname, FILE *filep,
     }
 
     /* Get the fixed principal attributes */
-    nread = fscanf(filep, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t",
-                   &t1, &t2, &t3, &t4, &t5, &t6, &t7, &u1);
+    nread = fscanf(filep, "%d\t%d\t%d\t%u\t%u\t%d\t%d\t%d\t",
+                   &t1, &t2, &t3, &u1, &u2, &u3, &u4, &u5);
     if (nread != 8) {
         load_err(fname, *linenop, _("cannot read principal attributes"));
         goto fail;
@@ -773,11 +792,11 @@ process_k5beta7_princ(krb5_context context, const char *fname, FILE *filep,
     dbentry->attributes = t1;
     dbentry->max_life = t2;
     dbentry->max_renewable_life = t3;
-    dbentry->expiration = t4;
-    dbentry->pw_expiration = t5;
-    dbentry->last_success = t6;
-    dbentry->last_failed = t7;
-    dbentry->fail_auth_count = u1;
+    dbentry->expiration = u1;
+    dbentry->pw_expiration = u2;
+    dbentry->last_success = u3;
+    dbentry->last_failed = u4;
+    dbentry->fail_auth_count = u5;
     dbentry->mask = KADM5_LOAD | KADM5_PRINCIPAL | KADM5_ATTRIBUTES |
         KADM5_MAX_LIFE | KADM5_MAX_RLIFE |
         KADM5_PRINC_EXPIRE_TIME | KADM5_LAST_SUCCESS |
@@ -823,13 +842,17 @@ process_k5beta7_princ(krb5_context context, const char *fname, FILE *filep,
             load_err(fname, *linenop, _("cannot read key size and version"));
             goto fail;
         }
+        if (t1 > KRB5_KDB_V1_KEY_DATA_ARRAY) {
+            load_err(fname, *linenop, _("unsupported key_data_ver version"));
+            goto fail;
+        }
 
         kd->key_data_ver = t1;
         kd->key_data_kvno = t2;
 
         for (j = 0; j < t1; j++) {
             nread = fscanf(filep, "%d\t%d\t", &t3, &t4);
-            if (nread != 2) {
+            if (nread != 2 || t4 < 0) {
                 load_err(fname, *linenop,
                          _("cannot read key type and length"));
                 goto fail;
@@ -1214,16 +1237,17 @@ current_dump_sno_in_ulog(krb5_context context, const char *ifile)
     update_status_t status;
     dump_version *junk;
     kdb_last_t last;
-    char buf[BUFSIZ];
+    char buf[BUFSIZ], *r;
     FILE *f;
 
     f = fopen(ifile, "r");
     if (f == NULL)
         return 0;              /* aliasing other errors to ENOENT here is OK */
 
-    if (fgets(buf, sizeof(buf), f) == NULL)
-        return errno ? -1 : 0;
+    r = fgets(buf, sizeof(buf), f);
     fclose(f);
+    if (r == NULL)
+        return errno ? -1 : 0;
 
     if (!parse_iprop_header(buf, &junk, &last))
         return 0;
@@ -1282,7 +1306,7 @@ dump_db(int argc, char **argv)
                 /*
                  * dump_sno is used to indicate if the serial number should be
                  * populated in the output file to be used later by iprop for
-                 * updating the slave's update log when loading.
+                 * updating the replica's update log when loading.
                  */
                 dump_sno = TRUE;
                 /* FLAG_OMIT_NRA is set to indicate that non-replicated
@@ -1440,7 +1464,8 @@ dump_db(int argc, char **argv)
         goto error;
     }
 
-    if (dump->dump_policy != NULL) {
+    /* Don't dump policies if specific principal entries were requested. */
+    if (dump->dump_policy != NULL && args.nnames == 0) {
         ret = krb5_db_iter_policy(util_context, "*", dump->dump_policy, &args);
         if (ret) {
             com_err(progname, ret, _("performing %s dump"), dump->name);
@@ -1481,7 +1506,7 @@ restore_dump(krb5_context context, char *dumpfile, FILE *f,
 }
 
 /*
- * Usage: load_db [-ov] [-b7] [-r13] [-verbose] [-update] [-hash]
+ * Usage: load_db [-ov] [-b7] [-r13] [-r18] [-verbose] [-update] [-hash]
  *                filename
  */
 void
@@ -1636,7 +1661,7 @@ load_db(int argc, char **argv)
     if (log_ctx != NULL && log_ctx->iproprole && !update) {
         /* Don't record updates we are making to the temporary DB.  We will
          * reinitialize or update the ulog header after promoting it. */
-        log_ctx->iproprole = IPROP_SLAVE;
+        log_ctx->iproprole = IPROP_REPLICA;
         if (iprop_load) {
             /* Parse the iprop header information. */
             if (!parse_iprop_header(buf, &load, &last))

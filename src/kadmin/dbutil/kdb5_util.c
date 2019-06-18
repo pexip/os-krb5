@@ -77,10 +77,11 @@ kadm5_config_params global_params;
 void usage()
 {
     fprintf(stderr,
-            _("Usage: kdb5_util [-x db_args]* [-r realm] [-d dbname] "
-              "[-k mkeytype] [-M mkeyname]\n"
-              "\t        [-kv mkeyVNO] [-sf stashfilename] [-m] cmd "
-              "[cmd_options]\n"
+            _("Usage: kdb5_util [-r realm] [-d dbname] "
+              "[-k mkeytype] [-kv mkeyVNO]\n"
+              "\t        [-M mkeyname] [-m] [-sf stashfilename] "
+              "[-P password]\n"
+              "\t        [-x db_args]* cmd [cmd_options]\n"
               "\tcreate  [-s]\n"
               "\tdestroy [-f]\n"
               "\tstash   [-f keyfile]\n"
@@ -357,44 +358,6 @@ int main(argc, argv)
     free(cmd_argv);
     return exit_status;
 }
-
-#if 0
-/*
- * This function is no longer used in kdb5_util (and it would no
- * longer work, anyway).
- */
-void set_dbname(argc, argv)
-    int argc;
-    char *argv[];
-{
-    krb5_error_code retval;
-
-    if (argc < 3) {
-        com_err(argv[0], 0, _("Too few arguments"));
-        com_err(progname, 0, _("Usage: %s dbpathname realmname"), argv[0]);
-        exit_status++;
-        return;
-    }
-    if (dbactive) {
-        if ((retval = krb5_db_fini(util_context)) && retval!= KRB5_KDB_DBNOTINITED) {
-            com_err(progname, retval, _("while closing previous database"));
-            exit_status++;
-            return;
-        }
-        if (valid_master_key) {
-            krb5_free_keyblock_contents(util_context, &master_keyblock);
-            master_keyblock.contents = NULL;
-            valid_master_key = 0;
-        }
-        krb5_free_principal(util_context, master_princ);
-        free(mkey_fullname);
-        dbactive = FALSE;
-    }
-
-    (void) set_dbname_help(progname, argv[1]);
-    return;
-}
-#endif
 
 /*
  * open_db_and_mkey: Opens the KDC and policy database, and sets the

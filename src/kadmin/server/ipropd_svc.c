@@ -16,7 +16,6 @@
 #include <kadm5/admin.h>
 #include <kadm5/kadm_rpc.h>
 #include <kadm5/server_internal.h>
-#include <server_acl.h>
 #include <adm_proto.h>
 #include <string.h>
 #include <gssapi_krb5.h>
@@ -25,6 +24,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <kdb_log.h>
+#include "auth.h"
 #include "misc.h"
 #include "osconf.h"
 
@@ -129,6 +129,20 @@ buf_to_string(gss_buffer_desc *b)
     return s;
 }
 
+static krb5_boolean
+iprop_acl_check(krb5_context context, const char *client_name)
+{
+    krb5_principal client_princ;
+    krb5_boolean result;
+
+    if (krb5_parse_name(context, client_name, &client_princ) != 0)
+	return FALSE;
+    result = auth(context, OP_IPROP, client_princ,
+		  NULL, NULL, NULL, NULL, NULL, 0);
+    krb5_free_principal(context, client_princ);
+    return result;
+}
+
 kdb_incr_result_t *
 iprop_get_updates_1_svc(kdb_last_t *arg, struct svc_req *rqstp)
 {
@@ -174,11 +188,7 @@ iprop_get_updates_1_svc(kdb_last_t *arg, struct svc_req *rqstp)
     DPRINT("%s: clprinc=`%s'\n\tsvcprinc=`%s'\n", whoami, client_name,
 	   service_name);
 
-    if (!kadm5int_acl_check(handle->context,
-			    rqst2name(rqstp),
-			    ACL_IPROP,
-			    NULL,
-			    NULL)) {
+    if (!iprop_acl_check(handle->context, client_name)) {
 	ret.ret = UPDATE_PERM_DENIED;
 
 	DPRINT("%s: PERMISSION DENIED: clprinc=`%s'\n\tsvcprinc=`%s'\n",
@@ -301,11 +311,7 @@ ipropx_resync(uint32_t vers, struct svc_req *rqstp)
     DPRINT("%s: clprinc=`%s'\n\tsvcprinc=`%s'\n",
 	    whoami, client_name, service_name);
 
-    if (!kadm5int_acl_check(handle->context,
-			    rqst2name(rqstp),
-			    ACL_IPROP,
-			    NULL,
-			    NULL)) {
+    if (!iprop_acl_check(handle->context, client_name)) {
 	ret.ret = UPDATE_PERM_DENIED;
 
 	DPRINT("%s: Permission denied\n", whoami);
@@ -332,8 +338,8 @@ ipropx_resync(uint32_t vers, struct svc_req *rqstp)
      * dump already exists or that dump is not in ipropx format, or the
      * sno and timestamp in the header of that dump are outside the
      * ulog.  This allows us to share a single global dump with all
-     * slaves, since it's OK to share an older dump, as long as its sno
-     * and timestamp are in the ulog (then the slaves can get the
+     * replicas, since it's OK to share an older dump, as long as its
+     * sno and timestamp are in the ulog (then the replicas can get the
      * subsequent updates very iprop).
      */
     if (asprintf(&ubuf, "%s -r %s dump -i%d -c %s", kdb5_util,
@@ -345,9 +351,9 @@ ipropx_resync(uint32_t vers, struct svc_req *rqstp)
     }
 
     /*
-     * Fork to dump the db and xfer it to the slave.
+     * Fork to dump the db and xfer it to the replica.
      * (the fork allows parent to return quickly and the child
-     * acts like a callback to the slave).
+     * acts like a callback to the replica).
      */
     fret = fork();
     DPRINT("%s: fork=%d (%d)\n", whoami, fret, getpid());
@@ -412,7 +418,7 @@ ipropx_resync(uint32_t vers, struct svc_req *rqstp)
 
     default: /* parent */
 	ret.ret = UPDATE_OK;
-	/* not used by slave (sno is retrieved from kdb5_util dump) */
+	/* not used by replica (sno is retrieved from kdb5_util dump) */
 	ret.lastentry.last_sno = 0;
 	ret.lastentry.last_time.seconds = 0;
 	ret.lastentry.last_time.useconds = 0;
@@ -527,14 +533,14 @@ fail_name:
 
 void
 krb5_iprop_prog_1(struct svc_req *rqstp,
-		  register SVCXPRT *transp)
+		  SVCXPRT *transp)
 {
     union {
 	kdb_last_t iprop_get_updates_1_arg;
     } argument;
-    char *result;
+    void *result;
     bool_t (*_xdr_argument)(), (*_xdr_result)();
-    char *(*local)(/* union XXX *, struct svc_req * */);
+    void *(*local)(/* union XXX *, struct svc_req * */);
     char *whoami = "krb5_iprop_prog_1";
 
     if (!check_iprop_rpcsec_auth(rqstp)) {
@@ -555,19 +561,19 @@ krb5_iprop_prog_1(struct svc_req *rqstp,
     case IPROP_GET_UPDATES:
 	_xdr_argument = xdr_kdb_last_t;
 	_xdr_result = xdr_kdb_incr_result_t;
-	local = (char *(*)()) iprop_get_updates_1_svc;
+	local = (void *(*)()) iprop_get_updates_1_svc;
 	break;
 
     case IPROP_FULL_RESYNC:
 	_xdr_argument = xdr_void;
 	_xdr_result = xdr_kdb_fullresync_result_t;
-	local = (char *(*)()) iprop_full_resync_1_svc;
+	local = (void *(*)()) iprop_full_resync_1_svc;
 	break;
 
     case IPROP_FULL_RESYNC_EXT:
 	_xdr_argument = xdr_u_int32;
 	_xdr_result = xdr_kdb_fullresync_result_t;
-	local = (char *(*)()) iprop_full_resync_ext_1_svc;
+	local = (void *(*)()) iprop_full_resync_ext_1_svc;
 	break;
 
     default:
@@ -615,32 +621,3 @@ krb5_iprop_prog_1(struct svc_req *rqstp,
     }
 
 }
-
-#if 0
-/*
- * Get the host base service name for the kiprop principal. Returns
- * KADM5_OK on success. Caller must free the storage allocated for
- * host_service_name.
- */
-kadm5_ret_t
-kiprop_get_adm_host_srv_name(krb5_context context,
-			     const char *realm,
-			     char **host_service_name)
-{
-    kadm5_ret_t ret;
-    char *name;
-    char *host;
-
-    if (ret = kadm5_get_master(context, realm, &host))
-	return (ret);
-
-    if (asprintf(&name, "%s@%s", KIPROP_SVC_NAME, host) < 0) {
-	free(host);
-	return (ENOMEM);
-    }
-    free(host);
-    *host_service_name = name;
-
-    return (KADM5_OK);
-}
-#endif

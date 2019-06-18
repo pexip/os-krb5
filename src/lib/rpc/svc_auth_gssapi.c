@@ -154,8 +154,8 @@ badauth(OM_uint32 maj, OM_uint32 minor, SVCXPRT *xprt)
 }
 
 enum auth_stat gssrpc__svcauth_gssapi(
-     register struct svc_req *rqst,
-     register struct rpc_msg *msg,
+     struct svc_req *rqst,
+     struct rpc_msg *msg,
      bool_t *no_dispatch)
 {
      XDR xdrs;
@@ -869,10 +869,6 @@ done:
      L_PRINTF(2, ("destroy_client: client %d destroyed\n", client_data->key));
 
      free(client_data);
-
-#if 0 /*ifdef PURIFY*/
-     purify_watch_n(client_data, sizeof(*client_data), "rw");
-#endif
 }
 
 static void dump_db(char *msg)

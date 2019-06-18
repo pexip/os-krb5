@@ -211,7 +211,7 @@ warn_pw_expiry(krb5_context context, krb5_get_init_creds_opt *options,
     if (ret != 0)
         return;
     if (!is_last_req &&
-        (pw_exp < now || (pw_exp - now) > 7 * 24 * 60 * 60))
+        (ts_after(now, pw_exp) || ts_delta(pw_exp, now) > 7 * 24 * 60 * 60))
         return;
 
     if (!prompter)
@@ -221,7 +221,7 @@ warn_pw_expiry(krb5_context context, krb5_get_init_creds_opt *options,
     if (ret != 0)
         return;
 
-    delta = pw_exp - now;
+    delta = ts_delta(pw_exp, now);
     if (delta < 3600) {
         snprintf(banner, sizeof(banner),
                  _("Warning: Your password will expire in less than one hour "
@@ -350,7 +350,7 @@ krb5_get_init_creds_password(krb5_context context,
         if (ret == 0)
             goto cleanup;
 
-        /* If the master is unreachable, return the error from the slave we
+        /* If the master is unreachable, return the error from the replica we
          * were able to contact and reset the use_master flag. */
         if (ret == KRB5_KDC_UNREACH || ret == KRB5_REALM_CANT_RESOLVE ||
             ret == KRB5_REALM_UNKNOWN) {

@@ -52,6 +52,7 @@
 /* Test a DES implementation against known inputs & outputs. */
 
 #include "des_int.h"
+#include <ctype.h>
 #include <stdio.h>
 
 void convert (char *, unsigned char []);
@@ -66,9 +67,6 @@ main(argc, argv)
     char *argv[];
 {
     char block1[17], block2[17], block3[17];
-#if 0
-    mit_des_cblock key, input, output, output2;
-#else
     /* Force tests of unaligned accesses.  */
     union { unsigned char c[8*4+3]; long l; } u;
     unsigned char *ioblocks = u.c;
@@ -76,7 +74,6 @@ main(argc, argv)
     unsigned char *output = ioblocks+10;
     unsigned char *output2 = ioblocks+19;
     unsigned char *key = ioblocks+27;
-#endif
     mit_des_key_schedule sched;
     int num = 0;
     int retval;
@@ -158,9 +155,9 @@ convert(text, cblock)
     char *text;
     unsigned char cblock[];
 {
-    register int i;
+    int i;
     for (i = 0; i < 8; i++) {
-        if (text[i*2] < 0 || text[i*2] >= 128)
+        if (!isascii((unsigned char)text[i * 2]))
             abort ();
         if (value[(int) text[i*2]] == -1 || value[(int) text[i*2+1]] == -1) {
             printf("Bad value byte %d in %s\n", i, text);
@@ -188,7 +185,7 @@ des_cblock_print_file(x, fp)
     FILE *fp;
 {
     unsigned char *y = (unsigned char *) x;
-    register int i = 0;
+    int i = 0;
     fprintf(fp," 0x { ");
 
     while (i++ < 8) {
@@ -211,7 +208,7 @@ des_cblock_print_file(x, fp)
  */
 int
 mit_des_check_key_parity(key)
-    register mit_des_cblock key;
+    mit_des_cblock key;
 {
     unsigned int i;
 
@@ -230,7 +227,7 @@ mit_des_check_key_parity(key)
 
 void
 mit_des_fixup_key_parity(key)
-    register mit_des_cblock key;
+    mit_des_cblock key;
 {
     unsigned int i;
     for (i=0; i<sizeof(mit_des_cblock); i++)

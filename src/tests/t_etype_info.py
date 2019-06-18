@@ -1,4 +1,3 @@
-#!/usr/bin/python
 from k5test import *
 
 supported_enctypes = 'aes128-cts des3-cbc-sha1 rc4-hmac des-cbc-crc:afs3'
@@ -16,6 +15,7 @@ realm.run([kadminl, 'addprinc', '-nokey', '+requires_preauth', 'nokeyuser'])
 # Run the test harness for the given principal and request enctype
 # list.  Compare the output to the expected lines, ignoring order.
 def test_etinfo(princ, enctypes, expected_lines):
+    mark('etinfo test: %s %s' % (princ.partition('@')[0], enctypes))
     lines = realm.run(['./etinfo', princ, enctypes]).splitlines()
     if sorted(lines) != sorted(expected_lines):
         fail('Unexpected output for princ %s, etypes %s' % (princ, enctypes))
@@ -75,6 +75,7 @@ test_etinfo('nokeyuser', 'des3', [])
 
 # Verify that etype-info2 is included in a MORE_PREAUTH_DATA_REQUIRED
 # error if the client does optimistic preauth.
+mark('MORE_PREAUTH_DATA_REQUIRED test')
 realm.stop()
 testpreauth = os.path.join(buildtop, 'plugins', 'preauth', 'test', 'test.so')
 conf = {'plugins': {'kdcpreauth': {'module': 'test:' + testpreauth},
