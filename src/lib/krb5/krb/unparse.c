@@ -122,13 +122,6 @@ copy_component_quoting(char *dest, const krb5_data *src, int flags)
             *q++ = '\\';
             *q++ = 'b';
             break;
-#if 0
-            /* Heimdal escapes spaces in principal names upon unparsing */
-        case ' ':
-            *q++ = '\\';
-            *q++ = ' ';
-            break;
-#endif
         case '\0':
             *q++ = '\\';
             *q++ = '0';
@@ -225,7 +218,8 @@ cleanup:
 }
 
 krb5_error_code KRB5_CALLCONV
-krb5_unparse_name(krb5_context context, krb5_const_principal principal, register char **name)
+krb5_unparse_name(krb5_context context, krb5_const_principal principal,
+                  char **name)
 {
     if (name != NULL)                      /* name == NULL will return error from _ext */
         *name = NULL;

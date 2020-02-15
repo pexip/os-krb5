@@ -31,6 +31,7 @@
 #include "kdc_util.h"
 #include "kdc_audit.h"
 #include "extern.h"
+#include "policy.h"
 #include "kdc5_err.h"
 #include "kdb_kt.h"
 #include "net-server.h"
@@ -51,8 +52,6 @@ extern int daemon(int, int);
 #endif
 
 static void usage (char *);
-
-static krb5_error_code setup_sam (void);
 
 static void initialize_realms(krb5_context kcontext, int argc, char **argv,
                               int *tcp_listen_backlog_out);
@@ -128,14 +127,16 @@ setup_server_realm(struct server_handle *handle, krb5_principal sprinc)
         return NULL;
 
     if (kdc_numrealms > 1) {
-        if (!(newrealm = find_realm_data(handle, sprinc->realm.data,
-                                         (krb5_ui_4) sprinc->realm.length)))
-            return NULL;
-        else
-            return newrealm;
+        newrealm = find_realm_data(handle, sprinc->realm.data,
+                                   sprinc->realm.length);
+    } else {
+        newrealm = kdc_realmlist[0];
     }
-    else
-        return kdc_realmlist[0];
+    if (newrealm != NULL) {
+        krb5_klog_set_context(newrealm->realm_context);
+        shandle.kdc_err_context = newrealm->realm_context;
+    }
+    return newrealm;
 }
 
 static void
@@ -160,11 +161,7 @@ finish_realm(kdc_realm_t *rdp)
     if (rdp->realm_context) {
         if (rdp->realm_mprinc)
             krb5_free_principal(rdp->realm_context, rdp->realm_mprinc);
-        if (rdp->realm_mkey.length && rdp->realm_mkey.contents) {
-            /* XXX shouldn't memset be zap for safety? */
-            memset(rdp->realm_mkey.contents, 0, rdp->realm_mkey.length);
-            free(rdp->realm_mkey.contents);
-        }
+        zapfree(rdp->realm_mkey.contents, rdp->realm_mkey.length);
         krb5_db_fini(rdp->realm_context);
         if (rdp->realm_tgsprinc)
             krb5_free_principal(rdp->realm_context, rdp->realm_tgsprinc);
@@ -589,13 +586,6 @@ create_workers(verto_ctx *ctx, int num)
     exit(0);
 }
 
-static krb5_error_code
-setup_sam(void)
-{
-    krb5_context ctx = shandle.kdc_err_context;
-    return krb5_c_make_random_key(ctx, ENCTYPE_DES_CBC_MD5, &psr_key);
-}
-
 static void
 usage(char *name)
 {
@@ -792,19 +782,15 @@ initialize_realms(krb5_context kcontext, int argc, char **argv,
             pid_file = optarg;
             break;
         case 'p':
-            if (def_udp_listen)
-                free(def_udp_listen);
+            free(def_udp_listen);
+            free(def_tcp_listen);
             def_udp_listen = strdup(optarg);
-            if (!def_udp_listen) {
+            def_tcp_listen = strdup(optarg);
+            if (def_udp_listen == NULL || def_tcp_listen == NULL) {
                 fprintf(stderr, _(" KDC cannot initialize. Not enough "
                                   "memory\n"));
                 exit(1);
             }
-#if 0 /* not yet */
-            if (default_tcp_ports)
-                free(default_tcp_ports);
-            default_tcp_ports = strdup(optarg);
-#endif
             break;
         case 'T':
             time_offset = atoi(optarg);
@@ -986,10 +972,9 @@ int main(int argc, char **argv)
 
     load_preauth_plugins(&shandle, kcontext, ctx);
     load_authdata_plugins(kcontext);
-
-    retval = setup_sam();
+    retval = load_kdcpolicy_plugins(kcontext);
     if (retval) {
-        kdc_err(kcontext, retval, _("while initializing SAM"));
+        kdc_err(kcontext, retval, _("while loading KDC policy plugin"));
         finish_realms();
         return 1;
     }
@@ -1068,6 +1053,7 @@ int main(int argc, char **argv)
     krb5_klog_syslog(LOG_INFO, _("shutting down"));
     unload_preauth_plugins(kcontext);
     unload_authdata_plugins(kcontext);
+    unload_kdcpolicy_plugins(kcontext);
     unload_audit_modules(kcontext);
     krb5_klog_close(kcontext);
     finish_realms();

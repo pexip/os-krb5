@@ -1,4 +1,4 @@
-                   Kerberos Version 5, Release 1.15
+                   Kerberos Version 5, Release 1.17
 
                             Release Notes
                         The MIT Kerberos Team
@@ -6,7 +6,7 @@
 Copyright and Other Notices
 ---------------------------
 
-Copyright (C) 1985-2016 by the Massachusetts Institute of Technology
+Copyright (C) 1985-2019 by the Massachusetts Institute of Technology
 and its contributors.  All rights reserved.
 
 Please see the file named NOTICE for additional notices.
@@ -73,149 +73,185 @@ from using single-DES cryptosystems.  Among these is a configuration
 variable that enables "weak" enctypes, which defaults to "false"
 beginning with krb5-1.8.
 
-Major changes in 1.15 (2016-12-01)
+Major changes in 1.17 (2019-01-08)
 ----------------------------------
 
 Administrator experience:
 
-* Add support to kadmin for remote extraction of current keys without
-  changing them (requires a special kadmin permission that is excluded
-  from the wildcard permission), with the exception of highly
-  protected keys.
+* A new Kerberos database module using the Lightning Memory-Mapped
+  Database library (LMDB) has been added.  The LMDB KDB module should
+  be more performant and more robust than the DB2 module, and may
+  become the default module for new databases in a future release.
 
-* Add a lockdown_keys principal attribute to prevent retrieval of the
-  principal's keys (old or new) via the kadmin protocol.  In newly
-  created databases, this attribute is set on the krbtgt and kadmin
-  principals.
-
-* Restore recursive dump capability for DB2 back end, so sites can
-  more easily recover from database corruption resulting from power
-  failure events.
-
-* Add DNS auto-discovery of KDC and kpasswd servers from URI records,
- in addition to SRV records.  URI records can convey TCP and UDP
- servers and master KDC status in a single DNS lookup, and can also
- point to HTTPS proxy servers.
-
-* Add support for password history to the LDAP back end.
-
-* Add support for principal renaming to the LDAP back end.
-
-* Use the getrandom system call on supported Linux kernels to avoid
-  blocking problems when getting entropy from the operating system.
-
-* In the PKINIT client, use the correct DigestInfo encoding for PKCS
-  #1 signatures, so that some especially strict smart cards will work.
-
-Code quality:
-
-* Clean up numerous compilation warnings.
-
-* Remove various infrequently built modules, including some preauth
-  modules that were not built by default.
+* "kdb5_util dump" will no longer dump policy entries when specific
+  principal names are requested.
 
 Developer experience:
 
-* Add support for building with OpenSSL 1.1.
+* The new krb5_get_etype_info() API can be used to retrieve enctype,
+  salt, and string-to-key parameters from the KDC for a client
+  principal.
 
-* Use SHA-256 instead of MD5 for (non-cryptographic) hashing of
-  authenticators in the replay cache.  This helps sites that must
-  build with FIPS 140 conformant libraries that lack MD5.
+* The new GSS_KRB5_NT_ENTERPRISE_NAME name type allows enterprise
+  principal names to be used with GSS-API functions.
+
+* KDC and kadmind modules which call com_err() will now write to the
+  log file in a format more consistent with other log messages.
+
+* Programs which use large numbers of memory credential caches should
+  perform better.
 
 Protocol evolution:
 
-* Add support for the AES-SHA2 enctypes, which allows sites to conform
-  to Suite B crypto requirements.
+* The SPAKE pre-authentication mechanism is now supported.  This
+  mechanism protects against password dictionary attacks without
+  requiring any additional infrastructure such as certificates.  SPAKE
+  is enabled by default on clients, but must be manually enabled on
+  the KDC for this release.
 
-krb5-1.15 changes by ticket ID
+* PKINIT freshness tokens are now supported.  Freshness tokens can
+  protect against scenarios where an attacker uses temporary access to
+  a smart card to generate authentication requests for the future.
+
+* Password change operations now prefer TCP over UDP, to avoid
+  spurious error messages about replays when a response packet is
+  dropped.
+
+* The KDC now supports cross-realm S4U2Self requests when used with a
+  third-party KDB module such as Samba's.  The client code for
+  cross-realm S4U2Self requests is also now more robust.
+
+User experience:
+
+* The new ktutil addent -f flag can be used to fetch salt information
+  from the KDC for password-based keys.
+
+* The new kdestroy -p option can be used to destroy a credential cache
+  within a collection by client principal name.
+
+* The Kerberos man page has been restored, and documents the
+  environment variables that affect programs using the Kerberos
+  library.
+
+Code quality:
+
+* Python test scripts now use Python 3.
+
+* Python test scripts now display markers in verbose output, making it
+  easier to find where a failure occurred within the scripts.
+
+* The Windows build system has been simplified and updated to work
+  with more recent versions of Visual Studio.  A large volume of
+  unused Windows-specific code has been removed.  Visual Studio 2013
+  or later is now required.
+
+krb5-1.17 changes by ticket ID
 ------------------------------
 
-5889    password history doesn't work with LDAP KDB
-6666    some non-default plugin directories don't build in 1.8 branch
-7852    kadmin.local's ktadd -norandkey does not handle multiple kvnos
-        in the KDB
-7985    Add krb5_get_init_creds_opt_set_pac_request
-8065    Renaming principals with LDAP KDB deletes the principal
-8277    iprop can choose wrong realm
-8278    Add krb5_expand_hostname() API
-8280    Fix impersonate_name to work with interposers
-8295    kdb5_ldap_stash_service_password() stash file logic needs tweaking
-8297    jsonwalker.py test fails
-8298    Audit Test fails when system has IPV6 address
-8299    Remove util/reconf
-8329    Only run export-check.pl in maintainer mode
-8344    Create KDC and kadmind log files with mode 0640
-8345    Remove nss libk5crypto implementation
-8348    Remove workaround when binding to udp addresses and pktinfo
-        isn't supported by the system
-8353    Replace MD5 use in rcache with SHA-256
-8354    Only store latest keys in key history entry
-8355    Add kadm5_setkey_principal_4 RPC to kadmin
-8364    Add get_principal_keys RPC to kadmin
-8365    Add the ability to lock down principal keys
-8366    Increase initial DNS buffer size
-8368    Remove hdb KDB module
-8371    Improve libkadm5 client RPC thread safety
-8372    Use cached S4U2Proxy tickets in GSSAPI
-8374    Interoperate with incomplete SPNEGO responses
-8375    Allow zero cksumtype in krb5_k_verify_checksum()
-8379    Add auth indicator handling to libkdb_ldap
-8381    Don't fall back to master on password read error
-8386    Add KDC pre-send and post-receive KDC hooks
-8388    Remove port 750 from the KDC default ports
-8389    Make profile includedir accept all *.conf files
-8391    Add kinit long option support for all platforms
-8393    Password Expiration "Never" Inconsistently Applied
-8394    Add debug message filtering to krb5_klog_syslog
-8396    Skip password prompt when running ksu as root
-8398    Add libk5crypto support for OpenSSL 1.1.0
-8399    Unconstify some krb5 GSS OIDs
-8403    kinit documentation page
-8404    Remove non-DFSG documentation
-8405    Work around python-ldap bug in kerberos.ldif
-8412    Link correct VS2015 C libraries for debug builds
-8414    Use library malloc for principal, policy entries
-8418    Add libkdb function to specialize principal's salt
-8419    Do not indicate deprecated GSS mechanisms
-8423    Add SPNEGO special case for NTLMSSP+MechListMIC
-8425    Add auth-indicator authdata module
-8426    test_check_allowed_to_delegate() should free unparsed princ output
-8428    Minimize timing leaks in PKINIT decryption
-8429    Fix Makefile for paths containing '+' character
-8434    Fix memory leak in old gssrpc authentication
-8436    Update libev sources to 4.22
-8446    Fix leak in key change operations
-8451    Add hints for -A flag to kdestroy
-8456    Add the kprop-port option to kadmind
-8462    Better handle failures to resolve client keytab
-8464    Set prompt type for OTP preauth prompt
-8465    Improve bad password inference in kinit
-8466    Rename k5-queue.h macros
-8471    Change KDC error for encrypted timestamp preauth
-8476    Restore recursive dump functionality
-8478    usability improvements for bttest
-8488    Stop generating doc/CHANGES
-8490    Add aes-sha2 enctype support
-8494    Add krb5_db_register_keytab()
-8496    Add KDC discovery from URI records
-8498    Potential memory leak in prepare_error_as()
-8499    Use getrandom system call on recent Linux kernels
-8500    Document krb5_kt_next_entry() requirement
-8502    ret_boolean in profile_get_boolean() should be krb5_boolean *
-        instead of int *
-8504    Properly handle EOF condition on libkrad sockets
-8506    PKINIT fails with PKCS#11 middlware that implements PKCS#1 V2.1
-8507    Suggest unlocked iteration for mkey rollover
-8508    Clarify krb5_kt_resolve() API documentation
-8509    Leak in krb5_cccol_have_content with truncated ccache
-8510    Update features list for 1.15
-8512    Fix detection of libaceclnt for securid_sam2
-8513    Add doxygen comments for RFC 8009, RFC 4757
-8514    Make zap() more reliable
-8516    Fix declaration without type in t_shs3.c
-8520    Relicense ccapi/common/win/OldCC/autolock.hxx
-8521    Allow slapd path configuration in t_kdb.py
-
+7905    Password changes can result in replay error
+8202    memory ccache cursors are invalidated by initialize
+8270    No logging when a non-root ksu with command fails authorization
+8587    ktutil addent should be able to fetch etype-info2 for principal
+8629    etype-info not included in hint list for REQUIRES_HW_AUTH principals
+8630    Logging from KDC/kadmind plugin modules
+8634    Trace log on k5tls load failure
+8635    Fix a few German translation prepositions
+8636    PKINIT certid option cannot handle leading zero
+8641    Make public headers work with gcc -Wundef
+8642    etype-info conflated for initial, final reply key enctype
+8647    Add SPAKE preauth support
+8648    Implement PKINIT freshness tokens
+8650    Exit with status 0 from kadmind
+8651    profile library may try to reread from special device files
+8652    Report extended errors in kinit -k -t KDB:
+8653    Include preauth name in trace output if possible
+8654    Prevent fallback from SPAKE to encrypted timestamp
+8655    Need per-realm client configuration to deny encrypted timestamp
+8657    SPAKE support for Windows build
+8659    SPAKE client asks for password before checking second-factor support
+8661    ksu segfaults when argc == 0
+8662    Windows README does not document MFC requirement
+8663    TLS is not free on library unload
+8664    Avoid simultaneous KDB/ulog locks in ulog_replay
+8665    Display more extended errors in kdb5_util
+8673    Improve error for kadmind -proponly without iprop
+8674    Add LMDB KDB module
+8677    Escape curly braces in def-check.pl regexes
+8678    Don't specify MFC library in Leash build
+8679    Fix Leash build error with recent Visual Studio
+8680    Update kfw installer for VS2017, WiX 3.11.1
+8682    Stop building CNS for Windows
+8684    Fix option parsing on Windows
+8685    Make plugin auto-registration work on Windows
+8686    Process profile includedir in sorted order
+8687    Repeated lookups of local computer name on Windows
+8689    t_path.c build failure with NDEBUG
+8690    Fix Windows strerror_r() implementation
+8691    Use pkg.m4 macros
+8692    Make docs build python3-compatible
+8693    Resource leak in domain_fallback_realm()
+8694    Add documentation on dictionary attacks
+8695    Resource leak in krb5_524_conv_principal()
+8696    Resource leak in krb5_425_conv_principal()
+8697    Resource leak in krb5_gss_inquire_cred()
+8698    Resource leak in aname_replacer()
+8699    Resource leak in k5_os_hostaddr()
+8700    Resource leak in krb5int_get_fq_local_hostname()
+8702    Resource leak in kdb5_purge_mkeys()
+8703    Resource leak in RPC UDP cache code
+8704    Resource leak in read_secret_file()
+8707    Resource leak in ulog_map()
+8708    Incorrect error handling in OTP plugin
+8709    Explicitly look for python2 in configure.in
+8710    Convert Python tests to Python 3
+8711    Use SHA-256 instead of MD5 for audit ticket IDs
+8713    Zap copy of secret in RC4 string-to-key
+8715    Make krb5kdc -p affect TCP ports
+8716    Remove outdated note in krb5kdc man page
+8718    krb5_get_credentials incorrectly matches user to user ticket
+8719    Extend gss-sample timeout from 10s to 300s
+8720    Don't include all MEMORY ccaches in collection
+8721    Don't tag S4U2Proxy result creds as user-to-user
+8722    Use a hash table for MEMORY ccache resolution
+8723    Use PTHREAD_CFLAGS when testing for getpwnam_r()
+8724    Add kdestroy -p option
+8725    Update many documentation links to https
+8726    Null deref on some invalid PKINIT identities
+8727    Check strdup return in kadm5_get_config_params()
+8728    doc: kswitch manual "see also" subsection typo
+8729    Memory leak in gss_add_cred() creation case
+8730    Add kvno option for user-to-user
+8731    Document that DESTDIR must be an absolute path
+8732    Fix name of .pdb file in ccapi/test/Makefile.in
+8733    Multiple pkinit_identities semantics are unclear and perhaps not useful
+8734    gss_add_cred() aliases memory when creating extended cred
+8736    Check mech cred in gss_inquire_cred_by_mech()
+8737    gss_add_cred() ignores desired_name if creating a new credential
+8738    Use the term "replica KDC" in source and docs
+8741    S4U2Self client code fails with no default realm
+8742    Use "replica" in iprop settings
+8743    Fix incorrect TRACE usages to use {str}
+8744    KDC/kadmind may not follow master key change before purge_mkeys
+8745    libss without readline can interfere with reading passwords
+8746    Fix 64-bit Windows socket write error handling
+8747    Allow referrals for cross-realm S4U2Self requests
+8748    Add more constraints to S4U2Self processing
+8749    Add PAC APIs which can include a client realm
+8750    Resource leak in ktutil_add()
+8751    Fix up kdb5_util documentation
+8752    Don't dump policies if principals are specified
+8753    Prevent SIGPIPE from socket writes on UNIX-likes
+8754    Correct kpasswd_server description in krb5.conf(5)
+8755    Bring back general kerberos man page
+8756    Add GSS_KRB5_NT_ENTERPRISE_NAME name type
+8757    Start S4U2Self realm lookup at server realm
+8759    Resource leak in kadm5_randkey_principal_3()
+8760    Retry KCM writes once on remote hangup
+8762    Fix spelling of auth_to_local example
+8763    Ignore password attributes for S4U2Self requests
+8767    Remove incorrect KDC assertion
+8768    Fix double-close in ksu get_authorized_princ_names
+8769    Fix build issues with Solaris native compiler
 
 Acknowledgements
 ----------------
@@ -306,7 +342,7 @@ Past and present members of the Kerberos Team at MIT:
     Zhanna Tsitkova
     Ted Ts'o
     Marshall Vale
-    Tom Yu
+    Taylor Yu
 
 The following external contributors have provided code, patches, bug
 reports, suggestions, and valuable resources:
@@ -316,6 +352,7 @@ reports, suggestions, and valuable resources:
     Russell Allbery
     Brian Almeida
     Michael B Allen
+    Pooja Anil
     Heinz-Ado Arnolds
     Derek Atkins
     Mark Bannister
@@ -329,10 +366,13 @@ reports, suggestions, and valuable resources:
     Radoslav Bodo
     Sumit Bose
     Emmanuel Bouillon
+    Isaac Boukris
     Philip Brown
+    Samuel Cabrero
     Michael Calmer
     Andrea Campi
     Julien Chaffraix
+    Puran Chand
     Ravi Channavajhala
     Srinivas Cheruku
     Leonardo Chiquitto
@@ -353,7 +393,9 @@ reports, suggestions, and valuable resources:
     Mark Deneen
     Günther Deschner
     John Devitofranceschi
+    Marc Dionne
     Roland Dowdeswell
+    Dorian Ducournau
     Viktor Dukhovni
     Jason Edgecombe
     Mark Eichin
@@ -367,19 +409,24 @@ reports, suggestions, and valuable resources:
     JC Ferguson
     Remi Ferrand
     Paul Fertser
+    Fabiano Fidêncio
     William Fiveash
     Jacques Florent
     Ákos Frohner
     Sebastian Galiano
     Marcus Granado
+    Dylan Gray
     Scott Grizzard
     Helmut Grohne
     Steve Grubb
     Philip Guenther
+    Timo Gurr
     Dominic Hargreaves
     Robbie Harwood
+    John Hascall
     Jakob Haufe
     Matthieu Hautreux
+    Jochen Hein
     Paul B. Henson
     Jeff Hodges
     Christopher Hogan
@@ -390,6 +437,7 @@ reports, suggestions, and valuable resources:
     Jakub Hrozek
     Shumon Huque
     Jeffrey Hutzelman
+    Sergey Ilinykh
     Wyllys Ingersoll
     Holger Isenberg
     Spencer Jackson
@@ -397,22 +445,33 @@ reports, suggestions, and valuable resources:
     Pavel Jindra
     Brian Johannesmeyer
     Joel Johnson
+    Alexander Karaivanov
     Anders Kaseorg
+    Bar Katz
+    Zentaro Kavanagh
+    Mubashir Kazia
     W. Trevor King
     Patrik Kis
+    Martin Kittel
+    Matthew Krupcale
     Mikkel Kruse
     Reinhard Kugler
     Tomas Kuthan
     Pierre Labastie
+    Chris Leick
     Volker Lendecke
     Jan iankko Lieskovsky
     Todd Lipcon
     Oliver Loch
+    Chris Long
     Kevin Longfellow
+    Frank Lonigro
     Jon Looney
     Nuno Lopes
+    Todd Lubin
     Ryan Lynch
     Roland Mainz
+    Sorin Manolache
     Andrei Maslennikov
     Michael Mattioli
     Nathaniel McCallum
@@ -435,24 +494,32 @@ reports, suggestions, and valuable resources:
     Javier Palacios
     Tom Parker
     Ezra Peisach
+    Alejandro Perez
     Zoran Pericic
     W. Michael Petullo
     Mark Phalan
+    Sharwan Ram
     Brett Randall
     Jonathan Reams
     Jonathan Reed
     Robert Relyea
+    Tony Reix
     Martin Rex
+    Pat Riehecky
     Jason Rogers
     Matt Rogers
     Nate Rosenblum
     Solly Ross
     Mike Roszkowski
     Guillaume Rousse
+    Joshua Schaeffer
     Andreas Schneider
+    Paul Seyfert
     Tom Shaw
     Jim Shi
     Peter Shoults
+    Richard Silverman
+    Cel Skeggs
     Simo Sorce
     Michael Spang
     Michael Ströder
@@ -467,6 +534,7 @@ reports, suggestions, and valuable resources:
     John Washington
     Stef Walter
     Xi Wang
+    Nehal J Wani
     Kevin Wasserman
     Margaret Wasserman
     Marcus Watts
@@ -481,6 +549,7 @@ reports, suggestions, and valuable resources:
     Neng Xue
     Zhaomo Yang
     Nickolai Zeldovich
+    Bean Zhang
     Hanz van Zijst
     Gertjan Zwartjes
 

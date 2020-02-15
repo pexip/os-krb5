@@ -58,6 +58,8 @@ ec_process(krb5_context context, krb5_clpreauth_moddata moddata,
     krb5_keyblock *challenge_key = NULL, *armor_key, *as_key;
 
     armor_key = cb->fast_armor(context, rock);
+    if (armor_key == NULL)
+        return ENOENT;
     retval = cb->get_as_key(context, rock, &as_key);
     if (retval == 0 && padata->length) {
         krb5_enc_data *enc = NULL;
@@ -136,6 +138,7 @@ ec_process(krb5_context context, krb5_clpreauth_moddata moddata,
             encoded_ts->data = NULL;
             *out_padata = pa;
             pa = NULL;
+            cb->disable_fallback(context, rock);
         }
         free(pa);
         krb5_free_data(context, encoded_ts);

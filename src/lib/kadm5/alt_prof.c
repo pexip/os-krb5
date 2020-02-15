@@ -526,8 +526,11 @@ krb5_error_code kadm5_get_config_params(krb5_context context,
 
     if (params_in->mask & KADM5_CONFIG_REALM) {
         lrealm = params.realm = strdup(params_in->realm);
-        if (params.realm != NULL)
-            params.mask |= KADM5_CONFIG_REALM;
+        if (params.realm == NULL) {
+            ret = ENOMEM;
+            goto cleanup;
+        }
+        params.mask |= KADM5_CONFIG_REALM;
     } else {
         ret = krb5_get_default_realm(context, &lrealm);
         if (ret)
@@ -730,6 +733,10 @@ krb5_error_code kadm5_get_config_params(krb5_context context,
             krb5_aprof_get_string(aprofile, hierarchy, TRUE, &svalue);
         if (svalue == NULL)
             svalue = strdup(KRB5_DEFAULT_SUPPORTED_ENCTYPES);
+        if (svalue == NULL) {
+            ret = ENOMEM;
+            goto cleanup;
+        }
 
         params.keysalts = NULL;
         params.num_keysalts = 0;
@@ -797,7 +804,11 @@ krb5_error_code kadm5_get_config_params(krb5_context context,
     }
 
     GET_DELTAT_PARAM(iprop_poll_time, KADM5_CONFIG_POLL_TIME,
-                     KRB5_CONF_IPROP_SLAVE_POLL, 2 * 60); /* 2m */
+                     KRB5_CONF_IPROP_REPLICA_POLL, -1);
+    if (params.iprop_poll_time == -1) {
+        GET_DELTAT_PARAM(iprop_poll_time, KADM5_CONFIG_POLL_TIME,
+                         KRB5_CONF_IPROP_SLAVE_POLL, 2 * 60);
+    }
 
     *params_out = params;
 

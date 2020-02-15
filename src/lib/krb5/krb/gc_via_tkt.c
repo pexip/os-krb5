@@ -34,7 +34,8 @@
 #include "fast.h"
 
 static krb5_error_code
-kdcrep2creds(krb5_context context, krb5_kdc_rep *pkdcrep, krb5_address *const *address,
+kdcrep2creds(krb5_context context, krb5_kdc_rep *pkdcrep,
+             krb5_address *const *address, krb5_boolean is_skey,
              krb5_data *psectkt, krb5_creds **ppcreds)
 {
     krb5_error_code retval;
@@ -69,7 +70,7 @@ kdcrep2creds(krb5_context context, krb5_kdc_rep *pkdcrep, krb5_address *const *a
     (*ppcreds)->magic = KV5M_CREDS;
 
     (*ppcreds)->authdata = NULL;                        /* not used */
-    (*ppcreds)->is_skey = psectkt->length != 0;
+    (*ppcreds)->is_skey = is_skey;
 
     if (pkdcrep->enc_part2->caddrs) {
         if ((retval = krb5_copy_addresses(context, pkdcrep->enc_part2->caddrs,
@@ -131,17 +132,6 @@ check_reply_server(krb5_context context, krb5_flags kdcoptions,
         /* Canonicalization not requested, and not a TGS referral. */
         return KRB5_KDCREP_MODIFIED;
     }
-#if 0
-    /*
-     * Is this check needed?  find_nxt_kdc() in gc_frm_kdc.c already
-     * effectively checks this.
-     */
-    if (krb5_realm_compare(context, in_cred->client, in_cred->server) &&
-        data_eq(*in_cred->server->data[1], *in_cred->client->realm)) {
-        /* Attempted to rewrite local TGS. */
-        return KRB5_KDCREP_MODIFIED;
-    }
-#endif
     return 0;
 }
 
@@ -185,7 +175,7 @@ krb5int_process_tgs_reply(krb5_context context,
     krb5_error_code retval;
     krb5_kdc_rep *dec_rep = NULL;
     krb5_error *err_reply = NULL;
-    krb5_boolean s4u2self;
+    krb5_boolean s4u2self, is_skey;
 
     s4u2self = krb5int_find_pa_data(context, in_padata,
                                     KRB5_PADATA_S4U_X509_USER) ||
@@ -287,26 +277,27 @@ krb5int_process_tgs_reply(krb5_context context,
         retval = KRB5_KDCREP_MODIFIED;
 
     if ((in_cred->times.endtime != 0) &&
-        (dec_rep->enc_part2->times.endtime > in_cred->times.endtime))
+        ts_after(dec_rep->enc_part2->times.endtime, in_cred->times.endtime))
         retval = KRB5_KDCREP_MODIFIED;
 
     if ((kdcoptions & KDC_OPT_RENEWABLE) &&
         (in_cred->times.renew_till != 0) &&
-        (dec_rep->enc_part2->times.renew_till > in_cred->times.renew_till))
+        ts_after(dec_rep->enc_part2->times.renew_till,
+                 in_cred->times.renew_till))
         retval = KRB5_KDCREP_MODIFIED;
 
     if ((kdcoptions & KDC_OPT_RENEWABLE_OK) &&
         (dec_rep->enc_part2->flags & KDC_OPT_RENEWABLE) &&
         (in_cred->times.endtime != 0) &&
-        (dec_rep->enc_part2->times.renew_till > in_cred->times.endtime))
+        ts_after(dec_rep->enc_part2->times.renew_till, in_cred->times.endtime))
         retval = KRB5_KDCREP_MODIFIED;
 
     if (retval != 0)
         goto cleanup;
 
     if (!in_cred->times.starttime &&
-        !in_clock_skew(dec_rep->enc_part2->times.starttime,
-                       timestamp)) {
+        !ts_within(dec_rep->enc_part2->times.starttime, timestamp,
+                   context->clockskew)) {
         retval = KRB5_KDCREP_SKEW;
         goto cleanup;
     }
@@ -320,7 +311,8 @@ krb5int_process_tgs_reply(krb5_context context,
         dec_rep->enc_part2->enc_padata = NULL;
     }
 
-    retval = kdcrep2creds(context, dec_rep, address,
+    is_skey = (kdcoptions & KDC_OPT_ENC_TKT_IN_SKEY);
+    retval = kdcrep2creds(context, dec_rep, address, is_skey,
                           &in_cred->second_ticket, out_cred);
     if (retval != 0)
         goto cleanup;

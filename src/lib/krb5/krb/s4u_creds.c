@@ -63,8 +63,7 @@ s4u_identify_user(krb5_context context,
     krb5_creds creds;
     int use_master = 0;
     krb5_get_init_creds_opt *opts = NULL;
-    krb5_principal_data client_data;
-    krb5_principal client;
+    krb5_principal_data client;
     krb5_s4u_userid userid;
 
     *canon_user = NULL;
@@ -102,22 +101,22 @@ s4u_identify_user(krb5_context context,
     krb5_get_init_creds_opt_set_canonicalize(opts, 1);
     krb5_get_init_creds_opt_set_preauth_list(opts, ptypes, 1);
 
-    if (in_creds->client != NULL)
-        client = in_creds->client;
-    else {
-        client_data.magic = KV5M_PRINCIPAL;
-        client_data.realm = in_creds->server->realm;
+    if (in_creds->client != NULL) {
+        client = *in_creds->client;
+        client.realm = in_creds->server->realm;
+    } else {
+        client.magic = KV5M_PRINCIPAL;
+        client.realm = in_creds->server->realm;
         /* should this be NULL, empty or a fixed string? XXX */
-        client_data.data = NULL;
-        client_data.length = 0;
-        client_data.type = KRB5_NT_ENTERPRISE_PRINCIPAL;
-        client = &client_data;
+        client.data = NULL;
+        client.length = 0;
+        client.type = KRB5_NT_ENTERPRISE_PRINCIPAL;
     }
 
-    code = k5_get_init_creds(context, &creds, client, NULL, NULL, 0, NULL,
+    code = k5_get_init_creds(context, &creds, &client, NULL, NULL, 0, NULL,
                              opts, krb5_get_as_key_noop, &userid, &use_master,
                              NULL);
-    if (code == 0 || code == KRB5_PREAUTH_FAILED) {
+    if (!code || code == KRB5_PREAUTH_FAILED || code == KRB5KDC_ERR_KEY_EXP) {
         *canon_user = userid.user;
         userid.user = NULL;
         code = 0;
@@ -452,7 +451,9 @@ convert_to_enterprise(krb5_context context, krb5_principal princ,
     code = krb5_unparse_name(context, princ, &str);
     if (code != 0)
         return code;
-    code = krb5_parse_name_flags(context, str, KRB5_PRINCIPAL_PARSE_ENTERPRISE,
+    code = krb5_parse_name_flags(context, str,
+                                 KRB5_PRINCIPAL_PARSE_ENTERPRISE |
+                                 KRB5_PRINCIPAL_PARSE_IGNORE_REALM,
                                  eprinc_out);
     krb5_free_unparsed_name(context, str);
     return code;

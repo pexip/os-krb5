@@ -546,7 +546,7 @@ static krb5_error_code
 extract_cammacs(krb5_context kcontext, krb5_authdata **cammacs,
                 const krb5_keyblock *key, krb5_authdata ***ad_out)
 {
-    krb5_error_code ret;
+    krb5_error_code ret = 0;
     krb5_authdata **list = NULL, **elements = NULL, **new_list;
     size_t i, n_elements, count = 0;
 
@@ -1299,7 +1299,7 @@ krb5int_copy_authdatum(krb5_context context,
 void KRB5_CALLCONV
 krb5_free_authdata(krb5_context context, krb5_authdata **val)
 {
-    register krb5_authdata **temp;
+    krb5_authdata **temp;
 
     if (val == NULL)
         return;

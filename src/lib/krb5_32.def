@@ -470,3 +470,20 @@ EXPORTS
 	krb5_get_init_creds_opt_set_pac_request		@435
 	krb5int_trace					@436 ; PRIVATE GSSAPI
 	krb5_expand_hostname				@437
+
+; new in 1.16
+	k5_enctype_to_ssf				@438 ; PRIVATE GSSAPI
+
+; new in 1.17
+	krb5_get_etype_info				@447
+	krb5_pac_sign_ext				@448
+	krb5_pac_verify_ext				@449
+; private symbols used by SPAKE client module
+	profile_get_string				@439 ; PRIVATE
+	profile_release_string				@440 ; PRIVATE
+	k5_sha256					@441 ; PRIVATE
+	krb5_encrypt_helper				@442 ; PRIVATE
+	encode_krb5_spake_factor			@443 ; PRIVATE
+	encode_krb5_pa_spake				@444 ; PRIVATE
+	decode_krb5_pa_spake				@445 ; PRIVATE
+	k5_free_pa_spake				@446 ; PRIVATE

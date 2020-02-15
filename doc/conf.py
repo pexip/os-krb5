@@ -45,12 +45,12 @@ else:
 
 # General information about the project.
 project = u'MIT Kerberos'
-copyright = u'1985-2016, MIT'
+copyright = u'1985-2019, MIT'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
-execfile("version.py")
+exec(open("version.py").read())
 # The short X.Y version.
 r_list = [r_major, r_minor]
 if r_patch:
@@ -238,7 +238,7 @@ if 'mansubs' in tags:
     ckeytab = '``@CKTNAME@``'
 elif 'pathsubs' in tags:
     # Read configured paths from a file produced by the build system.
-    execfile('paths.py')
+    exec(open("paths.py").read())
 else:
     bindir = ':ref:`BINDIR <paths>`'
     sbindir = ':ref:`SBINDIR <paths>`'
@@ -272,7 +272,7 @@ else:
     rst_epilog += '''
 .. |krb5conf| replace:: ``/etc/krb5.conf``
 .. |defkeysalts| replace:: ``aes256-cts-hmac-sha1-96:normal aes128-cts-hmac-sha1-96:normal des3-cbc-sha1:normal arcfour-hmac-md5:normal``
-.. |defetypes| replace:: ``aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4``
+.. |defetypes| replace:: ``aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 aes256-cts-hmac-sha384-192 aes128-cts-hmac-sha256-128 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4``
 .. |defmkey| replace:: ``aes256-cts-hmac-sha1-96``
 .. |copy| unicode:: U+000A9
 '''
@@ -292,11 +292,12 @@ man_pages = [
     ('user/user_commands/krb5-config', 'krb5-config', u'tool for linking against MIT Kerberos libraries', [u'MIT'], 1),
     ('user/user_config/k5login', 'k5login', u'Kerberos V5 acl file for host access', [u'MIT'], 5),
     ('user/user_config/k5identity', 'k5identity', u'Kerberos V5 client principal selection rules', [u'MIT'], 5),
+    ('user/user_config/kerberos', 'kerberos', u'Overview of using Kerberos', [u'MIT'], 7),
     ('admin/admin_commands/krb5kdc', 'krb5kdc', u'Kerberos V5 KDC', [u'MIT'], 8),
     ('admin/admin_commands/kadmin_local', 'kadmin', u'Kerberos V5 database administration program', [u'MIT'], 1),
-    ('admin/admin_commands/kprop', 'kprop', u'propagate a Kerberos V5 principal database to a slave server', [u'MIT'], 8),
+    ('admin/admin_commands/kprop', 'kprop', u'propagate a Kerberos V5 principal database to a replica server', [u'MIT'], 8),
     ('admin/admin_commands/kproplog', 'kproplog', u'display the contents of the Kerberos principal update log', [u'MIT'], 8),
-    ('admin/admin_commands/kpropd', 'kpropd', u'Kerberos V5 slave KDC update server', [u'MIT'], 8),
+    ('admin/admin_commands/kpropd', 'kpropd', u'Kerberos V5 replica KDC update server', [u'MIT'], 8),
     ('admin/admin_commands/kdb5_util', 'kdb5_util', u'Kerberos database maintenance utility', [u'MIT'], 8),
     ('admin/admin_commands/ktutil', 'ktutil', u'Kerberos keytab file maintenance utility', [u'MIT'], 1),
     ('admin/admin_commands/k5srvutil', 'k5srvutil', u'host key table (keytab) manipulation utility', [u'MIT'], 1),

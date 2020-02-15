@@ -93,9 +93,6 @@ idtype2string(int idtype)
     case IDTYPE_PKCS11: return "PKCS11"; break;
     case IDTYPE_PKCS12: return "PKCS12"; break;
     case IDTYPE_ENVVAR: return "ENV"; break;
-#ifdef PKINIT_CRYPTO_IMPL_NSS
-    case IDTYPE_NSS: return "NSS"; break;
-#endif
     default: return "INVALID"; break;
     }
 }
@@ -125,7 +122,6 @@ pkinit_init_identity_opts(pkinit_identity_opts **idopts)
     opts->anchors = NULL;
     opts->intermediates = NULL;
     opts->crls = NULL;
-    opts->ocsp = NULL;
 
     opts->cert_filename = NULL;
     opts->key_filename = NULL;
@@ -173,12 +169,6 @@ pkinit_dup_identity_opts(pkinit_identity_opts *src_opts,
     retval = copy_list(&newopts->crls, src_opts->crls);
     if (retval)
         goto cleanup;
-
-    if (src_opts->ocsp != NULL) {
-        newopts->ocsp = strdup(src_opts->ocsp);
-        if (newopts->ocsp == NULL)
-            goto cleanup;
-    }
 
     if (src_opts->cert_filename != NULL) {
         newopts->cert_filename = strdup(src_opts->cert_filename);
@@ -327,29 +317,38 @@ parse_fs_options(krb5_context context,
                  const char *residual)
 {
     char *certname, *keyname, *save;
+    char *cert_filename = NULL, *key_filename = NULL;
     krb5_error_code retval = ENOMEM;
 
-    if (residual == NULL || residual[0] == '\0')
-        return 0;
+    if (residual == NULL || residual[0] == '\0' || residual[0] == ',')
+        return EINVAL;
 
     certname = strdup(residual);
     if (certname == NULL)
         goto cleanup;
 
     certname = strtok_r(certname, ",", &save);
+    if (certname == NULL)
+        goto cleanup;
     keyname = strtok_r(NULL, ",", &save);
 
-    idopts->cert_filename = strdup(certname);
-    if (idopts->cert_filename == NULL)
+    cert_filename = strdup(certname);
+    if (cert_filename == NULL)
         goto cleanup;
 
-    idopts->key_filename = strdup(keyname ? keyname : certname);
-    if (idopts->key_filename == NULL)
+    key_filename = strdup((keyname != NULL) ? keyname : certname);
+    if (key_filename == NULL)
         goto cleanup;
 
+    idopts->cert_filename = cert_filename;
+    idopts->key_filename = key_filename;
+    cert_filename = key_filename = NULL;
     retval = 0;
+
 cleanup:
     free(certname);
+    free(cert_filename);
+    free(key_filename);
     return retval;
 }
 
@@ -413,10 +412,6 @@ process_option_identity(krb5_context context,
             idtype = IDTYPE_DIR;
         } else if (strncmp(value, "ENV:", typelen) == 0) {
             idtype = IDTYPE_ENVVAR;
-#ifdef PKINIT_CRYPTO_IMPL_NSS
-        } else if (strncmp(value, "NSS:", typelen) == 0) {
-            idtype = IDTYPE_NSS;
-#endif
         } else {
             pkiDebug("%s: Unsupported type while processing '%s'\n",
                      __FUNCTION__, value);
@@ -453,13 +448,6 @@ process_option_identity(krb5_context context,
         if (idopts->cert_filename == NULL)
             retval = ENOMEM;
         break;
-#ifdef PKINIT_CRYPTO_IMPL_NSS
-    case IDTYPE_NSS:
-        idopts->cert_filename = strdup(residual);
-        if (idopts->cert_filename == NULL)
-            retval = ENOMEM;
-        break;
-#endif
     default:
         krb5_set_error_message(context, KRB5_PREAUTH_FAILED,
                                _("Internal error parsing "
@@ -496,10 +484,6 @@ process_option_ca_crl(krb5_context context,
         idtype = IDTYPE_FILE;
     } else if (strncmp(value, "DIR:", typelen) == 0) {
         idtype = IDTYPE_DIR;
-#ifdef PKINIT_CRYPTO_IMPL_NSS
-    } else if (strncmp(value, "NSS:", typelen) == 0) {
-        idtype = IDTYPE_NSS;
-#endif
     } else {
         return ENOTSUP;
     }
@@ -568,6 +552,9 @@ pkinit_identity_initialize(krb5_context context,
                                    idopts, id_cryptoctx, princ, TRUE);
         if (retval)
             goto errout;
+
+        crypto_free_cert_info(context, plg_cryptoctx, req_cryptoctx,
+                              id_cryptoctx);
     } else {
         /* We're the anonymous principal. */
         retval = 0;
@@ -615,7 +602,6 @@ pkinit_identity_prompt(krb5_context context,
             retval = pkinit_cert_matching(context, plg_cryptoctx,
                                           req_cryptoctx, id_cryptoctx, princ);
             if (retval) {
-                pkiDebug("%s: No matching certificate found\n", __FUNCTION__);
                 crypto_free_cert_info(context, plg_cryptoctx, req_cryptoctx,
                                       id_cryptoctx);
                 goto errout;
@@ -628,8 +614,6 @@ pkinit_identity_prompt(krb5_context context,
             retval = crypto_cert_select_default(context, plg_cryptoctx,
                                                 req_cryptoctx, id_cryptoctx);
             if (retval) {
-                pkiDebug("%s: Failed while selecting default certificate\n",
-                         __FUNCTION__);
                 crypto_free_cert_info(context, plg_cryptoctx, req_cryptoctx,
                                       id_cryptoctx);
                 goto errout;
@@ -673,10 +657,6 @@ pkinit_identity_prompt(krb5_context context,
                                        CATYPE_CRLS);
         if (retval)
             goto errout;
-    }
-    if (idopts->ocsp != NULL) {
-        retval = ENOTSUP;
-        goto errout;
     }
 
 errout:

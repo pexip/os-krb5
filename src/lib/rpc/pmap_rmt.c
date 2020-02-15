@@ -60,6 +60,7 @@ static char sccsid[] = "@(#)pmap_rmt.c 1.21 87/08/27 Copyr 1984 Sun Micro";
 #include <arpa/inet.h>
 #define MAX_BROADCAST_SIZE 1400
 #include <port-sockets.h>
+#include "socket-utils.h"
 
 static struct timeval timeout = { 3, 0 };
 
@@ -88,7 +89,7 @@ pmap_rmtcall(
 	rpcport_t *port_ptr)
 {
         SOCKET sock = INVALID_SOCKET;
-	register CLIENT *client;
+	CLIENT *client;
 	struct rmtcallargs a;
 	struct rmtcallres r;
 	enum clnt_stat stat;
@@ -122,8 +123,8 @@ pmap_rmtcall(
  */
 bool_t
 xdr_rmtcall_args(
-	register XDR *xdrs,
-	register struct rmtcallargs *cap)
+	XDR *xdrs,
+	struct rmtcallargs *cap)
 {
 	u_int lenposition, argposition, position;
 
@@ -153,8 +154,8 @@ xdr_rmtcall_args(
  */
 bool_t
 xdr_rmtcallres(
-	register XDR *xdrs,
-	register struct rmtcallres *crp)
+	XDR *xdrs,
+	struct rmtcallres *crp)
 {
 	caddr_t port_ptr;
 
@@ -208,12 +209,11 @@ getbroadcastnets(
 			if (ioctl(sock, SIOCGIFBRDADDR, (char *)&ifreq) < 0) {
 				addrs[i++].s_addr = INADDR_ANY;
 			} else {
-				addrs[i++] = ((struct sockaddr_in*)
-				  &ifreq.ifr_addr)->sin_addr;
+				addrs[i++] = sa2sin(&ifreq.ifr_addr)->sin_addr;
 			}
 #else /* 4.2 BSD */
 			struct sockaddr_in *sockin;
-			sockin = (struct sockaddr_in *)&ifr->ifr_addr;
+			sockin = sa2sin(&ifr->ifr_addr);
 			addrs[i++] = inet_makeaddr(inet_netof
 			  (sockin->sin_addr.s_addr), INADDR_ANY);
 #endif
@@ -237,7 +237,7 @@ clnt_broadcast(
 	enum clnt_stat stat;
 	AUTH *unix_auth = authunix_create_default();
 	XDR xdr_stream;
-	register XDR *xdrs = &xdr_stream;
+	XDR *xdrs = &xdr_stream;
 	int outlen, nets;
 	ssize_t inlen;
 	GETSOCKNAME_ARG3_TYPE fromlen;
@@ -248,11 +248,11 @@ clnt_broadcast(
 	fd_set readfds;
 #else
 	int readfds;
-	register int mask;
+	int mask;
 #endif /* def FD_SETSIZE */
-	register int i;
+	int i;
 	bool_t done = FALSE;
-	register uint32_t xid;
+	uint32_t xid;
 	rpcport_t port;
 	struct in_addr addrs[20];
 	struct sockaddr_in baddr, raddr; /* broadcast and response addresses */

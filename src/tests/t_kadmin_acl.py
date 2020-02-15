@@ -1,4 +1,3 @@
-#!/usr/bin/python
 from k5test import *
 import os
 
@@ -84,231 +83,192 @@ realm.addprinc('selected', 'oldpw')
 realm.addprinc('unselected', 'oldpw')
 for pw in (['-pw', 'newpw'], ['-randkey']):
     for ks in ([], ['-e', 'aes256-cts']):
+        mark('cpw: %s %s' % (repr(pw), repr(ks)))
         args = pw + ks
         kadmin_as(all_changepw, ['cpw'] + args + ['unselected'])
         kadmin_as(some_changepw, ['cpw'] + args + ['selected'])
-        out = kadmin_as(none, ['cpw'] + args + ['selected'], expected_code=1)
-        if 'Operation requires ``change-password\'\' privilege' not in out:
-            fail('cpw failure (no perms)')
-        out = kadmin_as(some_changepw, ['cpw'] + args + ['unselected'],
-                        expected_code=1)
-        if 'Operation requires ``change-password\'\' privilege' not in out:
-            fail('cpw failure (target)')
-        out = kadmin_as(none, ['cpw'] + args + ['none'])
+        msg = "Operation requires ``change-password'' privilege"
+        kadmin_as(none, ['cpw'] + args + ['selected'], expected_code=1,
+                  expected_msg=msg)
+        kadmin_as(some_changepw, ['cpw'] + args + ['unselected'],
+                  expected_code=1, expected_msg=msg)
+        kadmin_as(none, ['cpw'] + args + ['none'])
         realm.run([kadminl, 'modprinc', '-policy', 'minlife', 'none'])
-        out = kadmin_as(none, ['cpw'] + args + ['none'], expected_code=1)
-        if 'Current password\'s minimum life has not expired' not in out:
-            fail('cpw failure (minimum life)')
+        msg = "Current password's minimum life has not expired"
+        kadmin_as(none, ['cpw'] + args + ['none'], expected_code=1,
+                  expected_msg=msg)
         realm.run([kadminl, 'modprinc', '-clearpolicy', 'none'])
 realm.run([kadminl, 'delprinc', 'selected'])
 realm.run([kadminl, 'delprinc', 'unselected'])
 
+mark('addpol')
 kadmin_as(all_add, ['addpol', 'policy'])
 realm.run([kadminl, 'delpol', 'policy'])
-out = kadmin_as(none, ['addpol', 'policy'], expected_code=1)
-if 'Operation requires ``add\'\' privilege' not in out:
-    fail('addpol failure (no perms)')
+kadmin_as(none, ['addpol', 'policy'], expected_code=1,
+          expected_msg="Operation requires ``add'' privilege")
 
 # addprinc can generate two different RPC calls depending on options.
 for ks in ([], ['-e', 'aes256-cts']):
+    mark('addprinc: %s' % repr(ks))
     args = ['-pw', 'pw'] + ks
     kadmin_as(all_add, ['addprinc'] + args + ['unselected'])
     realm.run([kadminl, 'delprinc', 'unselected'])
     kadmin_as(some_add, ['addprinc'] + args + ['selected'])
     realm.run([kadminl, 'delprinc', 'selected'])
     kadmin_as(restricted_add, ['addprinc'] + args + ['unselected'])
-    out = realm.run([kadminl, 'getprinc', 'unselected'])
-    if 'REQUIRES_PRE_AUTH' not in out:
-        fail('addprinc success (restrictions) -- restriction check')
+    realm.run([kadminl, 'getprinc', 'unselected'],
+              expected_msg='REQUIRES_PRE_AUTH')
     realm.run([kadminl, 'delprinc', 'unselected'])
-    out = kadmin_as(none, ['addprinc'] + args + ['selected'], expected_code=1)
-    if 'Operation requires ``add\'\' privilege' not in out:
-        fail('addprinc failure (no perms)')
-    out = kadmin_as(some_add, ['addprinc'] + args + ['unselected'],
-                    expected_code=1)
-    if 'Operation requires ``add\'\' privilege' not in out:
-        fail('addprinc failure (target)')
+    kadmin_as(none, ['addprinc'] + args + ['selected'], expected_code=1,
+              expected_msg="Operation requires ``add'' privilege")
+    kadmin_as(some_add, ['addprinc'] + args + ['unselected'], expected_code=1,
+              expected_msg="Operation requires ``add'' privilege")
 
+mark('delprinc')
 realm.addprinc('unselected', 'pw')
 kadmin_as(all_delete, ['delprinc', 'unselected'])
 realm.addprinc('selected', 'pw')
 kadmin_as(some_delete, ['delprinc', 'selected'])
 realm.addprinc('unselected', 'pw')
-out = kadmin_as(none, ['delprinc', 'unselected'], expected_code=1)
-if 'Operation requires ``delete\'\' privilege' not in out:
-    fail('delprinc failure (no perms)')
-out = kadmin_as(some_delete, ['delprinc', 'unselected'], expected_code=1)
-if 'Operation requires ``delete\'\' privilege' not in out:
-    fail('delprinc failure (no target)')
+kadmin_as(none, ['delprinc', 'unselected'], expected_code=1,
+          expected_msg="Operation requires ``delete'' privilege")
+kadmin_as(some_delete, ['delprinc', 'unselected'], expected_code=1,
+          expected_msg="Operation requires ``delete'' privilege")
 realm.run([kadminl, 'delprinc', 'unselected'])
 
-out = kadmin_as(all_inquire, ['getpol', 'minlife'])
-if 'Policy: minlife' not in out:
-    fail('getpol success (acl)')
-out = kadmin_as(none, ['getpol', 'minlife'], expected_code=1)
-if 'Operation requires ``get\'\' privilege' not in out:
-    fail('getpol failure (no perms)')
+mark('getpol')
+kadmin_as(all_inquire, ['getpol', 'minlife'], expected_msg='Policy: minlife')
+kadmin_as(none, ['getpol', 'minlife'], expected_code=1,
+          expected_msg="Operation requires ``get'' privilege")
 realm.run([kadminl, 'modprinc', '-policy', 'minlife', 'none'])
-out = kadmin_as(none, ['getpol', 'minlife'])
-if 'Policy: minlife' not in out:
-    fail('getpol success (self policy exemption)')
+kadmin_as(none, ['getpol', 'minlife'], expected_msg='Policy: minlife')
 realm.run([kadminl, 'modprinc', '-clearpolicy', 'none'])
 
+mark('getprinc')
 realm.addprinc('selected', 'pw')
 realm.addprinc('unselected', 'pw')
-out = kadmin_as(all_inquire, ['getprinc', 'unselected'])
-if 'Principal: unselected@KRBTEST.COM' not in out:
-    fail('getprinc success (acl)')
-out = kadmin_as(some_inquire, ['getprinc', 'selected'])
-if 'Principal: selected@KRBTEST.COM' not in out:
-    fail('getprinc success (target)')
-out = kadmin_as(none, ['getprinc', 'selected'], expected_code=1)
-if 'Operation requires ``get\'\' privilege' not in out:
-    fail('getprinc failure (no perms)')
-out = kadmin_as(some_inquire, ['getprinc', 'unselected'], expected_code=1)
-if 'Operation requires ``get\'\' privilege' not in out:
-    fail('getprinc failure (target)')
-out = kadmin_as(none, ['getprinc', 'none'])
-if 'Principal: none@KRBTEST.COM' not in out:
-    fail('getprinc success (self exemption)')
+kadmin_as(all_inquire, ['getprinc', 'unselected'],
+          expected_msg='Principal: unselected@KRBTEST.COM')
+kadmin_as(some_inquire, ['getprinc', 'selected'],
+          expected_msg='Principal: selected@KRBTEST.COM')
+kadmin_as(none, ['getprinc', 'selected'], expected_code=1,
+          expected_msg="Operation requires ``get'' privilege")
+kadmin_as(some_inquire, ['getprinc', 'unselected'], expected_code=1,
+          expected_msg="Operation requires ``get'' privilege")
+kadmin_as(none, ['getprinc', 'none'],
+          expected_msg='Principal: none@KRBTEST.COM')
 realm.run([kadminl, 'delprinc', 'selected'])
 realm.run([kadminl, 'delprinc', 'unselected'])
 
-out = kadmin_as(all_list, ['listprincs'])
-if 'K/M@KRBTEST.COM' not in out:
-    fail('listprincs success (acl)')
-out = kadmin_as(none, ['listprincs'], expected_code=1)
-if 'Operation requires ``list\'\' privilege' not in out:
-    fail('listprincs failure (no perms)')
+mark('listprincs')
+kadmin_as(all_list, ['listprincs'], expected_msg='K/M@KRBTEST.COM')
+kadmin_as(none, ['listprincs'], expected_code=1,
+          expected_msg="Operation requires ``list'' privilege")
 
+mark('getstrs')
 realm.addprinc('selected', 'pw')
 realm.addprinc('unselected', 'pw')
 realm.run([kadminl, 'setstr', 'selected', 'key', 'value'])
 realm.run([kadminl, 'setstr', 'unselected', 'key', 'value'])
-out = kadmin_as(all_inquire, ['getstrs', 'unselected'])
-if 'key: value' not in out:
-    fail('getstrs success (acl)')
-out = kadmin_as(some_inquire, ['getstrs', 'selected'])
-if 'key: value' not in out:
-    fail('getstrs success (target)')
-out = kadmin_as(none, ['getstrs', 'selected'], expected_code=1)
-if 'Operation requires ``get\'\' privilege' not in out:
-    fail('getstrs failure (no perms)')
-out = kadmin_as(some_inquire, ['getstrs', 'unselected'], expected_code=1)
-if 'Operation requires ``get\'\' privilege' not in out:
-    fail('getstrs failure (target)')
-out = kadmin_as(none, ['getstrs', 'none'])
-if '(No string attributes.)' not in out:
-    fail('getstrs success (self exemption)')
+kadmin_as(all_inquire, ['getstrs', 'unselected'], expected_msg='key: value')
+kadmin_as(some_inquire, ['getstrs', 'selected'], expected_msg='key: value')
+kadmin_as(none, ['getstrs', 'selected'], expected_code=1,
+          expected_msg="Operation requires ``get'' privilege")
+kadmin_as(some_inquire, ['getstrs', 'unselected'], expected_code=1,
+          expected_msg="Operation requires ``get'' privilege")
+kadmin_as(none, ['getstrs', 'none'], expected_msg='(No string attributes.)')
 realm.run([kadminl, 'delprinc', 'selected'])
 realm.run([kadminl, 'delprinc', 'unselected'])
 
+mark('modpol')
 out = kadmin_as(all_modify, ['modpol', '-maxlife', '1 hour', 'policy'],
                 expected_code=1)
 if 'Operation requires' in out:
     fail('modpol success (acl)')
-out = kadmin_as(none, ['modpol', '-maxlife', '1 hour', 'policy'],
-                expected_code=1)
-if 'Operation requires ``modify\'\' privilege' not in out:
-    fail('modpol failure (no perms)')
+kadmin_as(none, ['modpol', '-maxlife', '1 hour', 'policy'], expected_code=1,
+          expected_msg="Operation requires ``modify'' privilege")
 
+mark('modprinc')
 realm.addprinc('selected', 'pw')
 realm.addprinc('unselected', 'pw')
 kadmin_as(all_modify, ['modprinc', '-maxlife', '1 hour',  'unselected'])
 kadmin_as(some_modify, ['modprinc', '-maxlife', '1 hour', 'selected'])
 kadmin_as(restricted_modify, ['modprinc', '-maxlife', '1 hour', 'unselected'])
-out = realm.run([kadminl, 'getprinc', 'unselected'])
-if 'REQUIRES_PRE_AUTH' not in out:
-    fail('addprinc success (restrictions) -- restriction check')
-out = kadmin_as(all_inquire, ['modprinc', '-maxlife', '1 hour', 'selected'],
-                expected_code=1)
-if 'Operation requires ``modify\'\' privilege' not in out:
-    fail('addprinc failure (no perms)')
-out = kadmin_as(some_modify, ['modprinc', '-maxlife', '1 hour', 'unselected'],
-                expected_code=1)
-if 'Operation requires' not in out:
-    fail('modprinc failure (target)')
+realm.run([kadminl, 'getprinc', 'unselected'],
+          expected_msg='REQUIRES_PRE_AUTH')
+kadmin_as(all_inquire, ['modprinc', '-maxlife', '1 hour', 'selected'],
+          expected_code=1,
+          expected_msg="Operation requires ``modify'' privilege")
+kadmin_as(some_modify, ['modprinc', '-maxlife', '1 hour', 'unselected'],
+          expected_code=1, expected_msg='Operation requires')
 realm.run([kadminl, 'delprinc', 'selected'])
 realm.run([kadminl, 'delprinc', 'unselected'])
 
+mark('purgekeys')
 realm.addprinc('selected', 'pw')
 realm.addprinc('unselected', 'pw')
 kadmin_as(all_modify, ['purgekeys', 'unselected'])
 kadmin_as(some_modify, ['purgekeys', 'selected'])
-out = kadmin_as(none, ['purgekeys', 'selected'], expected_code=1)
-if 'Operation requires ``modify\'\' privilege' not in out:
-    fail('purgekeys failure (no perms)')
-out = kadmin_as(some_modify, ['purgekeys', 'unselected'], expected_code=1)
-if 'Operation requires ``modify\'\' privilege' not in out:
-    fail('purgekeys failure (target)')
+kadmin_as(none, ['purgekeys', 'selected'], expected_code=1,
+          expected_msg="Operation requires ``modify'' privilege")
+kadmin_as(some_modify, ['purgekeys', 'unselected'], expected_code=1,
+          expected_msg="Operation requires ``modify'' privilege")
 kadmin_as(none, ['purgekeys', 'none'])
 realm.run([kadminl, 'delprinc', 'selected'])
 realm.run([kadminl, 'delprinc', 'unselected'])
 
+mark('renprinc')
 realm.addprinc('from', 'pw')
 kadmin_as(all_rename, ['renprinc', 'from', 'to'])
 realm.run([kadminl, 'renprinc', 'to', 'from'])
 kadmin_as(some_rename, ['renprinc', 'from', 'to'])
 realm.run([kadminl, 'renprinc', 'to', 'from'])
-out = kadmin_as(all_add, ['renprinc', 'from', 'to'], expected_code=1)
-if 'Operation requires ``delete\'\' privilege' not in out:
-    fail('renprinc failure (no delete perms)')
-out = kadmin_as(all_delete, ['renprinc', 'from', 'to'], expected_code=1)
-if 'Operation requires ``add\'\' privilege' not in out:
-    fail('renprinc failure (no add perms)')
-out = kadmin_as(some_rename, ['renprinc', 'from', 'notto'], expected_code=1)
-if 'Operation requires ``add\'\' privilege' not in out:
-    fail('renprinc failure (new target)')
+kadmin_as(all_add, ['renprinc', 'from', 'to'], expected_code=1,
+          expected_msg="Insufficient authorization for operation")
+kadmin_as(all_delete, ['renprinc', 'from', 'to'], expected_code=1,
+          expected_msg="Insufficient authorization for operation")
+kadmin_as(some_rename, ['renprinc', 'from', 'notto'], expected_code=1,
+          expected_msg="Insufficient authorization for operation")
 realm.run([kadminl, 'renprinc', 'from', 'notfrom'])
-out = kadmin_as(some_rename, ['renprinc', 'notfrom', 'to'], expected_code=1)
-if 'Operation requires ``delete\'\' privilege' not in out:
-    fail('renprinc failure (old target)')
-out = kadmin_as(restricted_rename, ['renprinc', 'notfrom', 'to'],
-                expected_code=1)
-if 'Operation requires ``add\'\' privilege' not in out:
-    fail('renprinc failure (restrictions)')
+kadmin_as(some_rename, ['renprinc', 'notfrom', 'to'], expected_code=1,
+          expected_msg="Insufficient authorization for operation")
+kadmin_as(restricted_rename, ['renprinc', 'notfrom', 'to'], expected_code=1,
+          expected_msg="Insufficient authorization for operation")
 realm.run([kadminl, 'delprinc', 'notfrom'])
 
+mark('setstr')
 realm.addprinc('selected', 'pw')
 realm.addprinc('unselected', 'pw')
 kadmin_as(all_modify, ['setstr', 'unselected', 'key', 'value'])
 kadmin_as(some_modify, ['setstr', 'selected', 'key', 'value'])
-out = kadmin_as(none, ['setstr', 'selected',  'key', 'value'], expected_code=1)
-if 'Operation requires ``modify\'\' privilege' not in out:
-    fail('addprinc failure (no perms)')
-out = kadmin_as(some_modify, ['setstr', 'unselected', 'key', 'value'],
-                expected_code=1)
-if 'Operation requires' not in out:
-    fail('modprinc failure (target)')
+kadmin_as(none, ['setstr', 'selected',  'key', 'value'], expected_code=1,
+          expected_msg="Operation requires ``modify'' privilege")
+kadmin_as(some_modify, ['setstr', 'unselected', 'key', 'value'],
+          expected_code=1, expected_msg='Operation requires')
 realm.run([kadminl, 'delprinc', 'selected'])
 realm.run([kadminl, 'delprinc', 'unselected'])
 
+mark('addprinc/delprinc (wildcard)')
 kadmin_as(admin, ['addprinc', '-pw', 'pw', 'anytarget'])
 realm.run([kadminl, 'delprinc', 'anytarget'])
 kadmin_as(wctarget, ['addprinc', '-pw', 'pw', 'wild/card'])
 realm.run([kadminl, 'delprinc', 'wild/card'])
-out = kadmin_as(wctarget, ['addprinc', '-pw', 'pw', 'wild/card/extra'],
-                expected_code=1)
-if 'Operation requires' not in out:
-    fail('addprinc failure (target wildcard extra component)')
+kadmin_as(wctarget, ['addprinc', '-pw', 'pw', 'wild/card/extra'],
+          expected_code=1, expected_msg='Operation requires')
 realm.addprinc('admin/user', 'pw')
 kadmin_as(admin, ['delprinc', 'admin/user'])
-out = kadmin_as(admin, ['delprinc', 'none'], expected_code=1)
-if 'Operation requires' not in out:
-    fail('delprinc failure (wildcard backreferences not matched)')
+kadmin_as(admin, ['delprinc', 'none'], expected_code=1,
+          expected_msg='Operation requires')
 realm.addprinc('four/one/three', 'pw')
 kadmin_as(onetwothreefour, ['delprinc', 'four/one/three'])
 
+mark('addprinc (restrictions)')
 kadmin_as(restrictions, ['addprinc', '-pw', 'pw', 'type1'])
-out = realm.run([kadminl, 'getprinc', 'type1'])
-if 'Policy: minlife' not in out:
-    fail('restriction (policy)')
+realm.run([kadminl, 'getprinc', 'type1'], expected_msg='Policy: minlife')
 realm.run([kadminl, 'delprinc', 'type1'])
 kadmin_as(restrictions, ['addprinc', '-pw', 'pw', '-policy', 'minlife',
                          'type2'])
-out = realm.run([kadminl, 'getprinc', 'type2'])
-if 'Policy: [none]' not in out:
-    fail('restriction (clearpolicy)')
+realm.run([kadminl, 'getprinc', 'type2'], expected_msg='Policy: [none]')
 realm.run([kadminl, 'delprinc', 'type2'])
 kadmin_as(restrictions, ['addprinc', '-pw', 'pw', '-maxlife', '1 minute',
                          'type3'])
@@ -319,43 +279,53 @@ if ('Maximum ticket life: 0 days 00:01:00' not in out or
 realm.run([kadminl, 'delprinc', 'type3'])
 kadmin_as(restrictions, ['addprinc', '-pw', 'pw', '-maxrenewlife', '1 day',
                          'type3'])
-out = realm.run([kadminl, 'getprinc', 'type3'])
-if 'Maximum renewable life: 0 days 02:00:00' not in out:
-    fail('restriction (maxrenewlife high)')
+realm.run([kadminl, 'getprinc', 'type3'],
+          expected_msg='Maximum renewable life: 0 days 02:00:00')
 
+mark('extract')
 realm.run([kadminl, 'addprinc', '-pw', 'pw', 'extractkeys'])
-out = kadmin_as(all_wildcard, ['ktadd', '-norandkey', 'extractkeys'],
-                expected_code=1)
-if 'Operation requires ``extract-keys\'\' privilege' not in out:
-    fail('extractkeys failure (all_wildcard)')
+kadmin_as(all_wildcard, ['ktadd', '-norandkey', 'extractkeys'],
+          expected_code=1,
+          expected_msg="Operation requires ``extract-keys'' privilege")
 kadmin_as(all_extract, ['ktadd', '-norandkey', 'extractkeys'])
 realm.kinit('extractkeys', flags=['-k'])
 os.remove(realm.keytab)
 
+mark('lockdown_keys')
 kadmin_as(all_modify, ['modprinc', '+lockdown_keys', 'extractkeys'])
-out = kadmin_as(all_changepw, ['cpw', '-pw', 'newpw', 'extractkeys'],
-                expected_code=1)
-if 'Operation requires ``change-password\'\' privilege' not in out:
-    fail('extractkeys failure (all_changepw)')
+kadmin_as(all_changepw, ['cpw', '-pw', 'newpw', 'extractkeys'],
+          expected_code=1,
+          expected_msg="Operation requires ``change-password'' privilege")
 kadmin_as(all_changepw, ['cpw', '-randkey', 'extractkeys'])
-out = kadmin_as(all_extract, ['ktadd', '-norandkey', 'extractkeys'],
-                expected_code=1)
-if 'Operation requires ``extract-keys\'\' privilege' not in out:
-    fail('extractkeys failure (all_extract)')
-out = kadmin_as(all_delete, ['delprinc', 'extractkeys'], expected_code=1)
-if 'Operation requires ``delete\'\' privilege' not in out:
-    fail('extractkeys failure (all_delete)')
-out = kadmin_as(all_rename, ['renprinc', 'extractkeys', 'renamedprinc'],
-                expected_code=1)
-if 'Operation requires ``delete\'\' privilege' not in out:
-    fail('extractkeys failure (all_rename)')
-out = kadmin_as(all_modify, ['modprinc', '-lockdown_keys', 'extractkeys'],
-                expected_code=1)
-if 'Operation requires ``modify\'\' privilege' not in out:
-    fail('extractkeys failure (all_modify)')
+kadmin_as(all_extract, ['ktadd', '-norandkey', 'extractkeys'], expected_code=1,
+          expected_msg="Operation requires ``extract-keys'' privilege")
+kadmin_as(all_delete, ['delprinc', 'extractkeys'], expected_code=1,
+          expected_msg="Operation requires ``delete'' privilege")
+kadmin_as(all_rename, ['renprinc', 'extractkeys', 'renamedprinc'],
+          expected_code=1,
+          expected_msg="Operation requires ``delete'' privilege")
+kadmin_as(all_modify, ['modprinc', '-lockdown_keys', 'extractkeys'],
+          expected_code=1,
+          expected_msg="Operation requires ``modify'' privilege")
 realm.run([kadminl, 'modprinc', '-lockdown_keys', 'extractkeys'])
 kadmin_as(all_extract, ['ktadd', '-norandkey', 'extractkeys'])
 realm.kinit('extractkeys', flags=['-k'])
 os.remove(realm.keytab)
+
+# Verify that self-service key changes require an initial ticket.
+mark('self-service initial ticket')
+realm.run([kadminl, 'cpw', '-pw', password('none'), 'none'])
+realm.run([kadminl, 'modprinc', '+allow_tgs_req', 'kadmin/admin'])
+realm.kinit('none', password('none'))
+realm.run([kvno, 'kadmin/admin'])
+msg = 'Operation requires initial ticket'
+realm.run([kadmin, '-c', realm.ccache, 'cpw', '-pw', 'newpw', 'none'],
+          expected_code=1, expected_msg=msg)
+realm.run([kadmin, '-c', realm.ccache, 'cpw', '-pw', 'newpw',
+           '-e', 'aes256-cts', 'none'], expected_code=1, expected_msg=msg)
+realm.run([kadmin, '-c', realm.ccache, 'cpw', '-randkey', 'none'],
+          expected_code=1, expected_msg=msg)
+realm.run([kadmin, '-c', realm.ccache, 'cpw', '-randkey', '-e', 'aes256-cts',
+           'none'], expected_code=1, expected_msg=msg)
 
 success('kadmin ACL enforcement')

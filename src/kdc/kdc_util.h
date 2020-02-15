@@ -140,18 +140,17 @@ cammac_check_kdcver(krb5_context context, krb5_cammac *cammac,
 /* do_as_req.c */
 void
 process_as_req (krb5_kdc_req *, krb5_data *,
-                const krb5_fulladdr *, kdc_realm_t *,
+                const krb5_fulladdr *, const krb5_fulladdr *, kdc_realm_t *,
                 verto_ctx *, loop_respond_fn, void *);
 
 /* do_tgs_req.c */
 krb5_error_code
-process_tgs_req (struct server_handle *, krb5_data *,
-                 const krb5_fulladdr *,
-                 krb5_data ** );
+process_tgs_req (krb5_kdc_req *, krb5_data *, const krb5_fulladdr *,
+                 kdc_realm_t *, krb5_data ** );
 /* dispatch.c */
 void
 dispatch (void *,
-          struct sockaddr *,
+          const krb5_fulladdr *,
           const krb5_fulladdr *,
           krb5_data *,
           int,
@@ -165,17 +164,6 @@ kdc_err(krb5_context call_context, errcode_t code, const char *fmt, ...)
     __attribute__((__format__(__printf__, 3, 4)))
 #endif
     ;
-
-/* policy.c */
-int
-against_local_policy_as (krb5_kdc_req *, krb5_db_entry,
-                         krb5_db_entry, krb5_timestamp,
-                         const char **, krb5_pa_data ***);
-
-int
-against_local_policy_tgs (krb5_kdc_req *, krb5_db_entry,
-                          krb5_ticket *, const char **,
-                          krb5_pa_data ***);
 
 /* kdc_preauth.c */
 krb5_boolean
@@ -214,10 +202,10 @@ void
 free_padata_context(krb5_context context, void *padata_context);
 
 krb5_error_code
-add_pa_data_element (krb5_context context,
-                     krb5_pa_data *padata,
-                     krb5_pa_data ***out_padata,
-                     krb5_boolean copy);
+alloc_pa_data(krb5_preauthtype pa_type, size_t len, krb5_pa_data **out);
+
+krb5_error_code
+add_pa_data_element(krb5_pa_data ***list, krb5_pa_data *pa);
 
 /* kdc_preauth_ec.c */
 krb5_error_code
@@ -281,6 +269,8 @@ krb5_error_code
 kdc_process_s4u2self_req (kdc_realm_t *kdc_active_realm,
                           krb5_kdc_req *request,
                           krb5_const_principal client_princ,
+                          krb5_const_principal header_srv_princ,
+                          krb5_boolean issuing_referral,
                           const krb5_db_entry *server,
                           krb5_keyblock *tgs_subkey,
                           krb5_keyblock *tgs_session,
@@ -346,7 +336,9 @@ kdc_get_ticket_renewtime(kdc_realm_t *realm, krb5_kdc_req *request,
                          krb5_db_entry *server, krb5_enc_tkt_part *tkt);
 
 void
-log_as_req(krb5_context context, const krb5_fulladdr *from,
+log_as_req(krb5_context context,
+           const krb5_fulladdr *local_addr,
+           const krb5_fulladdr *remote_addr,
            krb5_kdc_req *request, krb5_kdc_rep *reply,
            krb5_db_entry *client, const char *cname,
            krb5_db_entry *server, const char *sname,
@@ -436,11 +428,13 @@ struct krb5_kdcpreauth_rock_st {
     krb5_kdc_req *request;
     krb5_data *inner_body;
     krb5_db_entry *client;
+    krb5_db_entry *local_tgt;
     krb5_key_data *client_key;
     krb5_keyblock *client_keyblock;
     struct kdc_request_state *rstate;
     verto_ctx *vctx;
     krb5_data ***auth_indicators;
+    krb5_boolean send_freshness_token;
 };
 
 #define isflagset(flagfield, flag) (flagfield & (flag))
@@ -451,6 +445,8 @@ struct krb5_kdcpreauth_rock_st {
 #define min(a, b)       ((a) < (b) ? (a) : (b))
 #define max(a, b)       ((a) > (b) ? (a) : (b))
 #endif
+
+#define ts_min(a, b) (ts_after(a, b) ? (b) : (a))
 
 #define ADDRTYPE2FAMILY(X)                                              \
     ((X) == ADDRTYPE_INET6 ? AF_INET6 : (X) == ADDRTYPE_INET ? AF_INET : -1)

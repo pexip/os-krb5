@@ -87,8 +87,8 @@ struct _pkinit_identity_crypto_context {
     void *p11_module;
     CK_SESSION_HANDLE session;
     CK_FUNCTION_LIST_PTR p11;
-    CK_BYTE_PTR cert_id;
-    int cert_id_len;
+    uint8_t *cert_id;
+    size_t cert_id_len;
     CK_MECHANISM_TYPE mech;
 #endif
     krb5_boolean defer_id_prompt;
@@ -113,25 +113,6 @@ struct _pkinit_plg_crypto_context {
 struct _pkinit_req_crypto_context {
     X509 *received_cert;
     DH *dh;
-};
-
-#define CERT_MAGIC 0x53534c43
-struct _pkinit_cert_data {
-    unsigned int magic;
-    pkinit_plg_crypto_context plgctx;
-    pkinit_req_crypto_context reqctx;
-    pkinit_identity_crypto_context idctx;
-    pkinit_cred_info cred;
-    unsigned int index;	    /* Index of this cred in the creds[] array */
-};
-
-#define ITER_MAGIC 0x53534c49
-struct _pkinit_cert_iter_data {
-    unsigned int magic;
-    pkinit_plg_crypto_context plgctx;
-    pkinit_req_crypto_context reqctx;
-    pkinit_identity_crypto_context idctx;
-    unsigned int index;
 };
 
 #endif	/* _PKINIT_CRYPTO_OPENSSL_H */
