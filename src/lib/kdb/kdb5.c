@@ -283,24 +283,64 @@ clean_n_exit:
 }
 
 static void
-kdb_setup_opt_functions(db_library lib)
+copy_vtable(const kdb_vftabl *in, kdb_vftabl *out)
 {
-    if (lib->vftabl.fetch_master_key == NULL)
-        lib->vftabl.fetch_master_key = krb5_db_def_fetch_mkey;
-    if (lib->vftabl.fetch_master_key_list == NULL)
-        lib->vftabl.fetch_master_key_list = krb5_def_fetch_mkey_list;
-    if (lib->vftabl.store_master_key_list == NULL)
-        lib->vftabl.store_master_key_list = krb5_def_store_mkey_list;
-    if (lib->vftabl.dbe_search_enctype == NULL)
-        lib->vftabl.dbe_search_enctype = krb5_dbe_def_search_enctype;
-    if (lib->vftabl.change_pwd == NULL)
-        lib->vftabl.change_pwd = krb5_dbe_def_cpw;
-    if (lib->vftabl.decrypt_key_data == NULL)
-        lib->vftabl.decrypt_key_data = krb5_dbe_def_decrypt_key_data;
-    if (lib->vftabl.encrypt_key_data == NULL)
-        lib->vftabl.encrypt_key_data = krb5_dbe_def_encrypt_key_data;
-    if (lib->vftabl.rename_principal == NULL)
-        lib->vftabl.rename_principal = krb5_db_def_rename_principal;
+    /* Copy fields for minor version 0. */
+    out->maj_ver = in->maj_ver;
+    out->min_ver = in->min_ver;
+    out->init_library = in->init_library;
+    out->fini_library = in->fini_library;
+    out->init_module = in->init_module;
+    out->fini_module = in->fini_module;
+    out->create = in->create;
+    out->destroy = in->destroy;
+    out->get_age = in->get_age;
+    out->lock = in->lock;
+    out->unlock = in->unlock;
+    out->get_principal = in->get_principal;
+    out->put_principal = in->put_principal;
+    out->delete_principal = in->delete_principal;
+    out->rename_principal = in->rename_principal;
+    out->iterate = in->iterate;
+    out->create_policy = in->create_policy;
+    out->get_policy = in->get_policy;
+    out->put_policy = in->put_policy;
+    out->iter_policy = in->iter_policy;
+    out->delete_policy = in->delete_policy;
+    out->fetch_master_key = in->fetch_master_key;
+    out->fetch_master_key_list = in->fetch_master_key_list;
+    out->store_master_key_list = in->store_master_key_list;
+    out->dbe_search_enctype = in->dbe_search_enctype;
+    out->change_pwd = in->change_pwd;
+    out->promote_db = in->promote_db;
+    out->decrypt_key_data = in->decrypt_key_data;
+    out->encrypt_key_data = in->encrypt_key_data;
+    out->sign_authdata = in->sign_authdata;
+    out->check_transited_realms = in->check_transited_realms;
+    out->check_policy_as = in->check_policy_as;
+    out->check_policy_tgs = in->check_policy_tgs;
+    out->audit_as_req = in->audit_as_req;
+    out->refresh_config = in->refresh_config;
+    out->check_allowed_to_delegate = in->check_allowed_to_delegate;
+    out->free_principal_e_data = in->free_principal_e_data;
+
+    /* Set defaults for optional fields. */
+    if (out->fetch_master_key == NULL)
+        out->fetch_master_key = krb5_db_def_fetch_mkey;
+    if (out->fetch_master_key_list == NULL)
+        out->fetch_master_key_list = krb5_def_fetch_mkey_list;
+    if (out->store_master_key_list == NULL)
+        out->store_master_key_list = krb5_def_store_mkey_list;
+    if (out->dbe_search_enctype == NULL)
+        out->dbe_search_enctype = krb5_dbe_def_search_enctype;
+    if (out->change_pwd == NULL)
+        out->change_pwd = krb5_dbe_def_cpw;
+    if (out->decrypt_key_data == NULL)
+        out->decrypt_key_data = krb5_dbe_def_decrypt_key_data;
+    if (out->encrypt_key_data == NULL)
+        out->encrypt_key_data = krb5_dbe_def_encrypt_key_data;
+    if (out->rename_principal == NULL)
+        out->rename_principal = krb5_db_def_rename_principal;
 }
 
 #ifdef STATIC_PLUGINS
@@ -334,8 +374,7 @@ kdb_load_library(krb5_context kcontext, char *lib_name, db_library *libptr)
         return ENOMEM;
 
     strlcpy(lib->name, lib_name, sizeof(lib->name));
-    memcpy(&lib->vftabl, vftabl_addr, sizeof(kdb_vftabl));
-    kdb_setup_opt_functions(lib);
+    copy_vtable(vftabl_addr, &lib->vftabl);
 
     status = lib->vftabl.init_library();
     if (status)
@@ -433,8 +472,7 @@ kdb_load_library(krb5_context kcontext, char *lib_name, db_library *lib)
         goto clean_n_exit;
     }
 
-    memcpy(&(*lib)->vftabl, vftabl_addrs[0], sizeof(kdb_vftabl));
-    kdb_setup_opt_functions(*lib);
+    copy_vtable(vftabl_addrs[0], &(*lib)->vftabl);
 
     if ((status = (*lib)->vftabl.init_library()))
         goto clean_n_exit;
@@ -783,11 +821,17 @@ free_tl_data(krb5_tl_data *list)
 void
 krb5_db_free_principal(krb5_context kcontext, krb5_db_entry *entry)
 {
+    kdb_vftabl *v;
     int i;
 
     if (entry == NULL)
         return;
-    free(entry->e_data);
+    if (entry->e_data != NULL) {
+        if (get_vftabl(kcontext, &v) == 0 && v->free_principal_e_data != NULL)
+            v->free_principal_e_data(kcontext, entry->e_data);
+        else
+            free(entry->e_data);
+    }
     krb5_free_principal(kcontext, entry->princ);
     free_tl_data(entry->tl_data);
     for (i = 0; i < entry->n_key_data; i++)
@@ -1171,11 +1215,12 @@ krb5_db_fetch_mkey(krb5_context context, krb5_principal mname,
             krb5_db_entry *master_entry;
 
             rc = krb5_db_get_principal(context, mname, 0, &master_entry);
-            if (rc == 0) {
+            if (rc == 0 && master_entry->n_key_data > 0)
                 *kvno = (krb5_kvno) master_entry->key_data->key_data_kvno;
-                krb5_db_free_principal(context, master_entry);
-            } else
+            else
                 *kvno = 1;
+            if (rc == 0)
+                krb5_db_free_principal(context, master_entry);
         }
 
         if (!salt)
@@ -1247,7 +1292,7 @@ find_actkvno(krb5_actkvno_node *list, krb5_timestamp now)
      * are in the future, we will return the first node; if all are in the
      * past, we will return the last node.
      */
-    while (list->next != NULL && list->next->act_time <= now)
+    while (list->next != NULL && !ts_after(list->next->act_time, now))
         list = list->next;
     return list->act_kvno;
 }
@@ -2628,8 +2673,10 @@ krb5_db_check_policy_tgs(krb5_context kcontext, krb5_kdc_req *request,
 
 void
 krb5_db_audit_as_req(krb5_context kcontext, krb5_kdc_req *request,
-                     krb5_db_entry *client, krb5_db_entry *server,
-                     krb5_timestamp authtime, krb5_error_code error_code)
+                     const krb5_address *local_addr,
+                     const krb5_address *remote_addr, krb5_db_entry *client,
+                     krb5_db_entry *server, krb5_timestamp authtime,
+                     krb5_error_code error_code)
 {
     krb5_error_code status;
     kdb_vftabl *v;
@@ -2637,7 +2684,8 @@ krb5_db_audit_as_req(krb5_context kcontext, krb5_kdc_req *request,
     status = get_vftabl(kcontext, &v);
     if (status || v->audit_as_req == NULL)
         return;
-    v->audit_as_req(kcontext, request, client, server, authtime, error_code);
+    v->audit_as_req(kcontext, request, local_addr, remote_addr,
+                    client, server, authtime, error_code);
 }
 
 void

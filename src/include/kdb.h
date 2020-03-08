@@ -69,7 +69,7 @@
 
 /* This version will be incremented when incompatible changes are made to the
  * KDB API, and will be kept in sync with the libkdb major version. */
-#define KRB5_KDB_API_VERSION 8
+#define KRB5_KDB_API_VERSION 9
 
 /* Salt types */
 #define KRB5_KDB_SALTTYPE_NORMAL        0
@@ -695,6 +695,8 @@ krb5_error_code krb5_db_check_policy_tgs(krb5_context kcontext,
                                          krb5_pa_data ***e_data);
 
 void krb5_db_audit_as_req(krb5_context kcontext, krb5_kdc_req *request,
+                          const krb5_address *local_addr,
+                          const krb5_address *remote_addr,
                           krb5_db_entry *client, krb5_db_entry *server,
                           krb5_timestamp authtime, krb5_error_code error_code);
 
@@ -865,7 +867,7 @@ krb5_error_code krb5_db_register_keytab(krb5_context context);
  * This number indicates the date of the last incompatible change to the DAL.
  * The maj_ver field of the module's vtable structure must match this version.
  */
-#define KRB5_KDB_DAL_MAJOR_VERSION 6
+#define KRB5_KDB_DAL_MAJOR_VERSION 7
 
 /*
  * A krb5_context can hold one database object.  Modules should use
@@ -931,10 +933,10 @@ typedef struct _kdb_vftabl {
      *
      * If db_args contains the value "temporary", the module should create an
      * exclusively locked side copy of the database suitable for loading in a
-     * propagation from master to slave.  This side copy will later be promoted
-     * with promote_db, allowing complete updates of the DB with no loss in
-     * read availability.  If the module cannot comply with this architecture,
-     * it should return an error.
+     * propagation from master to replica.  This side copy will later be
+     * promoted with promote_db, allowing complete updates of the DB with no
+     * loss in read availability.  If the module cannot comply with this
+     * architecture, it should return an error.
      */
     krb5_error_code (*create)(krb5_context kcontext, char *conf_section,
                               char **db_args);
@@ -1016,9 +1018,10 @@ typedef struct _kdb_vftabl {
      *     requested; also set by the admin interface.  Determines whether the
      *     module should return in-realm aliases.
      *
-     * A module can return in-realm aliases if KRB5_KDB_FLAG_ALIAS_OK is set.
-     * To return an in-realm alias, fill in a different value for
-     * entries->princ than the one requested.
+     * A module can return in-realm aliases if KRB5_KDB_FLAG_ALIAS_OK is set,
+     * or if search_for->type is KRB5_NT_ENTERPRISE_PRINCIPAL.  To return an
+     * in-realm alias, fill in a different value for entries->princ than the
+     * one requested.
      *
      * A module can return out-of-realm referrals if KRB5_KDB_FLAG_CANONICALIZE
      * is set.  For AS request clients (KRB5_KDB_FLAG_CLIENT_REFERRALS_ONLY is
@@ -1255,14 +1258,15 @@ typedef struct _kdb_vftabl {
      *
      *   flags: The flags used to look up the client principal.
      *
-     *   client_princ: For S4U2Proxy TGS requests, the client principal
-     *     requested by the service; for regular TGS requests, the
+     *   client_princ: For S4U2Self and S4U2Proxy TGS requests, the client
+     *     principal requested by the service; for regular TGS requests, the
      *     possibly-canonicalized client principal.
      *
      *   client: The DB entry of the client.  For S4U2Self, this will be the DB
      *     entry for the client principal requested by the service).
      *
-     *   server: The DB entry of the service principal.
+     *   server: The DB entry of the service principal, or of a cross-realm
+     *     krbtgt principal in case of referral.
      *
      *   krbtgt: For TGS requests, the DB entry of the server of the ticket in
      *     the PA-TGS-REQ padata; this is usually a local or cross-realm krbtgt
@@ -1356,6 +1360,8 @@ typedef struct _kdb_vftabl {
      * AS request.
      */
     void (*audit_as_req)(krb5_context kcontext, krb5_kdc_req *request,
+                         const krb5_address *local_addr,
+                         const krb5_address *remote_addr,
                          krb5_db_entry *client, krb5_db_entry *server,
                          krb5_timestamp authtime, krb5_error_code error_code);
 
@@ -1382,6 +1388,17 @@ typedef struct _kdb_vftabl {
                                                  krb5_const_principal client,
                                                  const krb5_db_entry *server,
                                                  krb5_const_principal proxy);
+
+    /* End of minor version 0. */
+
+    /*
+     * Optional: Free the e_data pointer of a database entry.  If this method
+     * is not implemented, the e_data pointer in principal entries will be
+     * freed with free() as seen by libkdb5.
+     */
+    void (*free_principal_e_data)(krb5_context kcontext, krb5_octet *e_data);
+
+    /* End of minor version 1 for major version 6. */
 } kdb_vftabl;
 
 #endif /* !defined(_WIN32) */

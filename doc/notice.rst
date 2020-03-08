@@ -1,4 +1,4 @@
-Copyright |copy| 1985-2016 by the Massachusetts Institute of Technology.
+Copyright |copy| 1985-2019 by the Massachusetts Institute of Technology.
 
 All rights reserved.
 
@@ -39,7 +39,7 @@ nationals of those countries.
 
 Documentation components of this software distribution are licensed
 under a Creative Commons Attribution-ShareAlike 3.0 Unported License.
-(http://creativecommons.org/licenses/by-sa/3.0/)
+(https://creativecommons.org/licenses/by-sa/3.0/)
 
 Individual source code files are copyright MIT, Cygnus Support,
 Novell, OpenVision Technologies, Oracle, Red Hat, Sun Microsystems,
@@ -304,8 +304,8 @@ the following new or changed files:
     lib/kdb/kdb_log.c
     lib/kdb/kdb_log.h
     lib/krb5/error_tables/kdb5_err.et
-    slave/kpropd_rpc.c
-    slave/kproplog.c
+    kprop/kpropd_rpc.c
+    kprop/kproplog.c
 
 are subject to the following license:
 
@@ -561,7 +561,7 @@ Marked test programs in src/lib/krb5/krb have the following copyright:
 
 -------------------
 
-The KCM Mach RPC definition file used on OS X has the following copyright:
+The KCM Mach RPC definition file used on macOS has the following copyright:
 
     | Copyright |copy| 2009 Kungliga Tekniska Högskola
     | (Royal Institute of Technology, Stockholm, Sweden).
@@ -1237,3 +1237,50 @@ The following notice applies to
     STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
     OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-------------------
+
+The following notice applies to portions of
+``src/plugins/preauth/spake/edwards25519.c`` and
+``src/plugins/preauth/spake/edwards25519_tables.h``:
+
+The MIT License (MIT)
+
+Copyright (c) 2015-2016 the fiat-crypto authors (see the AUTHORS file).
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to
+deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+
+-------------------
+
+The following notice applies to portions of
+``src/plugins/preauth/spake/edwards25519.c``:
+
+Copyright (c) 2015-2016, Google Inc.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.

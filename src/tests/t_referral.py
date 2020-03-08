@@ -1,4 +1,3 @@
-#!/usr/bin/python
 from k5test import *
 
 # Create a pair of realms, where KRBTEST1.COM can authenticate to
@@ -17,15 +16,18 @@ os.rename(realm.ccache, savefile)
 # Get credentials and check that we got a referral to REFREALM.
 def testref(realm, nametype):
     shutil.copyfile(savefile, realm.ccache)
-    realm.run(['./gcred', nametype, 'a/x.d'])
-    realm.klist(realm.user_princ, 'a/x.d@REFREALM')
+    realm.run(['./gcred', nametype, 'a/x.d@'])
+    out = realm.run([klist]).split('\n')
+    if len(out) != 8:
+        fail('unexpected number of lines in klist output')
+    if out[5].split()[4] != 'a/x.d@' or out[6].split()[4] != 'a/x.d@REFREALM':
+        fail('unexpected service principals in klist output')
 
 # Get credentials and check that we get an error, not a referral.
 def testfail(realm, nametype):
     shutil.copyfile(savefile, realm.ccache)
-    out = realm.run(['./gcred', nametype, 'a/x.d'], expected_code=1)
-    if 'not found in Kerberos database' not in out:
-        fail('unexpected error')
+    realm.run(['./gcred', nametype, 'a/x.d@'], expected_code=1,
+              expected_msg='not found in Kerberos database')
 
 # Create a modified KDC environment and restart the KDC.
 def restart_kdc(realm, kdc_conf):
@@ -36,6 +38,7 @@ def restart_kdc(realm, kdc_conf):
 # With no KDC configuration besides [domain_realm], we should get a
 # referral for a NT-SRV-HST or NT-SRV-INST server name, but not an
 # NT-UNKNOWN or NT-PRINCIPAL server name.
+mark('[domain-realm] only')
 testref(realm, 'srv-hst')
 testref(realm, 'srv-inst')
 testfail(realm, 'principal')
@@ -47,6 +50,7 @@ testfail(realm, 'unknown')
 # section, with the realm values supplementing the kdcdefaults values.
 # NT-SRV-HST server names should be unaffected by host_based_services,
 # and NT-PRINCIPAL server names shouldn't get a referral regardless.
+mark('host_based_services')
 restart_kdc(realm, {'kdcdefaults': {'host_based_services': '*'}})
 testref(realm, 'unknown')
 testfail(realm, 'principal')
@@ -66,6 +70,7 @@ testref(realm, 'srv-hst')
 
 # With no_host_referrals matching the first server name component, we
 # should not get a referral even for NT-SRV-HOST server names
+mark('no_host_referral')
 restart_kdc(realm, {'kdcdefaults': {'no_host_referral': '*'}})
 testfail(realm, 'srv-hst')
 restart_kdc(realm, {'kdcdefaults': {'no_host_referral': ['b', 'a,c']}})
@@ -92,6 +97,7 @@ refrealm.stop()
 
 # Regression test for #7483: a KDC should not return a host referral
 # to its own realm.
+mark('#7483 regression test')
 drealm = {'domain_realm': {'d': 'KRBTEST.COM'}}
 realm = K5Realm(kdc_conf=drealm, create_host=False)
 tracefile = os.path.join(realm.testdir, 'trace')
@@ -107,6 +113,7 @@ realm.stop()
 # Test client referrals.  Use the test KDB module for KRBTEST1.COM to
 # simulate referrals since our built-in modules do not support them.
 # No cross-realm TGTs are necessary.
+mark('client referrals')
 kdcconf = {'realms': {'$realm': {'database_module': 'test'}},
            'dbmodules': {'test': {'db_library': 'test',
                                   'alias': {'user': '@KRBTEST2.COM',
@@ -116,12 +123,24 @@ r1, r2 = cross_realms(2, xtgts=(),
                       create_host=False)
 r2.addprinc('abc\@XYZ', 'pw')
 r1.start_kdc()
-out = r1.kinit('user', expected_code=1)
-if 'not found in Kerberos database' not in out:
-    fail('Expected error not seen for referral without canonicalize flag')
+r1.kinit('user', expected_code=1,
+         expected_msg='not found in Kerberos database')
 r1.kinit('user', password('user'), ['-C'])
 r1.klist('user@KRBTEST2.COM', 'krbtgt/KRBTEST2.COM')
 r1.kinit('abc@XYZ', 'pw', ['-E'])
 r1.klist('abc\@XYZ@KRBTEST2.COM', 'krbtgt/KRBTEST2.COM')
+
+# Test that disable_encrypted_timestamp persists across client
+# referrals.  (This test relies on SPAKE not being enabled by default
+# on the KDC.)
+r2.run([kadminl, 'modprinc', '+preauth', 'user'])
+msgs = ('Encrypted timestamp (for ')
+r1.kinit('user', password('user'), ['-C'], expected_trace=msgs)
+dconf = {'realms': {'$realm': {'disable_encrypted_timestamp': 'true'}}}
+denv = r1.special_env('disable_encts', False, krb5_conf=dconf)
+msgs = ('Ignoring encrypted timestamp because it is disabled',
+        '/Encrypted timestamp is disabled')
+r1.kinit('user', None, ['-C'], env=denv, expected_code=1, expected_trace=msgs,
+         expected_msg='Encrypted timestamp is disabled')
 
 success('KDC host referral tests')

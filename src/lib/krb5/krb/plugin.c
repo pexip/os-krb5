@@ -57,7 +57,10 @@ const char *interface_names[] = {
     "hostrealm",
     "audit",
     "tls",
-    "kdcauthdata"
+    "kdcauthdata",
+    "certauth",
+    "kadm5_auth",
+    "kdcpolicy",
 };
 
 /* Return the context's interface structure for id, or NULL if invalid. */
@@ -470,14 +473,18 @@ k5_plugin_register_dyn(krb5_context context, int interface_id,
 {
     krb5_error_code ret;
     struct plugin_interface *interface = get_interface(context, interface_id);
-    char *path;
+    char *fname, *path;
 
     /* Disallow registering plugins after load. */
     if (interface == NULL || interface->configured)
         return EINVAL;
 
-    if (asprintf(&path, "%s/%s%s", modsubdir, modname, PLUGIN_EXT) < 0)
+    if (asprintf(&fname, "%s%s", modname, PLUGIN_EXT) < 0)
         return ENOMEM;
+    ret = k5_path_join(modsubdir, fname, &path);
+    free(fname);
+    if (ret)
+        return ret;
     ret = register_module(context, interface, modname, path, NULL);
     free(path);
     return ret;

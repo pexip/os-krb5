@@ -32,7 +32,7 @@
 
 /*
  * This cache type contacts a daemon for each cache operation, using Heimdal's
- * KCM protocol.  On OS X, the preferred transport is Mach RPC; on other
+ * KCM protocol.  On macOS, the preferred transport is Mach RPC; on other
  * Unix-like platforms or if the daemon is not available via RPC, Unix domain
  * sockets are used instead.
  */
@@ -42,6 +42,7 @@
 #include "k5-input.h"
 #include "cc-int.h"
 #include "kcm.h"
+#include "../os/os-proto.h"
 #include <sys/socket.h>
 #include <sys/un.h>
 #ifdef __APPLE__
@@ -61,7 +62,7 @@ struct uuid_list {
 };
 
 struct kcmio {
-    int fd;
+    SOCKET fd;
 #ifdef __APPLE__
     mach_port_t mport;
 #endif
@@ -252,7 +253,7 @@ static krb5_error_code
 kcmio_unix_socket_connect(krb5_context context, struct kcmio *io)
 {
     krb5_error_code ret;
-    int fd = -1;
+    SOCKET fd = INVALID_SOCKET;
     struct sockaddr_un addr;
     char *path = NULL;
 
@@ -267,25 +268,25 @@ kcmio_unix_socket_connect(krb5_context context, struct kcmio *io)
     }
 
     fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd == -1) {
-        ret = errno;
+    if (fd == INVALID_SOCKET) {
+        ret = SOCKET_ERRNO;
         goto cleanup;
     }
 
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
     strlcpy(addr.sun_path, path, sizeof(addr.sun_path));
-    if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-        ret = (errno == ENOENT) ? KRB5_KCM_NO_SERVER : errno;
+    if (SOCKET_CONNECT(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+        ret = (SOCKET_ERRNO == ENOENT) ? KRB5_KCM_NO_SERVER : SOCKET_ERRNO;
         goto cleanup;
     }
 
     io->fd = fd;
-    fd = -1;
+    fd = INVALID_SOCKET;
 
 cleanup:
-    if (fd != -1)
-        close(fd);
+    if (fd != INVALID_SOCKET)
+        closesocket(fd);
     profile_release_string(path);
     return ret;
 }
@@ -297,13 +298,36 @@ kcmio_unix_socket_write(krb5_context context, struct kcmio *io, void *request,
                         size_t len)
 {
     char lenbytes[4];
+    sg_buf sg[2];
+    int ret;
+    krb5_boolean reconnected = FALSE;
 
+    SG_SET(&sg[0], lenbytes, sizeof(lenbytes));
+    SG_SET(&sg[1], request, len);
     store_32_be(len, lenbytes);
-    if (krb5_net_write(context, io->fd, lenbytes, 4) < 0)
-        return errno;
-    if (krb5_net_write(context, io->fd, request, len) < 0)
-        return errno;
-    return 0;
+
+    for (;;) {
+        ret = krb5int_net_writev(context, io->fd, sg, 2);
+        if (ret >= 0)
+            return 0;
+        ret = errno;
+        if (ret != EPIPE || reconnected)
+            return ret;
+
+        /*
+         * Try once to reconnect on an EPIPE, in case the server has an idle
+         * timeout (like sssd does) and we went too long between ccache
+         * operations.  Reconnecting might also help if the server was
+         * restarted for an upgrade--although the server must be designed to
+         * always listen for connections on the socket during upgrades, or a
+         * single reconnect attempt won't be robust.
+         */
+        close(io->fd);
+        ret = kcmio_unix_socket_connect(context, io);
+        if (ret)
+            return ret;
+        reconnected = TRUE;
+    }
 }
 
 /* Read a KCM reply: 4-byte big-endian length, 4-byte big-endian status code,
@@ -358,9 +382,9 @@ kcmio_connect(krb5_context context, struct kcmio **io_out)
     io = calloc(1, sizeof(*io));
     if (io == NULL)
         return ENOMEM;
-    io->fd = -1;
+    io->fd = INVALID_SOCKET;
 
-    /* Try Mach RPC (OS X only), then fall back to Unix domain sockets */
+    /* Try Mach RPC (macOS only), then fall back to Unix domain sockets */
     ret = kcmio_mach_connect(context, io);
     if (ret)
         ret = kcmio_unix_socket_connect(context, io);
@@ -384,7 +408,7 @@ kcmio_call(krb5_context context, struct kcmio *io, struct kcmreq *req)
     if (k5_buf_status(&req->reqbuf) != 0)
         return ENOMEM;
 
-    if (io->fd != -1) {
+    if (io->fd != INVALID_SOCKET) {
         ret = kcmio_unix_socket_write(context, io, req->reqbuf.data,
                                       req->reqbuf.len);
         if (ret)
@@ -411,8 +435,8 @@ kcmio_close(struct kcmio *io)
 {
     if (io != NULL) {
         kcmio_mach_close(io);
-        if (io->fd != -1)
-            close(io->fd);
+        if (io->fd != INVALID_SOCKET)
+            closesocket(io->fd);
         free(io);
     }
 }
@@ -721,12 +745,18 @@ kcm_get_princ(krb5_context context, krb5_ccache cache,
 {
     krb5_error_code ret;
     struct kcmreq req;
+    struct kcm_cache_data *data = cache->data;
 
     kcmreq_init(&req, KCM_OP_GET_PRINCIPAL, cache);
     ret = cache_call(context, cache, &req, FALSE);
     /* Heimdal KCM can respond with code 0 and no principal. */
     if (!ret && req.reply.len == 0)
         ret = KRB5_FCC_NOFILE;
+    if (ret == KRB5_FCC_NOFILE) {
+        k5_setmsg(context, ret, _("Credentials cache 'KCM:%s' not found"),
+                  data->residual);
+    }
+
     if (!ret)
         ret = k5_unmarshal_princ(req.reply.ptr, req.reply.len, 4, princ_out);
     kcmreq_free(&req);
@@ -966,6 +996,9 @@ kcm_ptcursor_next(krb5_context context, krb5_cc_ptcursor cursor,
         kcmreq_init(&req, KCM_OP_GET_CACHE_BY_UUID, NULL);
         k5_buf_add_len(&req.reqbuf, id, KCM_UUID_LEN);
         ret = kcmio_call(context, data->io, &req);
+        /* Continue if the cache has been deleted. */
+        if (ret == KRB5_CC_END)
+            continue;
         if (ret)
             goto cleanup;
         ret = kcmreq_get_name(&req, &name);

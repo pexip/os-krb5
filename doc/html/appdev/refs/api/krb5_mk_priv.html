@@ -1,33 +1,31 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>krb5_mk_priv - Format a KRB-PRIV message. &mdash; MIT Kerberos Documentation</title>
-    
+    <title>krb5_mk_priv - Format a KRB-PRIV message. &#8212; MIT Kerberos Documentation</title>
     <link rel="stylesheet" href="../../../_static/agogo.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/kerb.css" type="text/css" />
-    
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../../',
-        VERSION:     '1.15',
+        VERSION:     '1.17',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
       };
     </script>
     <script type="text/javascript" src="../../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../../_static/doctools.js"></script>
     <link rel="author" title="About these documents" href="../../../about.html" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
     <link rel="copyright" title="Copyright" href="../../../copyright.html" />
-    <link rel="top" title="MIT Kerberos Documentation" href="../../../index.html" />
-    <link rel="up" title="krb5 API" href="index.html" />
     <link rel="next" title="krb5_mk_rep - Format and encrypt a KRB_AP_REP message." href="krb5_mk_rep.html" />
     <link rel="prev" title="krb5_mk_ncred - Format a KRB-CRED message for an array of credentials." href="krb5_mk_ncred.html" /> 
   </head>
@@ -61,13 +59,13 @@
             
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="krb5-mk-priv-format-a-krb-priv-message">
 <h1>krb5_mk_priv -  Format a KRB-PRIV message.<a class="headerlink" href="#krb5-mk-priv-format-a-krb-priv-message" title="Permalink to this headline">¶</a></h1>
 <dl class="function">
 <dt id="c.krb5_mk_priv">
-<a class="reference internal" href="../types/krb5_error_code.html#c.krb5_error_code" title="krb5_error_code">krb5_error_code</a> <tt class="descname">krb5_mk_priv</tt><big>(</big><a class="reference internal" href="../types/krb5_context.html#c.krb5_context" title="krb5_context">krb5_context</a><em>&nbsp;context</em>, <a class="reference internal" href="../types/krb5_auth_context.html#c.krb5_auth_context" title="krb5_auth_context">krb5_auth_context</a><em>&nbsp;auth_context</em>, const <a class="reference internal" href="../types/krb5_data.html#c.krb5_data" title="krb5_data">krb5_data</a> *<em>&nbsp;userdata</em>, <a class="reference internal" href="../types/krb5_data.html#c.krb5_data" title="krb5_data">krb5_data</a> *<em>&nbsp;outbuf</em>, <a class="reference internal" href="../types/krb5_replay_data.html#c.krb5_replay_data" title="krb5_replay_data">krb5_replay_data</a> *<em>&nbsp;outdata</em><big>)</big><a class="headerlink" href="#c.krb5_mk_priv" title="Permalink to this definition">¶</a></dt>
+<a class="reference internal" href="../types/krb5_error_code.html#c.krb5_error_code" title="krb5_error_code">krb5_error_code</a> <code class="descname">krb5_mk_priv</code><span class="sig-paren">(</span><a class="reference internal" href="../types/krb5_context.html#c.krb5_context" title="krb5_context">krb5_context</a><em>&nbsp;context</em>, <a class="reference internal" href="../types/krb5_auth_context.html#c.krb5_auth_context" title="krb5_auth_context">krb5_auth_context</a><em>&nbsp;auth_context</em>, const <a class="reference internal" href="../types/krb5_data.html#c.krb5_data" title="krb5_data">krb5_data</a> *<em>&nbsp;userdata</em>, <a class="reference internal" href="../types/krb5_data.html#c.krb5_data" title="krb5_data">krb5_data</a> *<em>&nbsp;outbuf</em>, <a class="reference internal" href="../types/krb5_replay_data.html#c.krb5_replay_data" title="krb5_replay_data">krb5_replay_data</a> *<em>&nbsp;outdata</em><span class="sig-paren">)</span><a class="headerlink" href="#c.krb5_mk_priv" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <table class="docutils field-list" frame="void" rules="none">
@@ -94,20 +92,19 @@
 </tr>
 </tbody>
 </table>
-<p>This function is similar to <a class="reference internal" href="krb5_mk_safe.html#c.krb5_mk_safe" title="krb5_mk_safe"><tt class="xref c c-func docutils literal"><span class="pre">krb5_mk_safe()</span></tt></a> , but the message is encrypted and integrity-protected, not just integrity-protected.</p>
+<p>This function is similar to <a class="reference internal" href="krb5_mk_safe.html#c.krb5_mk_safe" title="krb5_mk_safe"><code class="xref c c-func docutils literal"><span class="pre">krb5_mk_safe()</span></code></a> , but the message is encrypted and integrity-protected, not just integrity-protected.</p>
 <p>The local address in <em>auth_context</em> must be set, and is used to form the sender address used in the KRB-SAFE message. The remote address is optional; if specified, it will be used to form the receiver address used in the message.</p>
 <blockquote>
 <div><ul class="simple">
-<li><a class="reference internal" href="../macros/KRB5_AUTH_CONTEXT_DO_TIME.html#KRB5_AUTH_CONTEXT_DO_TIME" title="KRB5_AUTH_CONTEXT_DO_TIME"><tt class="xref py py-data docutils literal"><span class="pre">KRB5_AUTH_CONTEXT_DO_TIME</span></tt></a> - Use timestamps in <em>outdata</em></li>
-<li><a class="reference internal" href="../macros/KRB5_AUTH_CONTEXT_RET_TIME.html#KRB5_AUTH_CONTEXT_RET_TIME" title="KRB5_AUTH_CONTEXT_RET_TIME"><tt class="xref py py-data docutils literal"><span class="pre">KRB5_AUTH_CONTEXT_RET_TIME</span></tt></a> - Copy timestamp to <em>outdata</em> .</li>
-<li><a class="reference internal" href="../macros/KRB5_AUTH_CONTEXT_DO_SEQUENCE.html#KRB5_AUTH_CONTEXT_DO_SEQUENCE" title="KRB5_AUTH_CONTEXT_DO_SEQUENCE"><tt class="xref py py-data docutils literal"><span class="pre">KRB5_AUTH_CONTEXT_DO_SEQUENCE</span></tt></a> - Use local sequence numbers from <em>auth_context</em> in replay cache.</li>
-<li><a class="reference internal" href="../macros/KRB5_AUTH_CONTEXT_RET_SEQUENCE.html#KRB5_AUTH_CONTEXT_RET_SEQUENCE" title="KRB5_AUTH_CONTEXT_RET_SEQUENCE"><tt class="xref py py-data docutils literal"><span class="pre">KRB5_AUTH_CONTEXT_RET_SEQUENCE</span></tt></a> - Use local sequence numbers from <em>auth_context</em> as a sequence number in the encrypted message <em>outbuf</em> .</li>
+<li><a class="reference internal" href="../macros/KRB5_AUTH_CONTEXT_DO_TIME.html#KRB5_AUTH_CONTEXT_DO_TIME" title="KRB5_AUTH_CONTEXT_DO_TIME"><code class="xref py py-data docutils literal"><span class="pre">KRB5_AUTH_CONTEXT_DO_TIME</span></code></a> - Use timestamps in <em>outdata</em></li>
+<li><a class="reference internal" href="../macros/KRB5_AUTH_CONTEXT_RET_TIME.html#KRB5_AUTH_CONTEXT_RET_TIME" title="KRB5_AUTH_CONTEXT_RET_TIME"><code class="xref py py-data docutils literal"><span class="pre">KRB5_AUTH_CONTEXT_RET_TIME</span></code></a> - Copy timestamp to <em>outdata</em> .</li>
+<li><a class="reference internal" href="../macros/KRB5_AUTH_CONTEXT_DO_SEQUENCE.html#KRB5_AUTH_CONTEXT_DO_SEQUENCE" title="KRB5_AUTH_CONTEXT_DO_SEQUENCE"><code class="xref py py-data docutils literal"><span class="pre">KRB5_AUTH_CONTEXT_DO_SEQUENCE</span></code></a> - Use local sequence numbers from <em>auth_context</em> in replay cache.</li>
+<li><a class="reference internal" href="../macros/KRB5_AUTH_CONTEXT_RET_SEQUENCE.html#KRB5_AUTH_CONTEXT_RET_SEQUENCE" title="KRB5_AUTH_CONTEXT_RET_SEQUENCE"><code class="xref py py-data docutils literal"><span class="pre">KRB5_AUTH_CONTEXT_RET_SEQUENCE</span></code></a> - Use local sequence numbers from <em>auth_context</em> as a sequence number in the encrypted message <em>outbuf</em> .</li>
 </ul>
 </div></blockquote>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
-<p>If the <a class="reference internal" href="../macros/KRB5_AUTH_CONTEXT_RET_TIME.html#KRB5_AUTH_CONTEXT_RET_TIME" title="KRB5_AUTH_CONTEXT_RET_TIME"><tt class="xref py py-data docutils literal"><span class="pre">KRB5_AUTH_CONTEXT_RET_TIME</span></tt></a> or <a class="reference internal" href="../macros/KRB5_AUTH_CONTEXT_RET_SEQUENCE.html#KRB5_AUTH_CONTEXT_RET_SEQUENCE" title="KRB5_AUTH_CONTEXT_RET_SEQUENCE"><tt class="xref py py-data docutils literal"><span class="pre">KRB5_AUTH_CONTEXT_RET_SEQUENCE</span></tt></a> flag is set in <em>auth_context</em> , the <em>outdata</em> is required.</p>
-<p class="last">The flags from <em>auth_context</em> specify whether sequence numbers or timestamps will be used to identify the message. Valid values are:</p>
+<p class="last">If the <a class="reference internal" href="../macros/KRB5_AUTH_CONTEXT_RET_TIME.html#KRB5_AUTH_CONTEXT_RET_TIME" title="KRB5_AUTH_CONTEXT_RET_TIME"><code class="xref py py-data docutils literal"><span class="pre">KRB5_AUTH_CONTEXT_RET_TIME</span></code></a> or <a class="reference internal" href="../macros/KRB5_AUTH_CONTEXT_RET_SEQUENCE.html#KRB5_AUTH_CONTEXT_RET_SEQUENCE" title="KRB5_AUTH_CONTEXT_RET_SEQUENCE"><code class="xref py py-data docutils literal"><span class="pre">KRB5_AUTH_CONTEXT_RET_SEQUENCE</span></code></a> flag is set in <em>auth_context</em> , the <em>outdata</em> is required.</p>
 </div>
 </div>
 
@@ -129,6 +126,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../admin/index.html">For administrators</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../../index.html">For application developers</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../../gssapi.html">Developing with GSSAPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../y2038.html">Year 2038 considerations for uses of krb5_timestamp</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../h5l_mit_apidiff.html">Differences between Heimdal and MIT Kerberos API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../init_creds.html">Initial credentials</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../princ_handle.html">Principal manipulation and parsing</a></li>
@@ -166,8 +164,8 @@
 
     <div class="footer-wrapper">
         <div class="footer" >
-            <div class="right" ><i>Release: 1.15</i><br />
-                &copy; <a href="../../../copyright.html">Copyright</a> 1985-2016, MIT.
+            <div class="right" ><i>Release: 1.17</i><br />
+                &copy; <a href="../../../copyright.html">Copyright</a> 1985-2019, MIT.
             </div>
             <div class="left">
                 

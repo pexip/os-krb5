@@ -169,12 +169,31 @@ OM_uint32 KRB5_CALLCONV gss_set_sec_context_option
 	 const gss_OID /*desired_object*/,
 	 const gss_buffer_t /*value*/);
 
+/*
+ * Export import cred extensions from GGF, but using Heimdal's signatures
+ */
+OM_uint32 KRB5_CALLCONV gss_export_cred
+	(OM_uint32 * /* minor_status */,
+	 gss_cred_id_t /* cred_handle */,
+	 gss_buffer_t /* token */);
+
+OM_uint32 KRB5_CALLCONV gss_import_cred
+	(OM_uint32 * /* minor_status */,
+	 gss_buffer_t /* token */,
+	 gss_cred_id_t * /* cred_handle */);
+
+/*
+ * Heimdal extension
+ */
 OM_uint32 KRB5_CALLCONV gss_set_cred_option
 	(OM_uint32 * /*minor_status*/,
 	 gss_cred_id_t * /*cred*/,
 	 const gss_OID /*desired_object*/,
 	 const gss_buffer_t /*value*/);
 
+/*
+ * Call the given method on the given mechanism
+ */
 OM_uint32 KRB5_CALLCONV gssspi_mech_invoke
 	(OM_uint32 * /*minor_status*/,
 	 const gss_OID /*desired_mech*/,
@@ -559,20 +578,19 @@ gss_store_cred_into(
     gss_OID_set *,             /* elements_stored */
     gss_cred_usage_t *);       /* cred_usage_stored */
 
-OM_uint32 KRB5_CALLCONV
-gss_export_cred(
-    OM_uint32 *,               /* minor_status */
-    gss_cred_id_t,             /* cred_handle */
-    gss_buffer_t);             /* token */
-
-OM_uint32 KRB5_CALLCONV
-gss_import_cred(
-    OM_uint32 *,               /* minor_status */
-    gss_buffer_t,              /* token */
-    gss_cred_id_t *);          /* cred_handle */
-
 #ifdef __cplusplus
 }
 #endif
+
+/*
+ * When used with gss_inquire_sec_context_by_oid(), return a buffer set with
+ * the first member containing an unsigned 32-bit integer in network byte
+ * order.  This is the Security Strength Factor (SSF) associated with the
+ * secure channel established by the security context.  NOTE: This value is
+ * made available solely as an indication for use by APIs like Cyrus SASL that
+ * classify the strength of a secure channel via this number.  The strength of
+ * a channel cannot necessarily be represented by a simple number.
+ */
+GSS_DLLIMP extern gss_OID GSS_C_SEC_CONTEXT_SASL_SSF;
 
 #endif /* GSSAPI_EXT_H_ */

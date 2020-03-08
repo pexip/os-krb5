@@ -151,6 +151,7 @@ static krb5_error_code
 init_tls_vtable(krb5_context context)
 {
     krb5_plugin_initvt_fn initfn;
+    krb5_error_code ret;
 
     if (context->tls != NULL)
         return 0;
@@ -161,8 +162,11 @@ init_tls_vtable(krb5_context context)
 
     /* Attempt to load the module; just let it stay nulled out on failure. */
     k5_plugin_register_dyn(context, PLUGIN_INTERFACE_TLS, "k5tls", "tls");
-    if (k5_plugin_load(context, PLUGIN_INTERFACE_TLS, "k5tls", &initfn) == 0)
+    ret = k5_plugin_load(context, PLUGIN_INTERFACE_TLS, "k5tls", &initfn);
+    if (!ret)
         (*initfn)(context, 0, 0, (krb5_plugin_vtable)context->tls);
+    else
+        TRACE_SENDTO_KDC_K5TLS_LOAD_ERROR(context, ret);
 
     return 0;
 }
@@ -253,7 +257,7 @@ cm_get_ssflags(struct select_state *selstate, int fd)
     struct pollfd *pfd = find_pollfd(selstate, fd);
 
     /*
-     * OS X sets POLLHUP without POLLOUT on connection error.  Catch this as
+     * macOS sets POLLHUP without POLLOUT on connection error.  Catch this as
      * well as other error events such as POLLNVAL, but only if POLLIN and
      * POLLOUT aren't set, as we can get POLLHUP along with POLLIN with TCP
      * data still to be read.
@@ -791,7 +795,7 @@ resolve_server(krb5_context context, const krb5_data *realm,
     struct server_entry *entry = &servers->servers[ind];
     k5_transport transport;
     struct addrinfo *addrs, *a, hint, ai;
-    krb5_boolean defer;
+    krb5_boolean defer = FALSE;
     int err, result;
     char portbuf[PORT_LENGTH];
 
@@ -811,9 +815,13 @@ resolve_server(krb5_context context, const krb5_data *realm,
                               NULL, NULL, entry->uri_path, udpbufp);
     }
 
-    /* If the entry has a specified transport, use it. */
-    if (entry->transport != TCP_OR_UDP)
+    /* If the entry has a specified transport, use it, but possibly defer the
+     * addresses we add based on the strategy. */
+    if (entry->transport != TCP_OR_UDP) {
         transport = entry->transport;
+        defer = (entry->transport == TCP && strategy == UDP_FIRST) ||
+            (entry->transport == UDP && strategy == UDP_LAST);
+    }
 
     memset(&hint, 0, sizeof(hint));
     hint.ai_family = entry->family;
@@ -833,7 +841,7 @@ resolve_server(krb5_context context, const krb5_data *realm,
     /* Add each address with the specified or preferred transport. */
     retval = 0;
     for (a = addrs; a != 0 && retval == 0; a = a->ai_next) {
-        retval = add_connection(conns, transport, FALSE, a, ind, realm,
+        retval = add_connection(conns, transport, defer, a, ind, realm,
                                 entry->hostname, portbuf, entry->uri_path,
                                 udpbufp);
     }
@@ -876,7 +884,8 @@ start_connection(krb5_context context, struct conn_state *state,
     }
 
     /* Start connecting to KDC.  */
-    e = connect(fd, (struct sockaddr *)&state->addr.saddr, state->addr.len);
+    e = SOCKET_CONNECT(fd, (struct sockaddr *)&state->addr.saddr,
+                       state->addr.len);
     if (e != 0) {
         /*
          * This is the path that should be followed for non-blocking
@@ -1368,8 +1377,7 @@ get_endtime(time_ms endtime, struct conn_state *conns)
     struct conn_state *state;
 
     for (state = conns; state != NULL; state = state->next) {
-        if (state->addr.transport == TCP &&
-            (state->state == READING || state->state == WRITING) &&
+        if ((state->state == READING || state->state == WRITING) &&
             state->endtime > endtime)
             endtime = state->endtime;
     }

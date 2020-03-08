@@ -34,7 +34,7 @@
  * Declarations for kdcpreauth plugin module implementors.
  *
  * The kdcpreauth interface has a single supported major version, which is 1.
- * Major version 1 has a current minor version of 3.  kdcpreauth modules should
+ * Major version 1 has a current minor version of 2.  kdcpreauth modules should
  * define a function named kdcpreauth_<modulename>_initvt, matching the
  * signature:
  *
@@ -220,6 +220,42 @@ typedef struct krb5_kdcpreauth_callbacks_st {
                                   const krb5_data *data);
 
     /* End of version 3 kdcpreauth callbacks. */
+
+    /*
+     * Return true if princ matches the principal named in the request or the
+     * client principal (possibly canonicalized).  If princ does not match,
+     * attempt a database lookup of princ with aliases allowed and compare the
+     * result to the client principal, returning true if it matches.
+     * Otherwise, return false.
+     */
+    krb5_boolean (*match_client)(krb5_context context,
+                                 krb5_kdcpreauth_rock rock,
+                                 krb5_principal princ);
+
+    /*
+     * Get an alias to the client DB entry principal (possibly canonicalized).
+     */
+    krb5_principal (*client_name)(krb5_context context,
+                                  krb5_kdcpreauth_rock rock);
+
+    /* End of version 4 kdcpreauth callbacks. */
+
+    /*
+     * Instruct the KDC to send a freshness token in the method data
+     * accompanying a PREAUTH_REQUIRED or PREAUTH_FAILED error, if the client
+     * indicated support for freshness tokens.  This callback should only be
+     * invoked from the edata method.
+     */
+    void (*send_freshness_token)(krb5_context context,
+                                 krb5_kdcpreauth_rock rock);
+
+    /* Validate a freshness token sent by the client.  Return 0 on success,
+     * KRB5KDC_ERR_PREAUTH_EXPIRED on error. */
+    krb5_error_code (*check_freshness_token)(krb5_context context,
+                                             krb5_kdcpreauth_rock rock,
+                                             const krb5_data *token);
+
+    /* End of version 5 kdcpreauth callbacks. */
 
 } *krb5_kdcpreauth_callbacks;
 

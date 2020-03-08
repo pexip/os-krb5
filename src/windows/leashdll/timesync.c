@@ -8,15 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef NO_KRB4
-#include <winkrbid.h>
-#endif
-
-#ifdef WSHELPER
-#include <wshelper.h>
-#else
 #include <winsock2.h>
-#endif
 
 #include <stdio.h>
 #include "leasherr.h"
@@ -80,7 +72,7 @@ gettimeofday(
 
 
 LONG
-not_an_API_LeashGetTimeServerName(
+get_time_server_name(
     char *timeServerName,
     const char *valueName
     )
@@ -167,11 +159,7 @@ LONG Leash_timesync(int MessageP)
     WSADATA             wsaData;
     char                name[80];
 
-    if ((pkrb5_init_context == NULL)
-#ifndef NO_KRB4
-        && (ptkt_string == NULL)
-#endif
-         )
+    if (pkrb5_init_context == NULL)
         return(0);
 
     wVersionRequested = 0x0101;
@@ -192,7 +180,7 @@ LONG Leash_timesync(int MessageP)
     else
         Port = sp->s_port;
 
-    not_an_API_LeashGetTimeServerName(hostname, TIMEHOST);
+    get_time_server_name(hostname, TIMEHOST);
 
     rc = ProcessTimeSync(hostname, Port, tmpstr);
 
@@ -228,8 +216,8 @@ int ProcessTimeSync(char *hostname, int Port, char *tmpstr)
 {
     char                buffer[512];
     int                 cc;
-    register long       *nettime;
-    register int        s;
+    long                *nettime;
+    int                 s;
     long                hosttime;
     struct hostent      *host;
     struct              timeval tv;

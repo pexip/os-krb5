@@ -1,33 +1,31 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>krb5 simple macros &mdash; MIT Kerberos Documentation</title>
-    
+    <title>krb5 simple macros &#8212; MIT Kerberos Documentation</title>
     <link rel="stylesheet" href="../../../_static/agogo.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/kerb.css" type="text/css" />
-    
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../../',
-        VERSION:     '1.15',
+        VERSION:     '1.17',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
       };
     </script>
     <script type="text/javascript" src="../../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../../_static/doctools.js"></script>
     <link rel="author" title="About these documents" href="../../../about.html" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
     <link rel="copyright" title="Copyright" href="../../../copyright.html" />
-    <link rel="top" title="MIT Kerberos Documentation" href="../../../index.html" />
-    <link rel="up" title="Complete reference - API and datatypes" href="../index.html" />
     <link rel="next" title="ADDRTYPE_ADDRPORT" href="ADDRTYPE_ADDRPORT.html" />
     <link rel="prev" title="krb5_tkt_creds_context" href="../types/krb5_tkt_creds_context.html" /> 
   </head>
@@ -61,7 +59,7 @@
             
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <div class="section" id="krb5-simple-macros">
 <h1>krb5 simple macros<a class="headerlink" href="#krb5-simple-macros" title="Permalink to this headline">¶</a></h1>
@@ -243,6 +241,7 @@
 <li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_KRB_ERROR_CKSUM.html">KRB5_KEYUSAGE_KRB_ERROR_CKSUM</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_KRB_PRIV_ENCPART.html">KRB5_KEYUSAGE_KRB_PRIV_ENCPART</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_KRB_SAFE_CKSUM.html">KRB5_KEYUSAGE_KRB_SAFE_CKSUM</a></li>
+<li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_PA_AS_FRESHNESS.html">KRB5_KEYUSAGE_PA_AS_FRESHNESS</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_PA_FX_COOKIE.html">KRB5_KEYUSAGE_PA_FX_COOKIE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_PA_OTP_REQUEST.html">KRB5_KEYUSAGE_PA_OTP_REQUEST</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_PA_PKINIT_KX.html">KRB5_KEYUSAGE_PA_PKINIT_KX</a></li>
@@ -251,6 +250,7 @@
 <li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_PA_SAM_CHALLENGE_CKSUM.html">KRB5_KEYUSAGE_PA_SAM_CHALLENGE_CKSUM</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_PA_SAM_CHALLENGE_TRACKID.html">KRB5_KEYUSAGE_PA_SAM_CHALLENGE_TRACKID</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_PA_SAM_RESPONSE.html">KRB5_KEYUSAGE_PA_SAM_RESPONSE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_SPAKE.html">KRB5_KEYUSAGE_SPAKE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_TGS_REP_ENCPART_SESSKEY.html">KRB5_KEYUSAGE_TGS_REP_ENCPART_SESSKEY</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_TGS_REP_ENCPART_SUBKEY.html">KRB5_KEYUSAGE_TGS_REP_ENCPART_SUBKEY</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_KEYUSAGE_TGS_REQ_AD_SESSKEY.html">KRB5_KEYUSAGE_TGS_REQ_AD_SESSKEY</a></li>
@@ -303,6 +303,7 @@
 <li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_AFS3_SALT.html">KRB5_PADATA_AFS3_SALT</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_AP_REQ.html">KRB5_PADATA_AP_REQ</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_AS_CHECKSUM.html">KRB5_PADATA_AS_CHECKSUM</a></li>
+<li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_AS_FRESHNESS.html">KRB5_PADATA_AS_FRESHNESS</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_ENCRYPTED_CHALLENGE.html">KRB5_PADATA_ENCRYPTED_CHALLENGE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_ENC_SANDIA_SECURID.html">KRB5_PADATA_ENC_SANDIA_SECURID</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_ENC_TIMESTAMP.html">KRB5_PADATA_ENC_TIMESTAMP</a></li>
@@ -334,6 +335,7 @@
 <li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_SAM_RESPONSE.html">KRB5_PADATA_SAM_RESPONSE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_SAM_RESPONSE_2.html">KRB5_PADATA_SAM_RESPONSE_2</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_SESAME.html">KRB5_PADATA_SESAME</a></li>
+<li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_SPAKE.html">KRB5_PADATA_SPAKE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_SVR_REFERRAL_INFO.html">KRB5_PADATA_SVR_REFERRAL_INFO</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_TGS_REQ.html">KRB5_PADATA_TGS_REQ</a></li>
 <li class="toctree-l1"><a class="reference internal" href="KRB5_PADATA_USE_SPECIFIED_KVNO.html">KRB5_PADATA_USE_SPECIFIED_KVNO</a></li>
@@ -467,13 +469,14 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../admin/index.html">For administrators</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../../index.html">For application developers</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../../gssapi.html">Developing with GSSAPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../y2038.html">Year 2038 considerations for uses of krb5_timestamp</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../h5l_mit_apidiff.html">Differences between Heimdal and MIT Kerberos API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../init_creds.html">Initial credentials</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../princ_handle.html">Principal manipulation and parsing</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="../index.html">Complete reference - API and datatypes</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../api/index.html">krb5 API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../types/index.html">krb5 types and structures</a></li>
-<li class="toctree-l3 current"><a class="current reference internal" href="">krb5 simple macros</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">krb5 simple macros</a></li>
 </ul>
 </li>
 </ul>
@@ -504,8 +507,8 @@
 
     <div class="footer-wrapper">
         <div class="footer" >
-            <div class="right" ><i>Release: 1.15</i><br />
-                &copy; <a href="../../../copyright.html">Copyright</a> 1985-2016, MIT.
+            <div class="right" ><i>Release: 1.17</i><br />
+                &copy; <a href="../../../copyright.html">Copyright</a> 1985-2019, MIT.
             </div>
             <div class="left">
                 

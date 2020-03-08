@@ -451,36 +451,12 @@ kdc_fast_hide_client(struct kdc_request_state *state)
     return (state->fast_options & KRB5_FAST_OPTION_HIDE_CLIENT_NAMES) != 0;
 }
 
-/* Allocate a pa-data entry with an uninitialized buffer of size len. */
-static krb5_error_code
-alloc_padata(krb5_preauthtype pa_type, size_t len, krb5_pa_data **out)
-{
-    krb5_pa_data *pa;
-    uint8_t *buf;
-
-    *out = NULL;
-    buf = malloc(len);
-    if (buf == NULL)
-        return ENOMEM;
-    pa = malloc(sizeof(*pa));
-    if (pa == NULL) {
-        free(buf);
-        return ENOMEM;
-    }
-    pa->magic = KV5M_PA_DATA;
-    pa->pa_type = pa_type;
-    pa->length = len;
-    pa->contents = buf;
-    *out = pa;
-    return 0;
-}
-
 /* Create a pa-data entry with the specified type and contents. */
 static krb5_error_code
 make_padata(krb5_preauthtype pa_type, const void *contents, size_t len,
             krb5_pa_data **out)
 {
-    if (alloc_padata(pa_type, len, out) != 0)
+    if (alloc_pa_data(pa_type, len, out) != 0)
         return ENOMEM;
     memcpy((*out)->contents, contents, len);
     return 0;
@@ -607,7 +583,7 @@ kdc_fast_read_cookie(krb5_context context, struct kdc_request_state *state,
     ret = krb5_timeofday(context, &now);
     if (ret)
         goto cleanup;
-    if (now - COOKIE_LIFETIME > cookie->time) {
+    if (ts2tt(now) > cookie->time + COOKIE_LIFETIME) {
         /* Don't accept the cookie contents.  Only return an error if the
          * cookie is relevant to the request. */
         if (is_relevant(cookie->data, req->padata))
@@ -700,7 +676,7 @@ kdc_fast_make_cookie(krb5_context context, struct kdc_request_state *state,
     ret = krb5_timeofday(context, &now);
     if (ret)
         goto cleanup;
-    cookie.time = now;
+    cookie.time = ts2tt(now);
     cookie.data = contents;
     ret = encode_krb5_secure_cookie(&cookie, &der_cookie);
     if (ret)
@@ -720,7 +696,7 @@ kdc_fast_make_cookie(krb5_context context, struct kdc_request_state *state,
         goto cleanup;
 
     /* Construct the cookie pa-data entry. */
-    ret = alloc_padata(KRB5_PADATA_FX_COOKIE, 8 + enc.ciphertext.length, &pa);
+    ret = alloc_pa_data(KRB5_PADATA_FX_COOKIE, 8 + enc.ciphertext.length, &pa);
     memcpy(pa->contents, "MIT1", 4);
     store_32_be(kvno, pa->contents + 4);
     memcpy(pa->contents + 8, enc.ciphertext.data, enc.ciphertext.length);

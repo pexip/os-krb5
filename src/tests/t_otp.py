@@ -1,5 +1,3 @@
-#!/usr/bin/python
-#
 # Author: Nathaniel McCallum <npmccallum@redhat.com>
 #
 # Copyright (c) 2013 Red Hat, Inc.
@@ -31,8 +29,8 @@
 #
 
 from k5test import *
-from Queue import Empty
-import StringIO
+from queue import Empty
+from io import StringIO
 import struct
 
 try:
@@ -122,7 +120,8 @@ class UnixRadiusDaemon(RadiusDaemon):
         sock.listen(1)
         return (sock, addr)
 
-    def recvRequest(self, (sock, addr)):
+    def recvRequest(self, sock_and_addr):
+        sock, addr = sock_and_addr
         conn = sock.accept()[0]
         sock.close()
         os.remove(addr)
@@ -149,16 +148,22 @@ def verify(daemon, queue, reply, usernm, passwd):
     assert data['pass'] == [passwd]
     daemon.join()
 
-def otpconfig(toktype, username=None, indicators=None):
-    val = '[{"type": "%s"' % toktype
+# Compose a single token configuration.
+def otpconfig_1(toktype, username=None, indicators=None):
+    val = '{"type": "%s"' % toktype
     if username is not None:
         val += ', "username": "%s"' % username
     if indicators is not None:
         qind = ['"%s"' % s for s in indicators]
         jsonlist = '[' + ', '.join(qind) + ']'
         val += ', "indicators":' + jsonlist
-    val += '}]'
+    val += '}'
     return val
+
+# Compose a token configuration list suitable for the "otp" string
+# attribute.
+def otpconfig(toktype, username=None, indicators=None):
+    return '[' + otpconfig_1(toktype, username, indicators) + ']'
 
 prefix = "/tmp/%d" % os.getpid()
 secret_file = prefix + ".secret"
@@ -183,6 +188,7 @@ flags = ['-T', realm.ccache]
 server_addr = '127.0.0.1:' + str(realm.portbase + 9)
 
 ## Test UDP fail / custom username
+mark('UDP fail / custom username')
 daemon = UDPRadiusDaemon(args=(server_addr, secret_file, 'accept', queue))
 daemon.start()
 queue.get()
@@ -192,6 +198,7 @@ realm.kinit(realm.user_princ, 'reject', flags=flags, expected_code=1)
 verify(daemon, queue, False, 'custom', 'reject')
 
 ## Test UDP success / standard username
+mark('UDP success / standard username')
 daemon = UDPRadiusDaemon(args=(server_addr, secret_file, 'accept', queue))
 daemon.start()
 queue.get()
@@ -199,11 +206,11 @@ realm.run([kadminl, 'setstr', realm.user_princ, 'otp', otpconfig('udp')])
 realm.kinit(realm.user_princ, 'accept', flags=flags)
 verify(daemon, queue, True, realm.user_princ.split('@')[0], 'accept')
 realm.extract_keytab(realm.krbtgt_princ, realm.keytab)
-out = realm.run(['./adata', realm.krbtgt_princ])
-if '+97: [indotp1, indotp2]' not in out:
-    fail('auth indicators not seen in OTP ticket')
+realm.run(['./adata', realm.krbtgt_princ],
+          expected_msg='+97: [indotp1, indotp2]')
 
 # Repeat with an indicators override in the string attribute.
+mark('auth indicator override')
 daemon = UDPRadiusDaemon(args=(server_addr, secret_file, 'accept', queue))
 daemon.start()
 queue.get()
@@ -212,9 +219,8 @@ realm.run([kadminl, 'setstr', realm.user_princ, 'otp', oconf])
 realm.kinit(realm.user_princ, 'accept', flags=flags)
 verify(daemon, queue, True, realm.user_princ.split('@')[0], 'accept')
 realm.extract_keytab(realm.krbtgt_princ, realm.keytab)
-out = realm.run(['./adata', realm.krbtgt_princ])
-if '+97: [indtok1, indtok2]' not in out:
-    fail('auth indicators not seen in OTP ticket')
+realm.run(['./adata', realm.krbtgt_princ],
+          expected_msg='+97: [indtok1, indtok2]')
 
 # Detect upstream pyrad bug
 #   https://github.com/wichert/pyrad/pull/18
@@ -225,6 +231,7 @@ except AssertionError:
     skip_rest('OTP UNIX domain socket tests', 'pyrad assertion bug detected')
 
 ## Test Unix fail / custom username
+mark('Unix socket fail / custom username')
 daemon = UnixRadiusDaemon(args=(socket_file, '', 'accept', queue))
 daemon.start()
 queue.get()
@@ -234,11 +241,28 @@ realm.kinit(realm.user_princ, 'reject', flags=flags, expected_code=1)
 verify(daemon, queue, False, 'custom', 'reject')
 
 ## Test Unix success / standard username
+mark('Unix socket success / standard username')
 daemon = UnixRadiusDaemon(args=(socket_file, '', 'accept', queue))
 daemon.start()
 queue.get()
 realm.run([kadminl, 'setstr', realm.user_princ, 'otp', otpconfig('unix')])
 realm.kinit(realm.user_princ, 'accept', flags=flags)
 verify(daemon, queue, True, realm.user_princ, 'accept')
+
+## Regression test for #8708: test with the standard username and two
+## tokens configured, with the first rejecting and the second
+## accepting.  With the bug, the KDC incorrectly rejects the request
+## and then performs invalid memory accesses, most likely crashing.
+daemon1 = UDPRadiusDaemon(args=(server_addr, secret_file, 'accept1', queue))
+daemon2 = UnixRadiusDaemon(args=(socket_file, '', 'accept2', queue))
+daemon1.start()
+queue.get()
+daemon2.start()
+queue.get()
+oconf = '[' + otpconfig_1('udp') + ', ' + otpconfig_1('unix') + ']'
+realm.run([kadminl, 'setstr', realm.user_princ, 'otp', oconf])
+realm.kinit(realm.user_princ, 'accept2', flags=flags)
+verify(daemon1, queue, False, realm.user_princ.split('@')[0], 'accept2')
+verify(daemon2, queue, True, realm.user_princ, 'accept2')
 
 success('OTP tests')

@@ -98,12 +98,12 @@ search_sprinc(kdc_realm_t *, krb5_kdc_req *, krb5_flags,
 
 /*ARGSUSED*/
 krb5_error_code
-process_tgs_req(struct server_handle *handle, krb5_data *pkt,
-                const krb5_fulladdr *from, krb5_data **response)
+process_tgs_req(krb5_kdc_req *request, krb5_data *pkt,
+                const krb5_fulladdr *from, kdc_realm_t *kdc_active_realm,
+                krb5_data **response)
 {
     krb5_keyblock * subkey = 0;
     krb5_keyblock *header_key = NULL;
-    krb5_kdc_req *request = 0;
     krb5_db_entry *server = NULL;
     krb5_db_entry *stkt_server = NULL;
     krb5_kdc_rep reply;
@@ -113,7 +113,7 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
     krb5_enc_tkt_part enc_tkt_reply;
     int newtransited = 0;
     krb5_error_code retval = 0;
-    krb5_keyblock encrypting_key;
+    krb5_keyblock server_keyblock, *encrypting_key;
     krb5_timestamp kdc_time, authtime = 0;
     krb5_keyblock session_key;
     krb5_keyblock *reply_key = NULL;
@@ -136,7 +136,6 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
     krb5_pa_data *pa_tgs_req; /*points into request*/
     krb5_data scratch;
     krb5_pa_data **e_data = NULL;
-    kdc_realm_t *kdc_active_realm = NULL;
     krb5_audit_state *au_state = NULL;
     krb5_data **auth_indicators = NULL;
 
@@ -144,38 +143,28 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
     memset(&reply_encpart, 0, sizeof(reply_encpart));
     memset(&ticket_reply, 0, sizeof(ticket_reply));
     memset(&enc_tkt_reply, 0, sizeof(enc_tkt_reply));
+    memset(&server_keyblock, 0, sizeof(server_keyblock));
     session_key.contents = NULL;
 
-    retval = decode_krb5_tgs_req(pkt, &request);
-    if (retval)
-        return retval;
     /* Save pointer to client-requested service principal, in case of
      * errors before a successful call to search_sprinc(). */
     sprinc = request->server;
 
     if (request->msg_type != KRB5_TGS_REQ) {
-        krb5_free_kdc_req(handle->kdc_err_context, request);
+        krb5_free_kdc_req(kdc_context, request);
         return KRB5_BADMSGTYPE;
     }
 
-    /*
-     * setup_server_realm() sets up the global realm-specific data pointer.
-     */
-    kdc_active_realm = setup_server_realm(handle, request->server);
-    if (kdc_active_realm == NULL) {
-        krb5_free_kdc_req(handle->kdc_err_context, request);
-        return KRB5KDC_ERR_WRONG_REALM;
-    }
     errcode = kdc_make_rstate(kdc_active_realm, &state);
     if (errcode !=0) {
-        krb5_free_kdc_req(handle->kdc_err_context, request);
+        krb5_free_kdc_req(kdc_context, request);
         return errcode;
     }
 
     /* Initialize audit state. */
     errcode = kau_init_kdc_req(kdc_context, request, from, &au_state);
     if (errcode) {
-        krb5_free_kdc_req(handle->kdc_err_context, request);
+        krb5_free_kdc_req(kdc_context, request);
         return errcode;
     }
     /* Seed the audit trail with the request ID and basic information. */
@@ -195,15 +184,12 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
 
     if (!header_ticket) {
         errcode = KRB5_NO_TKT_SUPPLIED;        /* XXX? */
-        status="UNEXPECTED NULL in header_ticket";
         goto cleanup;
     }
     errcode = kau_make_tkt_id(kdc_context, header_ticket,
                               &au_state->tkt_in_id);
-    if (errcode) {
-        status = "GENERATE_TICKET_ID";
+    if (errcode)
         goto cleanup;
-    }
 
     scratch.length = pa_tgs_req->length;
     scratch.data = (char *) pa_tgs_req->contents;
@@ -264,16 +250,12 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
 
     au_state->stage = VALIDATE_POL;
 
-    if ((errcode = krb5_timeofday(kdc_context, &kdc_time))) {
-        status = "TIME_OF_DAY";
+    if ((errcode = krb5_timeofday(kdc_context, &kdc_time)))
         goto cleanup;
-    }
 
     if ((retval = validate_tgs_request(kdc_active_realm,
                                        request, *server, header_ticket,
                                        kdc_time, &status, &e_data))) {
-        if (!status)
-            status = "UNKNOWN_REASON";
         if (retval == KDC_ERR_POLICY || retval == KDC_ERR_BADOPTION)
             au_state->violation = PROT_CONSTRAINT;
         errcode = retval + ERROR_TABLE_BASE_krb5;
@@ -287,6 +269,8 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
     errcode = kdc_process_s4u2self_req(kdc_active_realm,
                                        request,
                                        header_enc_tkt->client,
+                                       header_ticket->server,
+                                       is_referral,
                                        server,
                                        subkey,
                                        header_enc_tkt->session,
@@ -306,16 +290,8 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
 
     if (errcode)
         goto cleanup;
-    if (s4u_x509_user != NULL) {
+    if (s4u_x509_user != NULL)
         setflag(c_flags, KRB5_KDB_FLAG_PROTOCOL_TRANSITION);
-        if (is_referral) {
-            /* The requesting server appears to no longer exist, and we found
-             * a referral instead.  Treat this as a server lookup failure. */
-            errcode = KRB5KDC_ERR_S_PRINCIPAL_UNKNOWN;
-            status = "LOOKING_UP_SERVER";
-            goto cleanup;
-        }
-    }
 
     /* Deal with user-to-user and constrained delegation */
     errcode = decrypt_2ndtkt(kdc_active_realm, request, c_flags,
@@ -340,7 +316,6 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
         retval = kau_make_tkt_id(kdc_context, request->second_ticket[st_idx],
                                   &au_state->evid_tkt_id);
         if (retval) {
-            status = "GENERATE_TICKET_ID";
             errcode = retval;
             goto cleanup;
         }
@@ -500,12 +475,12 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
 
         old_starttime = enc_tkt_reply.times.starttime ?
             enc_tkt_reply.times.starttime : enc_tkt_reply.times.authtime;
-        old_life = enc_tkt_reply.times.endtime - old_starttime;
+        old_life = ts_delta(enc_tkt_reply.times.endtime, old_starttime);
 
         enc_tkt_reply.times.starttime = kdc_time;
         enc_tkt_reply.times.endtime =
-            min(header_ticket->enc_part2->times.renew_till,
-                kdc_time + old_life);
+            ts_min(header_ticket->enc_part2->times.renew_till,
+                   ts_incr(kdc_time, old_life));
     } else {
         /* not a renew request */
         enc_tkt_reply.times.starttime = kdc_time;
@@ -517,6 +492,12 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
 
     kdc_get_ticket_renewtime(kdc_active_realm, request, header_enc_tkt, client,
                              server, &enc_tkt_reply);
+
+    errcode = check_kdcpolicy_tgs(kdc_context, request, server, header_ticket,
+                                  auth_indicators, kdc_time,
+                                  &enc_tkt_reply.times, &status);
+    if (errcode)
+        goto cleanup;
 
     /*
      * Set authtime to be the same as header or evidence ticket's
@@ -537,7 +518,7 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
     }
     if (isflagset(request->kdc_options, KDC_OPT_ENC_TKT_IN_SKEY)) {
         krb5_enc_tkt_part *t2enc = request->second_ticket[st_idx]->enc_part2;
-        encrypting_key = *(t2enc->session);
+        encrypting_key = t2enc->session;
     } else {
         /*
          * Find the server key
@@ -556,11 +537,12 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
          * (it may be encrypted in the database)
          */
         if ((errcode = krb5_dbe_decrypt_key_data(kdc_context, NULL,
-                                                 server_key, &encrypting_key,
+                                                 server_key, &server_keyblock,
                                                  NULL))) {
             status = "DECRYPT_SERVER_KEY";
             goto cleanup;
         }
+        encrypting_key = &server_keyblock;
     }
 
     if (isflagset(c_flags, KRB5_KDB_FLAG_CONSTRAINED_DELEGATION)) {
@@ -671,7 +653,7 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
                               header_server, local_tgt,
                               subkey != NULL ? subkey :
                               header_ticket->enc_part2->session,
-                              &encrypting_key, /* U2U or server key */
+                              encrypting_key, /* U2U or server key */
                               header_key,
                               pkt,
                               request,
@@ -719,14 +701,10 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
         ticket_kvno = server_key->key_data_kvno;
     }
 
-    errcode = krb5_encrypt_tkt_part(kdc_context, &encrypting_key,
+    errcode = krb5_encrypt_tkt_part(kdc_context, encrypting_key,
                                     &ticket_reply);
-    if (!isflagset(request->kdc_options, KDC_OPT_ENC_TKT_IN_SKEY))
-        krb5_free_keyblock_contents(kdc_context, &encrypting_key);
-    if (errcode) {
-        status = "ENCRYPT_TICKET";
+    if (errcode)
         goto cleanup;
-    }
     ticket_reply.enc_part.kvno = ticket_kvno;
     /* Start assembling the response */
     au_state->stage = ENCR_REP;
@@ -740,10 +718,8 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
                                         s4u_x509_user,
                                         &reply,
                                         &reply_encpart);
-        if (errcode) {
-            status = "MAKE_S4U2SELF_PADATA";
+        if (errcode)
             au_state->status = status;
-        }
         kau_s4u2self(kdc_context, errcode ? FALSE : TRUE, au_state);
         if (errcode)
             goto cleanup;
@@ -775,16 +751,12 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
         header_ticket->enc_part2->session->enctype;
     errcode  = kdc_fast_response_handle_padata(state, request, &reply,
                                                subkey ? subkey->enctype : header_ticket->enc_part2->session->enctype);
-    if (errcode !=0 ) {
-        status = "MAKE_FAST_RESPONSE";
+    if (errcode)
         goto cleanup;
-    }
     errcode =kdc_fast_handle_reply_key(state,
                                        subkey?subkey:header_ticket->enc_part2->session, &reply_key);
-    if (errcode) {
-        status  = "MAKE_FAST_REPLY_KEY";
+    if (errcode)
         goto cleanup;
-    }
     errcode = return_enc_padata(kdc_context, pkt, request,
                                 reply_key, server, &reply_encpart,
                                 is_referral &&
@@ -796,10 +768,8 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
     }
 
     errcode = kau_make_tkt_id(kdc_context, &ticket_reply, &au_state->tkt_out_id);
-    if (errcode) {
-        status = "GENERATE_TICKET_ID";
+    if (errcode)
         goto cleanup;
-    }
 
     if (kdc_fast_hide_client(state))
         reply.client = (krb5_principal)krb5_anonymous_principal();
@@ -807,11 +777,8 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
                                   subkey ? 1 : 0,
                                   reply_key,
                                   &reply, response);
-    if (errcode) {
-        status = "ENCODE_KDC_REP";
-    } else {
+    if (!errcode)
         status = "ISSUE";
-    }
 
     memset(ticket_reply.enc_part.ciphertext.data, 0,
            ticket_reply.enc_part.ciphertext.length);
@@ -823,7 +790,9 @@ process_tgs_req(struct server_handle *handle, krb5_data *pkt,
     free(reply.enc_part.ciphertext.data);
 
 cleanup:
-    assert(status != NULL);
+    if (status == NULL)
+        status = "UNKNOWN_REASON";
+    krb5_free_keyblock_contents(kdc_context, &server_keyblock);
     if (reply_key)
         krb5_free_keyblock(kdc_context, reply_key);
     if (errcode)
@@ -909,7 +878,8 @@ prepare_error_tgs (struct kdc_request_state *state,
     krb5_data *scratch, *e_data_asn1 = NULL, *fast_edata = NULL;
     kdc_realm_t *kdc_active_realm = state->realm_data;
 
-    errpkt.ctime = request->nonce;
+    errpkt.magic = KV5M_ERROR;
+    errpkt.ctime = 0;
     errpkt.cusec = 0;
 
     if ((retval = krb5_us_timeofday(kdc_context, &errpkt.stime,
@@ -1052,7 +1022,7 @@ gen_session_key(kdc_realm_t *kdc_active_realm, krb5_kdc_req *req,
         retval = get_2ndtkt_enctype(kdc_active_realm, req, &useenctype,
                                     status);
         if (retval != 0)
-            goto cleanup;
+            return retval;
     }
     if (useenctype == 0) {
         useenctype = select_session_keytype(kdc_active_realm, server,
@@ -1062,17 +1032,10 @@ gen_session_key(kdc_realm_t *kdc_active_realm, krb5_kdc_req *req,
     if (useenctype == 0) {
         /* unsupported ktype */
         *status = "BAD_ENCRYPTION_TYPE";
-        retval = KRB5KDC_ERR_ETYPE_NOSUPP;
-        goto cleanup;
+        return KRB5KDC_ERR_ETYPE_NOSUPP;
     }
-    retval = krb5_c_make_random_key(kdc_context, useenctype, skey);
-    if (retval != 0) {
-        /* random key failed */
-        *status = "MAKE_RANDOM_KEY";
-        goto cleanup;
-    }
-cleanup:
-    return retval;
+
+    return krb5_c_make_random_key(kdc_context, useenctype, skey);
 }
 
 /*

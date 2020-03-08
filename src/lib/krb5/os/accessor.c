@@ -30,11 +30,14 @@
 
 /* If this trick gets used elsewhere, move it to k5-platform.h.  */
 #ifndef DESIGNATED_INITIALIZERS
-#define DESIGNATED_INITIALIZERS                         \
-    /* ANSI/ISO C 1999 supports this...  */             \
-    (__STDC_VERSION__ >= 199901L                        \
-     /* ...as does GCC, since version 2.something.  */  \
-     || (!defined __cplusplus && __GNUC__ >= 3))
+/* ANSI/ISO C 1999 supports this...  */
+#if __STDC_VERSION__ >= 199901L                       \
+    /* ...as does GCC, since version 2.something.  */ \
+    || (!defined __cplusplus && __GNUC__ >= 3)
+#define DESIGNATED_INITIALIZERS 1
+#else
+#define DESIGNATED_INITIALIZERS 0
+#endif
 #endif
 
 krb5_error_code KRB5_CALLCONV
@@ -52,8 +55,6 @@ krb5int_accessor(krb5int_access *internals, krb5_int32 version)
             krb5int_access internals_temp;
 #endif
             S (auth_con_get_subkey_enctype, krb5_auth_con_get_subkey_enctype),
-
-            S (clean_hostname, k5_clean_hostname),
 
 #ifndef LEAN_CLIENT
 #define SC(FIELD, VAL)  S(FIELD, VAL)

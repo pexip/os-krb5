@@ -1,8 +1,8 @@
-/* A Bison parser, made by GNU Bison 3.0.2.  */
+/* A Bison parser, made by GNU Bison 3.0.4.  */
 
 /* Bison implementation for Yacc-like parsers in C
 
-   Copyright (C) 1984, 1989-1990, 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 1984, 1989-1990, 2000-2015 Free Software Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@
 #define YYBISON 1
 
 /* Bison version.  */
-#define YYBISON_VERSION "3.0.2"
+#define YYBISON_VERSION "3.0.4"
 
 /* Skeleton name.  */
 #define YYSKELETON_NAME "yacc.c"
@@ -72,7 +72,6 @@
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wuninitialized"
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
 
 #include "k5-int.h"
@@ -153,7 +152,7 @@ static int mylex(int *intp, struct param *tmv);
 static int yyparse(struct param *);
 
 
-#line 157 "deltat.c" /* yacc.c:339  */
+#line 156 "deltat.c" /* yacc.c:339  */
 
 # ifndef YY_NULLPTR
 #  if defined __cplusplus && 201103L <= __cplusplus
@@ -194,14 +193,16 @@ extern int yydebug;
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-typedef union YYSTYPE YYSTYPE;
+
 union YYSTYPE
 {
-#line 129 "x-deltat.y" /* yacc.c:355  */
+#line 128 "x-deltat.y" /* yacc.c:355  */
 int val;
 
-#line 204 "deltat.c" /* yacc.c:355  */
+#line 203 "deltat.c" /* yacc.c:355  */
 };
+
+typedef union YYSTYPE YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1
 #endif
@@ -214,7 +215,7 @@ int yyparse (struct param *tmv);
 
 /* Copy the second part of user declarations.  */
 
-#line 218 "deltat.c" /* yacc.c:358  */
+#line 219 "deltat.c" /* yacc.c:358  */
 
 #ifdef short
 # undef short
@@ -512,9 +513,9 @@ static const yytype_uint8 yytranslate[] =
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,   143,   143,   144,   144,   145,   145,   146,   146,   147,
-     148,   150,   151,   152,   153,   154,   155,   156,   157,   162,
-     163,   166,   167,   170,   171
+       0,   142,   142,   143,   143,   144,   144,   145,   145,   146,
+     147,   149,   150,   151,   152,   153,   154,   155,   156,   161,
+     162,   165,   166,   169,   170
 };
 #endif
 
@@ -1310,93 +1311,93 @@ yyreduce:
   switch (yyn)
     {
         case 6:
-#line 145 "x-deltat.y" /* yacc.c:1646  */
+#line 144 "x-deltat.y" /* yacc.c:1646  */
     { (yyval.val) = - (yyvsp[0].val); }
-#line 1316 "deltat.c" /* yacc.c:1646  */
+#line 1317 "deltat.c" /* yacc.c:1646  */
     break;
 
   case 9:
-#line 147 "x-deltat.y" /* yacc.c:1646  */
+#line 146 "x-deltat.y" /* yacc.c:1646  */
     { (yyval.val) = (yyvsp[0].val); }
-#line 1322 "deltat.c" /* yacc.c:1646  */
+#line 1323 "deltat.c" /* yacc.c:1646  */
     break;
 
   case 10:
-#line 148 "x-deltat.y" /* yacc.c:1646  */
+#line 147 "x-deltat.y" /* yacc.c:1646  */
     { YYERROR; }
-#line 1328 "deltat.c" /* yacc.c:1646  */
+#line 1329 "deltat.c" /* yacc.c:1646  */
     break;
 
   case 11:
-#line 150 "x-deltat.y" /* yacc.c:1646  */
+#line 149 "x-deltat.y" /* yacc.c:1646  */
     { DO ((yyvsp[-2].val),  0,  0, (yyvsp[0].val)); }
-#line 1334 "deltat.c" /* yacc.c:1646  */
+#line 1335 "deltat.c" /* yacc.c:1646  */
     break;
 
   case 12:
-#line 151 "x-deltat.y" /* yacc.c:1646  */
+#line 150 "x-deltat.y" /* yacc.c:1646  */
     { DO ( 0, (yyvsp[-2].val),  0, (yyvsp[0].val)); }
-#line 1340 "deltat.c" /* yacc.c:1646  */
+#line 1341 "deltat.c" /* yacc.c:1646  */
     break;
 
   case 13:
-#line 152 "x-deltat.y" /* yacc.c:1646  */
+#line 151 "x-deltat.y" /* yacc.c:1646  */
     { DO ( 0,  0, (yyvsp[-2].val), (yyvsp[0].val)); }
-#line 1346 "deltat.c" /* yacc.c:1646  */
+#line 1347 "deltat.c" /* yacc.c:1646  */
     break;
 
   case 14:
-#line 153 "x-deltat.y" /* yacc.c:1646  */
+#line 152 "x-deltat.y" /* yacc.c:1646  */
     { DO ( 0,  0,  0, (yyvsp[-1].val)); }
-#line 1352 "deltat.c" /* yacc.c:1646  */
+#line 1353 "deltat.c" /* yacc.c:1646  */
     break;
 
   case 15:
-#line 154 "x-deltat.y" /* yacc.c:1646  */
+#line 153 "x-deltat.y" /* yacc.c:1646  */
     { DO ((yyvsp[-6].val), (yyvsp[-4].val), (yyvsp[-2].val), (yyvsp[0].val)); }
-#line 1358 "deltat.c" /* yacc.c:1646  */
+#line 1359 "deltat.c" /* yacc.c:1646  */
     break;
 
   case 16:
-#line 155 "x-deltat.y" /* yacc.c:1646  */
+#line 154 "x-deltat.y" /* yacc.c:1646  */
     { DO ( 0, (yyvsp[-4].val), (yyvsp[-2].val), (yyvsp[0].val)); }
-#line 1364 "deltat.c" /* yacc.c:1646  */
+#line 1365 "deltat.c" /* yacc.c:1646  */
     break;
 
   case 17:
-#line 156 "x-deltat.y" /* yacc.c:1646  */
+#line 155 "x-deltat.y" /* yacc.c:1646  */
     { DO ( 0, (yyvsp[-2].val), (yyvsp[0].val),  0); }
-#line 1370 "deltat.c" /* yacc.c:1646  */
+#line 1371 "deltat.c" /* yacc.c:1646  */
     break;
 
   case 18:
-#line 157 "x-deltat.y" /* yacc.c:1646  */
+#line 156 "x-deltat.y" /* yacc.c:1646  */
     { DO ( 0,  0,  0, (yyvsp[0].val)); }
-#line 1376 "deltat.c" /* yacc.c:1646  */
+#line 1377 "deltat.c" /* yacc.c:1646  */
     break;
 
   case 20:
-#line 163 "x-deltat.y" /* yacc.c:1646  */
+#line 162 "x-deltat.y" /* yacc.c:1646  */
     { if (HOUR_NOT_OK((yyvsp[-2].val))) YYERROR;
 	                                  DO_SUM((yyval.val), (yyvsp[-2].val) * 3600, (yyvsp[0].val)); }
-#line 1383 "deltat.c" /* yacc.c:1646  */
+#line 1384 "deltat.c" /* yacc.c:1646  */
     break;
 
   case 22:
-#line 167 "x-deltat.y" /* yacc.c:1646  */
+#line 166 "x-deltat.y" /* yacc.c:1646  */
     { if (MIN_NOT_OK((yyvsp[-2].val))) YYERROR;
 	                                  DO_SUM((yyval.val), (yyvsp[-2].val) * 60, (yyvsp[0].val)); }
-#line 1390 "deltat.c" /* yacc.c:1646  */
+#line 1391 "deltat.c" /* yacc.c:1646  */
     break;
 
   case 23:
-#line 170 "x-deltat.y" /* yacc.c:1646  */
+#line 169 "x-deltat.y" /* yacc.c:1646  */
     { (yyval.val) = 0; }
-#line 1396 "deltat.c" /* yacc.c:1646  */
+#line 1397 "deltat.c" /* yacc.c:1646  */
     break;
 
 
-#line 1400 "deltat.c" /* yacc.c:1646  */
+#line 1401 "deltat.c" /* yacc.c:1646  */
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -1624,7 +1625,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 173 "x-deltat.y" /* yacc.c:1906  */
+#line 172 "x-deltat.y" /* yacc.c:1906  */
 
 
 #ifdef __GNUC__

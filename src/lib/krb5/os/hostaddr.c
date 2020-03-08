@@ -34,9 +34,9 @@ k5_os_hostaddr(krb5_context context, const char *name,
                krb5_address ***ret_addrs)
 {
     krb5_error_code     retval;
-    krb5_address        **addrs;
+    krb5_address        **addrs = NULL;
     int                 i, j, r;
-    struct addrinfo hints, *ai, *aip;
+    struct addrinfo hints, *ai = NULL, *aip;
 
     if (!name)
         return KRB5_ERR_BAD_HOSTNAME;
@@ -68,9 +68,9 @@ k5_os_hostaddr(krb5_context context, const char *name,
         }
     }
 
-    addrs = malloc ((i+1) * sizeof(*addrs));
-    if (!addrs)
-        return ENOMEM;
+    addrs = k5calloc(i + 1, sizeof(*addrs), &retval);
+    if (addrs == NULL)
+        goto errout;
 
     for (j = 0; j < i + 1; j++)
         addrs[j] = 0;
@@ -83,12 +83,12 @@ k5_os_hostaddr(krb5_context context, const char *name,
         switch (aip->ai_addr->sa_family) {
         case AF_INET:
             addrlen = sizeof (struct in_addr);
-            ptr = &((struct sockaddr_in *)aip->ai_addr)->sin_addr;
+            ptr = &sa2sin(aip->ai_addr)->sin_addr;
             atype = ADDRTYPE_INET;
             break;
         case AF_INET6:
             addrlen = sizeof (struct in6_addr);
-            ptr = &((struct sockaddr_in6 *)aip->ai_addr)->sin6_addr;
+            ptr = &sa2sin6(aip->ai_addr)->sin6_addr;
             atype = ADDRTYPE_INET6;
             break;
         default:

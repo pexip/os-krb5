@@ -4,15 +4,11 @@
  */
 
 
-#include "autoconf.h"
-#include <stdio.h>
-#include <time.h>
-#include <string.h>
+#include "k5-int.h"
 
 #include <kadm5/admin.h>
 #include "admin_internal.h"
 
-#include <krb5.h>
 
 #define string_text error_message
 
@@ -218,10 +214,12 @@ kadm5_ret_t _kadm5_chpass_principal_util(void *server_handle,
         time_t until;
         char *time_string, *ptr;
 
-        until = princ_ent.last_pwd_change + policy_ent.pw_min_life;
+        until = ts_incr(princ_ent.last_pwd_change, policy_ent.pw_min_life);
 
         time_string = ctime(&until);
-        if (*(ptr = &time_string[strlen(time_string)-1]) == '\n')
+        if (time_string == NULL)
+            time_string = "(error)";
+        else if (*(ptr = &time_string[strlen(time_string)-1]) == '\n')
             *ptr = '\0';
 
         snprintf(msg_ret, msg_len, string_text(CHPASS_UTIL_PASSWORD_TOO_SOON),

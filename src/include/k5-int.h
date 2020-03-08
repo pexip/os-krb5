@@ -203,6 +203,7 @@ typedef unsigned char   u_char;
 #define KRB5_CONF_DES_CRC_SESSION_SUPPORTED    "des_crc_session_supported"
 #define KRB5_CONF_DICT_FILE                    "dict_file"
 #define KRB5_CONF_DISABLE                      "disable"
+#define KRB5_CONF_DISABLE_ENCRYPTED_TIMESTAMP  "disable_encrypted_timestamp"
 #define KRB5_CONF_DISABLE_LAST_SUCCESS         "disable_last_success"
 #define KRB5_CONF_DISABLE_LOCKOUT              "disable_lockout"
 #define KRB5_CONF_DNS_CANONICALIZE_HOSTNAME    "dns_canonicalize_hostname"
@@ -212,6 +213,7 @@ typedef unsigned char   u_char;
 #define KRB5_CONF_DNS_URI_LOOKUP               "dns_uri_lookup"
 #define KRB5_CONF_DOMAIN_REALM                 "domain_realm"
 #define KRB5_CONF_ENABLE_ONLY                  "enable_only"
+#define KRB5_CONF_ENCRYPTED_CHALLENGE_INDICATOR "encrypted_challenge_indicator"
 #define KRB5_CONF_ERR_FMT                      "err_fmt"
 #define KRB5_CONF_EXTRA_ADDRESSES              "extra_addresses"
 #define KRB5_CONF_FORWARDABLE                  "forwardable"
@@ -224,6 +226,7 @@ typedef unsigned char   u_char;
 #define KRB5_CONF_IPROP_MASTER_ULOGSIZE        "iprop_master_ulogsize"
 #define KRB5_CONF_IPROP_PORT                   "iprop_port"
 #define KRB5_CONF_IPROP_RESYNC_TIMEOUT         "iprop_resync_timeout"
+#define KRB5_CONF_IPROP_REPLICA_POLL           "iprop_replica_poll"
 #define KRB5_CONF_IPROP_SLAVE_POLL             "iprop_slave_poll"
 #define KRB5_CONF_K5LOGIN_AUTHORITATIVE        "k5login_authoritative"
 #define KRB5_CONF_K5LOGIN_DIRECTORY            "k5login_directory"
@@ -263,13 +266,16 @@ typedef unsigned char   u_char;
 #define KRB5_CONF_LDAP_SERVICE_PASSWORD_FILE   "ldap_service_password_file"
 #define KRB5_CONF_LIBDEFAULTS                  "libdefaults"
 #define KRB5_CONF_LOGGING                      "logging"
+#define KRB5_CONF_MAPSIZE                      "mapsize"
 #define KRB5_CONF_MASTER_KDC                   "master_kdc"
 #define KRB5_CONF_MASTER_KEY_NAME              "master_key_name"
 #define KRB5_CONF_MASTER_KEY_TYPE              "master_key_type"
 #define KRB5_CONF_MAX_LIFE                     "max_life"
+#define KRB5_CONF_MAX_READERS                  "max_readers"
 #define KRB5_CONF_MAX_RENEWABLE_LIFE           "max_renewable_life"
 #define KRB5_CONF_MODULE                       "module"
 #define KRB5_CONF_NOADDRESSES                  "noaddresses"
+#define KRB5_CONF_NOSYNC                       "nosync"
 #define KRB5_CONF_NO_HOST_REFERRAL             "no_host_referral"
 #define KRB5_CONF_PERMITTED_ENCTYPES           "permitted_enctypes"
 #define KRB5_CONF_PLUGINS                      "plugins"
@@ -284,6 +290,9 @@ typedef unsigned char   u_char;
 #define KRB5_CONF_RESTRICT_ANONYMOUS_TO_TGT    "restrict_anonymous_to_tgt"
 #define KRB5_CONF_SAFE_CHECKSUM_TYPE           "safe_checksum_type"
 #define KRB5_CONF_SUPPORTED_ENCTYPES           "supported_enctypes"
+#define KRB5_CONF_SPAKE_PREAUTH_INDICATOR      "spake_preauth_indicator"
+#define KRB5_CONF_SPAKE_PREAUTH_KDC_CHALLENGE  "spake_preauth_kdc_challenge"
+#define KRB5_CONF_SPAKE_PREAUTH_GROUPS         "spake_preauth_groups"
 #define KRB5_CONF_TICKET_LIFETIME              "ticket_lifetime"
 #define KRB5_CONF_UDP_PREFERENCE_LIMIT         "udp_preference_limit"
 #define KRB5_CONF_UNLOCKITER                   "unlockiter"
@@ -633,54 +642,9 @@ krb5int_arcfour_gsscrypt(const krb5_keyblock *keyblock, krb5_keyusage usage,
 
 #define K5_SHA256_HASHLEN (256 / 8)
 
-/* Write the SHA-256 hash of in to out. */
+/* Write the SHA-256 hash of in (containing n elements) to out. */
 krb5_error_code
-k5_sha256(const krb5_data *in, uint8_t out[K5_SHA256_HASHLEN]);
-
-/*
- * Attempt to zero memory in a way that compilers won't optimize out.
- *
- * This mechanism should work even for heap storage about to be freed,
- * or automatic storage right before we return from a function.
- *
- * Then, even if we leak uninitialized memory someplace, or UNIX
- * "core" files get created with world-read access, some of the most
- * sensitive data in the process memory will already be safely wiped.
- *
- * We're not going so far -- yet -- as to try to protect key data that
- * may have been written into swap space....
- */
-#ifdef _WIN32
-# define zap(ptr, len) SecureZeroMemory(ptr, len)
-#elif defined(__STDC_LIB_EXT1__)
-/*
- * Use memset_s() which cannot be optimized out.  Avoid memset_s(NULL, 0, 0, 0)
- * which would cause a runtime constraint violation.
- */
-static inline void zap(void *ptr, size_t len)
-{
-    if (len > 0)
-        memset_s(ptr, len, 0, len);
-}
-#elif defined(__GNUC__) || defined(__clang__)
-/*
- * Use an asm statement which declares a memory clobber to force the memset to
- * be carried out.  Avoid memset(NULL, 0, 0) which has undefined behavior.
- */
-static inline void zap(void *ptr, size_t len)
-{
-    if (len > 0)
-        memset(ptr, 0, len);
-    __asm__ __volatile__("" : : "r" (ptr) : "memory");
-}
-#else
-/*
- * Use a function from libkrb5support to defeat inlining unless link-time
- * optimization is used.  The function uses a volatile pointer, which prevents
- * current compilers from optimizing out the memset.
- */
-# define zap(ptr, len) krb5int_zap(ptr, len)
-#endif
+k5_sha256(const krb5_data *in, size_t n, uint8_t out[K5_SHA256_HASHLEN]);
 
 /* Convenience function: zap and free ptr if it is non-NULL. */
 static inline void
@@ -720,7 +684,7 @@ krb5_error_code krb5int_c_copy_keyblock_contents(krb5_context context,
                                                  const krb5_keyblock *from,
                                                  krb5_keyblock *to);
 
-krb5_error_code krb5_crypto_us_timeofday(krb5_int32 *, krb5_int32 *);
+krb5_error_code krb5_crypto_us_timeofday(krb5_timestamp *, krb5_int32 *);
 
 /*
  * End "los-proto.h"
@@ -1155,7 +1119,10 @@ struct plugin_interface {
 #define PLUGIN_INTERFACE_AUDIT       7
 #define PLUGIN_INTERFACE_TLS         8
 #define PLUGIN_INTERFACE_KDCAUTHDATA 9
-#define PLUGIN_NUM_INTERFACES        10
+#define PLUGIN_INTERFACE_CERTAUTH    10
+#define PLUGIN_INTERFACE_KADM5_AUTH  11
+#define PLUGIN_INTERFACE_KDCPOLICY   12
+#define PLUGIN_NUM_INTERFACES        13
 
 /* Retrieve the plugin module of type interface_id and name modname,
  * storing the result into module. */
@@ -1194,7 +1161,7 @@ k5_plugin_free_context(krb5_context context);
 struct _kdb5_dal_handle;        /* private, in kdb5.h */
 typedef struct _kdb5_dal_handle kdb5_dal_handle;
 struct _kdb_log_context;
-typedef struct krb5_preauth_context_st krb5_preauth_context;
+typedef struct krb5_preauth_context_st *krb5_preauth_context;
 struct ccselect_module_handle;
 struct localauth_module_handle;
 struct hostrealm_module_handle;
@@ -1231,7 +1198,7 @@ struct _krb5_context {
     struct plugin_dir_handle libkrb5_plugins;
 
     /* preauth module stuff */
-    krb5_preauth_context *preauth_context;
+    krb5_preauth_context preauth_context;
 
     /* cache module stuff */
     struct ccselect_module_handle **ccselect_handles;
@@ -1866,15 +1833,12 @@ krb5int_random_string(krb5_context, char *string, unsigned int length);
 /* To keep happy libraries which are (for now) accessing internal stuff */
 
 /* Make sure to increment by one when changing the struct */
-#define KRB5INT_ACCESS_STRUCT_VERSION 21
+#define KRB5INT_ACCESS_STRUCT_VERSION 22
 
 typedef struct _krb5int_access {
     krb5_error_code (*auth_con_get_subkey_enctype)(krb5_context,
                                                    krb5_auth_context,
                                                    krb5_enctype *);
-
-    krb5_error_code (*clean_hostname)(krb5_context, const char *, char *,
-                                      size_t);
 
     krb5_error_code (*mandatory_cksumtype)(krb5_context, krb5_enctype,
                                            krb5_cksumtype *);
@@ -2112,6 +2076,7 @@ krb5_get_tgs_ktypes(krb5_context, krb5_const_principal, krb5_enctype **);
 krb5_boolean krb5_is_permitted_enctype(krb5_context, krb5_enctype);
 
 krb5_boolean KRB5_CALLCONV krb5int_c_weak_enctype(krb5_enctype);
+krb5_error_code k5_enctype_to_ssf(krb5_enctype enctype, unsigned int *ssf_out);
 
 krb5_error_code krb5_kdc_rep_decrypt_proc(krb5_context, const krb5_keyblock *,
                                           krb5_const_pointer, krb5_kdc_rep *);
@@ -2348,6 +2313,44 @@ k5memdup0(const void *in, size_t len, krb5_error_code *code)
     if (ptr != NULL && len > 0)
         memcpy(ptr, in, len);
     return ptr;
+}
+
+/* Convert a krb5_timestamp to a time_t value, treating the negative range of
+ * krb5_timestamp as times between 2038 and 2106 (if time_t is 64-bit). */
+static inline time_t
+ts2tt(krb5_timestamp timestamp)
+{
+    return (time_t)(uint32_t)timestamp;
+}
+
+/* Return the delta between two timestamps (a - b) as a signed 32-bit value,
+ * without relying on undefined behavior. */
+static inline krb5_deltat
+ts_delta(krb5_timestamp a, krb5_timestamp b)
+{
+    return (krb5_deltat)((uint32_t)a - (uint32_t)b);
+}
+
+/* Increment a timestamp by a signed 32-bit interval, without relying on
+ * undefined behavior. */
+static inline krb5_timestamp
+ts_incr(krb5_timestamp ts, krb5_deltat delta)
+{
+    return (krb5_timestamp)((uint32_t)ts + (uint32_t)delta);
+}
+
+/* Return true if a comes after b. */
+static inline krb5_boolean
+ts_after(krb5_timestamp a, krb5_timestamp b)
+{
+    return (uint32_t)a > (uint32_t)b;
+}
+
+/* Return true if a and b are within d seconds. */
+static inline krb5_boolean
+ts_within(krb5_timestamp a, krb5_timestamp b, krb5_deltat d)
+{
+    return !ts_after(a, ts_incr(b, d)) && !ts_after(b, ts_incr(a, d));
 }
 
 krb5_error_code KRB5_CALLCONV

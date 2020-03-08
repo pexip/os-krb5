@@ -6,6 +6,8 @@
 #include "k5-json.h"
 #include "int-proto.h"
 
+typedef struct krb5_preauth_req_context_st *krb5_preauth_req_context;
+
 struct krb5_responder_context_st {
     k5_response_items *items;
 };
@@ -48,16 +50,18 @@ struct _krb5_init_creds_context {
     krb5_data *inner_request_body; /**< For preauth */
     krb5_data *encoded_previous_request;
     struct krb5int_fast_request_state *fast_state;
-    krb5_pa_data **preauth_to_use;
+    krb5_pa_data **optimistic_padata; /* from gic options */
+    krb5_pa_data **method_padata; /* from PREAUTH_REQUIRED or PREAUTH_FAILED */
+    krb5_pa_data **more_padata; /* from MORE_PREAUTH_DATA_REQUIRED */
     krb5_boolean default_salt;
     krb5_data salt;
     krb5_data s2kparams;
     krb5_keyblock as_key;
     krb5_enctype etype;
-    krb5_boolean enc_pa_rep_permitted;
+    krb5_boolean info_pa_permitted;
     krb5_boolean restarted;
-    krb5_boolean sent_nontrivial_preauth;
-    krb5_boolean preauth_required;
+    krb5_boolean fallback_disabled;
+    krb5_boolean encts_disabled;
     struct krb5_responder_context_st rctx;
     krb5_preauthtype selected_preauth_type;
     krb5_preauthtype allowed_preauth_type;
@@ -67,6 +71,7 @@ struct _krb5_init_creds_context {
     krb5_timestamp pa_offset;
     krb5_int32 pa_offset_usec;
     enum { NO_OFFSET = 0, UNAUTH_OFFSET, AUTH_OFFSET } pa_offset_state;
+    krb5_preauth_req_context preauth_reqctx;
 };
 
 krb5_error_code

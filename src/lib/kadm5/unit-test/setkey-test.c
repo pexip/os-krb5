@@ -35,15 +35,6 @@ krb5_keyblock *tests[] = {
     test1, test2, test3, NULL
 };
 
-#if 0
-int keyblocks_equal(krb5_keyblock *kb1, krb5_keyblock *kb2)
-{
-    return (kb1->enctype == kb2->enctype &&
-            kb1->length == kb2->length &&
-            memcmp(kb1->contents, kb2->contents, kb1->length) == 0);
-}
-#endif
-
 krb5_data tgtname = {
     0,
     KRB5_TGS_NAME_SIZE,
@@ -69,7 +60,8 @@ main(int argc, char **argv)
     char *whoami, *principal, *authprinc, *authpwd;
     krb5_data pwdata;
     void *handle;
-    int ret, i, test, encnum;
+    int ret, test, encnum;
+    unsigned int i;
 
     whoami = argv[0];
 

@@ -351,8 +351,10 @@ kg_accept_dce(minor_status, context_handle, verifier_cred_handle,
     if (mech_type)
         *mech_type = ctx->mech_used;
 
-    if (time_rec)
-        *time_rec = ctx->krb_times.endtime + ctx->k5_context->clockskew - now;
+    if (time_rec) {
+        *time_rec = ts_delta(ctx->krb_times.endtime, now) +
+            ctx->k5_context->clockskew;
+    }
 
     /* Never return GSS_C_DELEG_FLAG since we don't support DCE credential
      * delegation yet. */
@@ -651,17 +653,6 @@ kg_accept_krb5(minor_status, context_handle,
                            KRB5_AUTH_CONTEXT_DO_SEQUENCE);
 
     krb5_auth_con_getauthenticator(context, auth_context, &authdat);
-
-#if 0
-    /* make sure the necessary parts of the authdat are present */
-
-    if ((authdat->authenticator->subkey == NULL) ||
-        (authdat->ticket->enc_part2 == NULL)) {
-        code = KG_NO_SUBKEY;
-        major_status = GSS_S_FAILURE;
-        goto fail;
-    }
-#endif
 
     if (authdat->checksum == NULL) {
         /*
@@ -1146,7 +1137,7 @@ kg_accept_krb5(minor_status, context_handle,
     /* Add the maximum allowable clock skew as a grace period for context
      * expiration, just as we do for the ticket. */
     if (time_rec)
-        *time_rec = ctx->krb_times.endtime + context->clockskew - now;
+        *time_rec = ts_delta(ctx->krb_times.endtime, now) + context->clockskew;
 
     if (ret_flags)
         *ret_flags = ctx->gss_flags;

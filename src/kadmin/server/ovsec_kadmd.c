@@ -51,14 +51,13 @@
 #include <gssrpc/auth_gssapi.h>
 #include <kadm5/admin.h>
 #include <kadm5/kadm_rpc.h>
-#include <kadm5/server_acl.h>
 #include <adm_proto.h>
 #include "kdb_kt.h"  /* for krb5_ktkdb_set_context */
 #include <string.h>
-#include "kadm5/server_internal.h" /* XXX for kadm5_server_handle_t */
 #include <kdb_log.h>
 
 #include "misc.h"
+#include "auth.h"
 
 #if defined(NEED_DAEMON_PROTO)
 int daemon(int, int);
@@ -106,7 +105,6 @@ fail_to_start(krb5_error_code code, const char *msg)
 {
     const char *errmsg;
 
-    fprintf(stderr, "%s: ", progname);
     if (code) {
         errmsg = krb5_get_error_message(context, code);
         fprintf(stderr, _("%s: %s while %s, aborting\n"), progname, errmsg,
@@ -138,11 +136,10 @@ write_pid_file(const char *pid_file)
 /* Set up the main loop.  If proponly is set, don't set up ports for kpasswd or
  * kadmin.  May set *ctx_out even on error. */
 static krb5_error_code
-setup_loop(int proponly, verto_ctx **ctx_out)
+setup_loop(kadm5_config_params *params, int proponly, verto_ctx **ctx_out)
 {
     krb5_error_code ret;
     verto_ctx *ctx;
-    kadm5_server_handle_t handle = global_server_handle;
 
     *ctx_out = ctx = loop_init(VERTO_EV_TYPE_SIGNAL);
     if (ctx == NULL)
@@ -151,24 +148,23 @@ setup_loop(int proponly, verto_ctx **ctx_out)
     if (ret)
         return ret;
     if (!proponly) {
-        ret = loop_add_udp_address(handle->params.kpasswd_port,
-                                   handle->params.kpasswd_listen);
+        ret = loop_add_udp_address(params->kpasswd_port,
+                                   params->kpasswd_listen);
         if (ret)
             return ret;
-        ret = loop_add_tcp_address(handle->params.kpasswd_port,
-                                   handle->params.kpasswd_listen);
+        ret = loop_add_tcp_address(params->kpasswd_port,
+                                   params->kpasswd_listen);
         if (ret)
             return ret;
-        ret = loop_add_rpc_service(handle->params.kadmind_port,
-                                   handle->params.kadmind_listen,
+        ret = loop_add_rpc_service(params->kadmind_port,
+                                   params->kadmind_listen,
                                    KADM, KADMVERS, kadm_1);
         if (ret)
             return ret;
     }
 #ifndef DISABLE_IPROP
-    if (handle->params.iprop_enabled) {
-        ret = loop_add_rpc_service(handle->params.iprop_port,
-                                   handle->params.iprop_listen,
+    if (params->iprop_enabled) {
+        ret = loop_add_rpc_service(params->iprop_port, params->iprop_listen,
                                    KRB5_IPROP_PROG, KRB5_IPROP_VERS,
                                    krb5_iprop_prog_1);
         if (ret)
@@ -356,6 +352,7 @@ main(int argc, char *argv[])
     verto_ctx *vctx;
     const char *pid_file = NULL;
     char **db_args = NULL, **tmpargs;
+    const char *acl_file;
     int ret, i, db_args_size = 0, strong_random = 1, proponly = 0;
 
     setlocale(LC_ALL, "");
@@ -471,8 +468,12 @@ main(int argc, char *argv[])
         fail_to_start(0, _("Missing required realm configuration"));
     if (!(params.mask & KADM5_CONFIG_ACL_FILE))
         fail_to_start(0, _("Missing required ACL file configuration"));
+    if (proponly && !params.iprop_enabled) {
+        fail_to_start(0, _("-proponly can only be used when "
+                           "iprop_enable is true"));
+    }
 
-    ret = setup_loop(proponly, &vctx);
+    ret = setup_loop(&params, proponly, &vctx);
     if (ret)
         fail_to_start(ret, _("initializing network"));
 
@@ -505,7 +506,8 @@ main(int argc, char *argv[])
     if (svcauth_gss_set_svc_name(GSS_C_NO_NAME) != TRUE)
         fail_to_start(0, _("Cannot initialize GSSAPI service name"));
 
-    ret = kadm5int_acl_init(context, 0, params.acl_file);
+    acl_file = (*params.acl_file != '\0') ? params.acl_file : NULL;
+    ret = auth_init(context, acl_file);
     if (ret)
         fail_to_start(ret, _("initializing ACL file"));
 
@@ -550,7 +552,7 @@ main(int argc, char *argv[])
     svcauth_gssapi_unset_names();
     kadm5_destroy(global_server_handle);
     loop_free(vctx);
-    kadm5int_acl_finish(context, 0);
+    auth_fini(context);
     (void)gss_release_name(&minor_status, &gss_changepw_name);
     (void)gss_release_name(&minor_status, &gss_oldchangepw_name);
     for (i = 0; i < 4; i++)
@@ -558,5 +560,5 @@ main(int argc, char *argv[])
 
     krb5_klog_close(context);
     krb5_free_context(context);
-    exit(2);
+    exit(0);
 }
