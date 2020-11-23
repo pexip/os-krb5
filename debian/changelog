@@ -1,3 +1,15 @@
+krb5 (1.17-3+deb10u1pexip1) pexip; urgency=medium
+
+  * Pull in new upstream version
+
+ -- Steve McIntyre <steve.mcintyre@pexip.com>  Mon, 23 Nov 2020 14:37:57 +0000
+
+krb5 (1.17-3+deb10u1) buster-security; urgency=medium
+
+  * CVE-2020-28196 (Closes: #973880)
+
+ -- Moritz Mühlenhoff <jmm@debian.org>  Thu, 19 Nov 2020 17:42:57 +0100
+
 krb5 (1.17-3pexip2) pexip; urgency=medium
 
   * Rebuild in buster environment
