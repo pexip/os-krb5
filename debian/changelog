@@ -1,3 +1,9 @@
+krb5 (1.17-3+deb10u2) buster-security; urgency=high
+
+  * Import upstream patch for CVE-2021-36222, Closes: #991365
+
+ -- Benjamin Kaduk <kaduk@mit.edu>  Thu, 22 Jul 2021 18:11:15 -0700
+
 krb5 (1.17-3+deb10u1) buster-security; urgency=medium
 
   * CVE-2020-28196 (Closes: #973880)
