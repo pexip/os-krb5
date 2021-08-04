@@ -1,3 +1,9 @@
+krb5 (1.17-3+deb10u2pexip2) pexip; urgency=medium
+
+  * Force removal of old config file
+
+ -- Huw Jones <huw@pexip.com>  Wed, 04 Aug 2021 12:50:01 +0100
+
 krb5 (1.17-3+deb10u2pexip1) pexip; urgency=medium
 
   * New upstream version with security fix
