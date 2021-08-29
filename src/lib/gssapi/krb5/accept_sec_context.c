@@ -945,8 +945,7 @@ kg_accept_krb5(minor_status, context_handle,
 
     if (delegated_cred_handle != NULL &&
         deleg_cred == NULL && /* no unconstrained delegation */
-        cred->usage == GSS_C_BOTH &&
-        (ticket->enc_part2->flags & TKT_FLG_FORWARDABLE)) {
+        cred->usage == GSS_C_BOTH) {
         /*
          * Now, we always fabricate a delegated credentials handle
          * containing the service ticket to ourselves, which can be
@@ -1011,9 +1010,6 @@ kg_accept_krb5(minor_status, context_handle,
             }
 
             switch (negotiated_etype) {
-            case ENCTYPE_DES_CBC_MD5:
-            case ENCTYPE_DES_CBC_MD4:
-            case ENCTYPE_DES_CBC_CRC:
             case ENCTYPE_DES3_CBC_SHA1:
             case ENCTYPE_ARCFOUR_HMAC:
             case ENCTYPE_ARCFOUR_HMAC_EXP:

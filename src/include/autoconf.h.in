@@ -1,4 +1,4 @@
-/* include/autoconf.h.in.  Generated from configure.in by autoheader.  */
+/* include/autoconf.h.in.  Generated from configure.ac by autoheader.  */
 
 
 #ifndef KRB5_AUTOCONF_H
@@ -153,6 +153,12 @@
 /* Define to 1 if you have the <errno.h> header file. */
 #undef HAVE_ERRNO_H
 
+/* Define to 1 if you have the `explicit_bzero' function. */
+#undef HAVE_EXPLICIT_BZERO
+
+/* Define to 1 if you have the `explicit_memset' function. */
+#undef HAVE_EXPLICIT_MEMSET
+
 /* Define to 1 if you have the `fchmod' function. */
 #undef HAVE_FCHMOD
 
@@ -197,6 +203,12 @@
 
 /* Define if getpwuid_r is available and useful. */
 #undef HAVE_GETPWUID_R
+
+/* Define to 1 if you have the `getresgid' function. */
+#undef HAVE_GETRESGID
+
+/* Define to 1 if you have the `getresuid' function. */
+#undef HAVE_GETRESUID
 
 /* Define if getservbyname_r exists and its return type is known */
 #undef HAVE_GETSERVBYNAME_R
@@ -368,6 +380,9 @@
 
 /* Define if struct sockaddr contains sa_len */
 #undef HAVE_SA_LEN
+
+/* Define to 1 if you have the `secure_getenv' function. */
+#undef HAVE_SECURE_GETENV
 
 /* Define to 1 if you have the `setegid' function. */
 #undef HAVE_SETEGID

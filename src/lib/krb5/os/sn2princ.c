@@ -50,22 +50,58 @@ use_reverse_dns(krb5_context context)
                               &value);
     if (ret)
         return DEFAULT_RDNS_LOOKUP;
+
     return value;
 }
 
-krb5_error_code KRB5_CALLCONV
-krb5_expand_hostname(krb5_context context, const char *host,
-                     char **canonhost_out)
+/* Append a domain suffix to host and return the result in allocated memory.
+ * Return NULL if no suffix is configured or on failure. */
+static char *
+qualify_shortname(krb5_context context, const char *host)
+{
+    krb5_error_code ret;
+    char *fqdn = NULL, *prof_domain = NULL, *os_domain = NULL;
+    const char *domain;
+
+    ret = profile_get_string(context->profile, KRB5_CONF_LIBDEFAULTS,
+                             KRB5_CONF_QUALIFY_SHORTNAME, NULL, NULL,
+                             &prof_domain);
+    if (ret)
+        return NULL;
+
+#ifdef KRB5_DNS_LOOKUP
+    if (prof_domain == NULL)
+        os_domain = k5_primary_domain();
+#endif
+
+    domain = (prof_domain != NULL) ? prof_domain : os_domain;
+    if (domain != NULL && *domain != '\0') {
+        if (asprintf(&fqdn, "%s.%s", host, domain) < 0)
+            fqdn = NULL;
+    }
+
+    profile_release_string(prof_domain);
+    free(os_domain);
+    return fqdn;
+}
+
+krb5_error_code
+k5_expand_hostname(krb5_context context, const char *host,
+                   krb5_boolean is_fallback, char **canonhost_out)
 {
     struct addrinfo *ai = NULL, hint;
-    char namebuf[NI_MAXHOST], *copy, *p;
+    char namebuf[NI_MAXHOST], *qualified = NULL, *copy, *p;
     int err;
     const char *canonhost;
+    krb5_boolean use_dns;
 
     *canonhost_out = NULL;
 
     canonhost = host;
-    if (context->dns_canonicalize_hostname) {
+    use_dns = (context->dns_canonicalize_hostname == CANONHOST_TRUE ||
+               (is_fallback &&
+                context->dns_canonicalize_hostname == CANONHOST_FALLBACK));
+    if (use_dns) {
         /* Try a forward lookup of the hostname. */
         memset(&hint, 0, sizeof(hint));
         hint.ai_flags = AI_CANONNAME;
@@ -84,6 +120,14 @@ krb5_expand_hostname(krb5_context context, const char *host,
             if (!err)
                 canonhost = namebuf;
         }
+    }
+
+    /* If we didn't use DNS and the name is just one component, try to add a
+     * domain suffix. */
+    if (canonhost == host && strchr(host, '.') == NULL) {
+        qualified = qualify_shortname(context, host);
+        if (qualified != NULL)
+            canonhost = qualified;
     }
 
     copy = strdup(canonhost);
@@ -109,7 +153,15 @@ cleanup:
     /* We only return success or ENOMEM. */
     if (ai != NULL)
         freeaddrinfo(ai);
+    free(qualified);
     return (*canonhost_out == NULL) ? ENOMEM : 0;
+}
+
+krb5_error_code KRB5_CALLCONV
+krb5_expand_hostname(krb5_context context, const char *host,
+                     char **canonhost_out)
+{
+    return k5_expand_hostname(context, host, FALSE, canonhost_out);
 }
 
 /* If hostname appears to have a :port or :instance trailer (used in MSSQLSvc

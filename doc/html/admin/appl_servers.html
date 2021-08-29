@@ -12,7 +12,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '1.17',
+        VERSION:     '1.18.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true,
@@ -171,6 +171,37 @@ used.</dd>
 </pre></div>
 </div>
 </div>
+<div class="section" id="using-a-keytab-to-acquire-client-credentials">
+<h3>Using a keytab to acquire client credentials<a class="headerlink" href="#using-a-keytab-to-acquire-client-credentials" title="Permalink to this headline">¶</a></h3>
+<p>While keytabs are ordinarily used to accept credentials from clients,
+they can also be used to acquire initial credentials, allowing one
+service to authenticate to another.</p>
+<p>To manually obtain credentials using a keytab, use the <a class="reference internal" href="../user/user_commands/kinit.html#kinit-1"><span class="std std-ref">kinit</span></a>
+<strong>-k</strong> option, together with the <strong>-t</strong> option if the keytab is not in
+the default location.</p>
+<p>Beginning with release 1.11, GSSAPI applications can be configured to
+automatically obtain initial credentials from a keytab as needed.  The
+recommended configuration is as follows:</p>
+<ol class="arabic simple">
+<li>Create a keytab containing a single entry for the desired client
+identity.</li>
+<li>Place the keytab in a location readable by the service, and set the
+<strong>KRB5_CLIENT_KTNAME</strong> environment variable to its filename.
+Alternatively, use the <strong>default_client_keytab_name</strong> profile
+variable in <a class="reference internal" href="conf_files/krb5_conf.html#libdefaults"><span class="std std-ref">[libdefaults]</span></a>, or use the default location of
+<a class="reference internal" href="../mitK5defaults.html#paths"><span class="std std-ref">DEFCKTNAME</span></a>.</li>
+<li>Set <strong>KRB5CCNAME</strong> to a filename writable by the service, which
+will not be used for any other purpose.  Do not manually obtain
+credentials at this location.  (Another credential cache type
+besides <strong>FILE</strong> can be used if desired, as long the cache will not
+conflict with another use.  A <strong>MEMORY</strong> cache can be used if the
+service runs as a long-lived process.  See <a class="reference internal" href="../basic/ccache_def.html#ccache-definition"><span class="std std-ref">Credential cache</span></a>
+for details.)</li>
+<li>Start the service.  When it authenticates using GSSAPI, it will
+automatically obtain credentials from the client keytab into the
+specified credential cache, and refresh them before they expire.</li>
+</ol>
+</div>
 </div>
 <div class="section" id="clock-skew">
 <h2>Clock Skew<a class="headerlink" href="#clock-skew" title="Permalink to this headline">¶</a></h2>
@@ -264,6 +295,7 @@ point for learning to configure firewalls.</p>
 </li>
 <li><a class="reference internal" href="#removing-principals-from-keytabs">Removing principals from keytabs</a></li>
 <li><a class="reference internal" href="#ktremove">ktremove</a></li>
+<li><a class="reference internal" href="#using-a-keytab-to-acquire-client-credentials">Using a keytab to acquire client credentials</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#clock-skew">Clock Skew</a></li>
@@ -331,8 +363,8 @@ point for learning to configure firewalls.</p>
 
     <div class="footer-wrapper">
         <div class="footer" >
-            <div class="right" ><i>Release: 1.17</i><br />
-                &copy; <a href="../copyright.html">Copyright</a> 1985-2019, MIT.
+            <div class="right" ><i>Release: 1.18.3</i><br />
+                &copy; <a href="../copyright.html">Copyright</a> 1985-2020, MIT.
             </div>
             <div class="left">
                 

@@ -16,6 +16,10 @@ server: server.o rpc_test_svc.o $(GSSRPC_DEPLIBS) $(KRB5_BASE_DEPLIBS)
 
 client.o server.o: rpc_test.h
 
+runenv.exp: Makefile
+	$(RUN_SETUP); for i in $(RUN_VARS); do \
+		eval echo "set env\($$i\) \$$$$i"; done > runenv.exp
+
 # If rpc_test.h and rpc_test_*.c do not work on your system, you can
 # try using rpcgen by uncommenting these lines (be sure to uncomment
 # then in the generated not Makefile.in).
@@ -42,11 +46,11 @@ unit-test-:
 unit-test-ok: unit-test-body
 
 PASS=@PASS@
-unit-test-body:
+unit-test-body: runenv.sh runenv.exp
 	$(RM) krb5cc_rpc_test_*
 	$(ENV_SETUP) $(VALGRIND) $(START_SERVERS)
-	RPC_TEST_SRVTAB=/tmp/rpc_test_v5srvtab.$$$$ ; export RPC_TEST_SRVTAB ; \
-	trap "echo Failed, cleaning up... ; rm -f $$RPC_TEST_SRVTAB ; $(ENV_SETUP) $(STOP_SERVERS) ; trap '' 0 ; exit 1" 0 1 2 3 14 15 ; \
+	RPC_TEST_KEYTAB=/tmp/rpc_test_keytab.$$$$ ; export RPC_TEST_KEYTAB ; \
+	trap "echo Failed, cleaning up... ; rm -f $$RPC_TEST_KEYTAB ; $(ENV_SETUP) $(STOP_SERVERS) ; trap '' 0 ; exit 1" 0 1 2 3 14 15 ; \
 	if $(ENV_SETUP) \
 		$(RUNTEST) SERVER=./server CLIENT=./client \
 		KINIT=$(BUILDTOP)/clients/kinit/kinit \
@@ -55,12 +59,12 @@ unit-test-body:
 		PASS="$(PASS)" --tool rpc_test $(RUNTESTFLAGS) ; \
 	then \
 		echo Cleaning up... ; \
-		rm -f $$RPC_TEST_SRVTAB krb5cc_rpc_test_* ; \
+		rm -f $$RPC_TEST_KEYTAB krb5cc_rpc_test_* ; \
 		$(ENV_SETUP) $(STOP_SERVERS) ; \
 		trap 0 ; exit 0 ; \
 	else exit 1 ; fi
 
 clean:
 	$(RM) server client
-	$(RM) dbg.log rpc_test.log rpc_test.sum
+	$(RM) dbg.log rpc_test.log rpc_test.sum runenv.exp
 

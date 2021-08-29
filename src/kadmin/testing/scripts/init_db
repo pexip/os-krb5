@@ -31,6 +31,8 @@ MODDIR=$TOP/../plugins/kdb
 SBIN=$TOP/keytab:$TOP/server
 DUMMY=${REALM=SECURE-TEST.OV.COM}; export REALM
 
+. ./runenv.sh
+
 if [ ! -d $MODDIR ]; then
 	echo "+++" 1>&2
 	echo "+++ Error!  $MODDIR does not exist!" 1>&2
@@ -44,7 +46,6 @@ DUMMY=${TESTDIR=$TOP/testing}; export TESTDIR
 DUMMY=${STESTDIR=$STOP/testing}
 DUMMY=${SRVTCL=$TESTDIR/util/kadm5_srv_tcl}; export SRVTCL
 DUMMY=${TCLUTIL=$STESTDIR/tcl/util.t}; export TCLUTIL
-DUMMY=${LOCAL_MAKE_KEYTAB=$TESTDIR/scripts/make-host-keytab.pl}
 
 PATH=$ADMIN:$BIN:$ETC:$SBIN:$PATH; export PATH
 
@@ -77,11 +78,9 @@ fi
 # 	esac
 # done
 
-qualname=`$QUALNAME`
-
 sed -e "s/__REALM__/$REALM/g" -e "s#__K5ROOT__#$K5ROOT#g" \
-	-e "s/__KDCHOST__/$qualname/g" \
-	-e "s/__LOCALHOST__/$qualname/g" \
+	-e "s/__KDCHOST__/$QUALNAME/g" \
+	-e "s/__LOCALHOST__/$QUALNAME/g" \
 	-e "s#__MODDIR__#$MODDIR#g" \
 	< $STESTDIR/proto/krb5.conf.proto > $K5ROOT/krb5.conf
 sed -e "s/__REALM__/$REALM/g" -e "s#__K5ROOT__#$K5ROOT#g" \
@@ -218,8 +217,6 @@ changepw/kerberos@$REALM	cil
 
 EOF
 
-eval $LOCAL_MAKE_KEYTAB -princ kadmin/admin -princ kadmin/changepw -princ ovsec_adm/admin -princ ovsec_adm/changepw $K5ROOT/ovsec_adm.srvtab $REDIRECT
-
 # Create $K5ROOT/setup.csh to make it easy to run other programs against
 # the test db
 cat > $K5ROOT/setup.csh <<EOF
@@ -227,6 +224,7 @@ setenv KRB5_CONFIG $KRB5_CONFIG
 setenv KRB5_KDC_PROFILE $KRB5_KDC_PROFILE
 setenv KRB5_KTNAME $KRB5_KTNAME
 setenv KRB5_CLIENT_KTNAME $KRB5_CLIENT_KTNAME
+setenv GSS_MECH_CONFIG $GSS_MECH_CONFIG
 $KRB5_RUN_ENV_CSH
 EOF
 

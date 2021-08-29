@@ -45,7 +45,7 @@ else:
 
 # General information about the project.
 project = u'MIT Kerberos'
-copyright = u'1985-2019, MIT'
+copyright = u'1985-2020, MIT'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -271,8 +271,8 @@ else:
     rst_epilog += '.. |ckeytab| replace:: %s\n' % ckeytab
     rst_epilog += '''
 .. |krb5conf| replace:: ``/etc/krb5.conf``
-.. |defkeysalts| replace:: ``aes256-cts-hmac-sha1-96:normal aes128-cts-hmac-sha1-96:normal des3-cbc-sha1:normal arcfour-hmac-md5:normal``
-.. |defetypes| replace:: ``aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 aes256-cts-hmac-sha384-192 aes128-cts-hmac-sha256-128 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4``
+.. |defkeysalts| replace:: ``aes256-cts-hmac-sha1-96:normal aes128-cts-hmac-sha1-96:normal``
+.. |defetypes| replace:: ``aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 aes256-cts-hmac-sha384-192 aes128-cts-hmac-sha256-128 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac``
 .. |defmkey| replace:: ``aes256-cts-hmac-sha1-96``
 .. |copy| unicode:: U+000A9
 '''

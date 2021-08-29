@@ -13,11 +13,7 @@ fi
 ac_topdir=$srcdir/$ac_reltopdir
 ac_config_fragdir=$ac_reltopdir/config
 # echo "Looking for $srcdir/$ac_config_fragdir"
-if test -d "$srcdir/$ac_config_fragdir"; then
-  AC_CONFIG_AUX_DIR(K5_TOPDIR/config)
-else
-  AC_MSG_ERROR([can not find config/ directory in $ac_reltopdir])
-fi
+AC_CONFIG_AUX_DIR(K5_TOPDIR/config)
 ])dnl
 dnl
 dnl Version info.
@@ -93,8 +89,6 @@ KRB5_LIB_PARAMS
 KRB5_AC_INITFINI
 KRB5_AC_ENABLE_THREADS
 KRB5_AC_FIND_DLOPEN
-KRB5_AC_KEYRING_CCACHE
-KRB5_AC_PERSISTENT_KEYRING
 ])dnl
 
 dnl Maintainer mode, akin to what automake provides, 'cept we don't
@@ -1247,11 +1241,11 @@ dnl
 dnl This test exists so that every application developer does not test this in
 dnl a different, and subtly broken fashion.
 dnl 
-dnl It has been argued that this test should be broken up into two seperate
+dnl It has been argued that this test should be broken up into two separate
 dnl tests, one for the resolver libraries, and one for the libraries necessary
 dnl for using Sockets API. Unfortunately, the two are carefully intertwined and
 dnl allowing the autoconf user to use them independantly potentially results in
-dnl unfortunate ordering dependancies -- as such, such component macros would
+dnl unfortunate ordering dependencies -- as such, such component macros would
 dnl have to carefully use indirection and be aware if the other components were
 dnl executed. Since other autoconf macros do not go to this trouble, and almost
 dnl no applications use sockets without the resolver, this complexity has not
@@ -1677,23 +1671,3 @@ if test "$with_ldap" = yes; then
   OPENLDAP_PLUGIN=yes
 fi
 ])dnl
-dnl
-dnl If libkeyutils exists (on Linux) include it and use keyring ccache
-AC_DEFUN(KRB5_AC_KEYRING_CCACHE,[
-  AC_CHECK_HEADERS([keyutils.h],
-    AC_CHECK_LIB(keyutils, add_key, 
-      [dnl Pre-reqs were found
-       AC_DEFINE(USE_KEYRING_CCACHE, 1, [Define if the keyring ccache should be enabled])
-       LIBS="-lkeyutils $LIBS"
-      ]))
-])dnl
-dnl
-dnl If libkeyutils supports persistent keyrings, use them
-AC_DEFUN(KRB5_AC_PERSISTENT_KEYRING,[
-  AC_CHECK_HEADERS([keyutils.h],
-    AC_CHECK_LIB(keyutils, keyctl_get_persistent,
-      [AC_DEFINE(HAVE_PERSISTENT_KEYRING, 1,
-                 [Define if persistent keyrings are supported])
-      ]))
-])dnl
-dnl

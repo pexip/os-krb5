@@ -4,9 +4,10 @@ DUMMY=${TESTDIR=$TOP/testing}
 DUMMY=${STESTDIR=$STOP/testing}
 DUMMY=${INITDB=$STESTDIR/scripts/init_db}
 DUMMY=${SRVTCL=$TESTDIR/util/kadm5_srv_tcl}; export SRVTCL
-DUMMY=${LOCAL_MAKE_KEYTAB=$TESTDIR/scripts/make-host-keytab.pl}
 DUMMY=${STOP_SERVERS_LOCAL=$STESTDIR/scripts/stop_servers_local}
 DUMMY=${KRB5RCACHEDIR=$TESTDIR} ; export KRB5RCACHEDIR
+
+. ./runenv.sh
 
 if [ -d /usr/tmp ]; then
 	usrtmp=/usr/tmp
@@ -73,8 +74,6 @@ fi
 
 # allow admin to krlogin as root (for cleanup)
 DUMMY=${REALM=SECURE-TEST.OV.COM}; export REALM
-hostname=`hostname`
-QUALNAME=`$TOP/testing/scripts/qualname.pl $hostname`; export QUALNAME
 
 cat - > /tmp/start_servers_local$$ <<\EOF
 if { [catch {
@@ -98,9 +97,6 @@ x=$?
 rm /tmp/start_servers_local$$
 if test $x != 0 ; then exit 1 ; fi
 
-# rm -f /etc/v5srvtab
-# eval $LOCAL_MAKE_KEYTAB -princ host/xCANONHOSTx /etc/v5srvtab $REDIRECT
-
 # run the servers (from the build tree)
 
 adm_start_file=/tmp/adm_server_start.$$
@@ -114,7 +110,7 @@ fi
 
 kdc_args="-R dfl:kdc_rcache.$USER"
 
-(trap "" 2; cd $TOP/../kdc; ./krb5kdc $kdc_args; touch $kdc_start_file) \
+(trap "" 2; $TOP/../kdc/krb5kdc $kdc_args; touch $kdc_start_file) \
 	< /dev/null > $usrtmp/kdc-log.$USER 2>&1 &
 
 s=1
@@ -126,7 +122,7 @@ ovadm_args=-W
 
 rm -f $adm_start_file
 
-(sleep 1; cd $TOP/server; ./kadmind $ovadm_args; \
+(sleep 1; $TOP/server/kadmind $ovadm_args; \
 	touch $adm_start_file) < /dev/null > $usrtmp/kadm-log.$USER 2>&1 &
 
 # wait until they start

@@ -79,8 +79,6 @@
  */
 
 
-/* For declaration of krb5_ser_context_init */
-#include "k5-int.h"
 #include "gssapiP_krb5.h"
 #include "mglueP.h"
 
@@ -780,7 +778,7 @@ krb5_gss_localname(OM_uint32 *minor,
     localname->value = gssalloc_strdup(lname);
     localname->length = strlen(lname);
 
-    return (code == 0) ? GSS_S_COMPLETE : GSS_S_FAILURE;
+    return GSS_S_COMPLETE;
 }
 
 

@@ -230,17 +230,12 @@ verify_as_reply(krb5_context            context,
     if (canon_req) {
         canon_ok = IS_TGS_PRINC(request->server) &&
             IS_TGS_PRINC(as_reply->enc_part2->server);
-        if (!canon_ok && (request->kdc_options & KDC_OPT_REQUEST_ANONYMOUS)) {
-            canon_ok = krb5_principal_compare_any_realm(context,
-                                                        as_reply->client,
-                                                        krb5_anonymous_principal());
-        }
     } else
         canon_ok = 0;
 
     if ((!canon_ok &&
-         (!krb5_principal_compare(context, as_reply->client, request->client) ||
-          !krb5_principal_compare(context, as_reply->enc_part2->server, request->server)))
+         !krb5_principal_compare(context, as_reply->enc_part2->server, request->server))
+        || (!canon_req && !krb5_principal_compare(context, as_reply->client, request->client))
         || !krb5_principal_compare(context, as_reply->enc_part2->server, as_reply->ticket->server)
         || (request->nonce != as_reply->enc_part2->nonce)
         /* XXX check for extraneous flags */
@@ -401,40 +396,6 @@ make_preauth_list(krb5_context  context,
 }
 
 #define MAX_IN_TKT_LOOPS 16
-
-/* Add a pa-data item with the specified type and contents to *padptr. */
-static krb5_error_code
-add_padata(krb5_pa_data ***padptr, krb5_preauthtype pa_type,
-           const void *contents, unsigned int length)
-{
-    size_t size = 0;
-    krb5_pa_data **pad = *padptr;
-    krb5_pa_data *pa= NULL;
-    if (pad)
-        for (size=0; pad[size]; size++);
-    pad = realloc(pad, sizeof(*pad)*(size+2));
-    if (pad == NULL)
-        return ENOMEM;
-    *padptr = pad;
-    pad[size] = pad[size + 1] = NULL;
-
-    pa = malloc(sizeof(krb5_pa_data));
-    if (pa == NULL)
-        return ENOMEM;
-    pa->contents = NULL;
-    pa->length = length;
-    if (contents != NULL) {
-        pa->contents = malloc(length);
-        if (pa->contents == NULL) {
-            free(pa);
-            return ENOMEM;
-        }
-        memcpy(pa->contents, contents, length);
-    }
-    pa->pa_type = pa_type;
-    pad[size] = pa;
-    return 0;
-}
 
 /* Sort a pa_data sequence so that types named in the "preferred_preauth_types"
  * libdefaults entry are listed before any others. */
@@ -1300,8 +1261,8 @@ maybe_add_pac_request(krb5_context context, krb5_init_creds_context ctx)
     code = encode_krb5_pa_pac_req(&pac_req, &encoded);
     if (code)
         return code;
-    code = add_padata(&ctx->request->padata, KRB5_PADATA_PAC_REQUEST,
-                      encoded->data, encoded->length);
+    code = k5_add_pa_data_from_data(&ctx->request->padata,
+                                    KRB5_PADATA_PAC_REQUEST, encoded);
     krb5_free_data(context, encoded);
     return code;
 }
@@ -1313,6 +1274,7 @@ init_creds_step_request(krb5_context context,
 {
     krb5_error_code code;
     krb5_preauthtype pa_type;
+    krb5_data copy;
     struct errinfo save = EMPTY_ERRINFO;
     uint32_t rcode = (ctx->err_reply == NULL) ? 0 : ctx->err_reply->error;
 
@@ -1414,15 +1376,26 @@ init_creds_step_request(krb5_context context,
         ctx->encoded_previous_request = NULL;
     }
     if (ctx->info_pa_permitted) {
-        code = add_padata(&ctx->request->padata, KRB5_PADATA_AS_FRESHNESS,
-                          NULL, 0);
+        code = k5_add_empty_pa_data(&ctx->request->padata,
+                                    KRB5_PADATA_AS_FRESHNESS);
         if (code)
             goto cleanup;
-        code = add_padata(&ctx->request->padata, KRB5_ENCPADATA_REQ_ENC_PA_REP,
-                          NULL, 0);
+        code = k5_add_empty_pa_data(&ctx->request->padata,
+                                    KRB5_ENCPADATA_REQ_ENC_PA_REP);
     }
     if (code)
         goto cleanup;
+
+    if (ctx->subject_cert != NULL) {
+        code = krb5int_copy_data_contents(context, ctx->subject_cert, &copy);
+        if (code)
+            goto cleanup;
+        code = k5_add_pa_data_from_data(&ctx->request->padata,
+                                        KRB5_PADATA_S4U_X509_USER, &copy);
+        krb5_free_data_contents(context, &copy);
+        if (code)
+            goto cleanup;
+    }
 
     code = maybe_add_pac_request(context, ctx);
     if (code)
@@ -1566,6 +1539,12 @@ init_creds_step_reply(krb5_context context,
              * FAST upgrade. */
             ctx->restarted = FALSE;
             code = restart_init_creds_loop(context, ctx, FALSE);
+        } else if (ctx->identify_realm &&
+                   (reply_code == KDC_ERR_PREAUTH_REQUIRED ||
+                    reply_code == KDC_ERR_KEY_EXP)) {
+            /* The client exists in this realm; we can stop. */
+            ctx->complete = TRUE;
+            goto cleanup;
         } else if (reply_code == KDC_ERR_PREAUTH_REQUIRED && retry) {
             note_req_timestamp(context, ctx, ctx->err_reply->stime,
                                ctx->err_reply->susec);
@@ -1624,6 +1603,12 @@ init_creds_step_reply(krb5_context context,
                                          ctx->reply, &strengthen_key);
     if (code != 0)
         goto cleanup;
+
+    if (ctx->identify_realm) {
+        /* Just getting a reply means the client exists in this realm. */
+        ctx->complete = TRUE;
+        goto cleanup;
+    }
 
     code = sort_krb5_padata_sequence(context, &ctx->request->client->realm,
                                      ctx->reply->padata);
@@ -1847,6 +1832,46 @@ cleanup:
     krb5_init_creds_free(context, ctx);
 
     return code;
+}
+
+krb5_error_code
+k5_identify_realm(krb5_context context, krb5_principal client,
+                  const krb5_data *subject_cert, krb5_principal *client_out)
+{
+    krb5_error_code ret;
+    krb5_get_init_creds_opt *opts = NULL;
+    krb5_init_creds_context ctx = NULL;
+    int use_master = 0;
+
+    *client_out = NULL;
+
+    ret = krb5_get_init_creds_opt_alloc(context, &opts);
+    if (ret)
+        goto cleanup;
+    krb5_get_init_creds_opt_set_tkt_life(opts, 15);
+    krb5_get_init_creds_opt_set_renew_life(opts, 0);
+    krb5_get_init_creds_opt_set_forwardable(opts, 0);
+    krb5_get_init_creds_opt_set_proxiable(opts, 0);
+    krb5_get_init_creds_opt_set_canonicalize(opts, 1);
+
+    ret = krb5_init_creds_init(context, client, NULL, NULL, 0, opts, &ctx);
+    if (ret)
+        goto cleanup;
+
+    ctx->identify_realm = TRUE;
+    ctx->subject_cert = subject_cert;
+
+    ret = k5_init_creds_get(context, ctx, &use_master);
+    if (ret)
+        goto cleanup;
+
+    TRACE_INIT_CREDS_IDENTIFIED_REALM(context, &ctx->request->client->realm);
+    ret = krb5_copy_principal(context, ctx->request->client, client_out);
+
+cleanup:
+    krb5_get_init_creds_opt_free(context, opts);
+    krb5_init_creds_free(context, ctx);
+    return ret;
 }
 
 krb5_error_code

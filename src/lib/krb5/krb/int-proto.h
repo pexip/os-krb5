@@ -143,6 +143,33 @@ krb5int_validate_times(krb5_context, krb5_ticket_times *);
 krb5_error_code
 krb5int_copy_authdatum(krb5_context, const krb5_authdata *, krb5_authdata **);
 
+/* Set replay data fields in rdata and caller_rdata according to the flags in
+ * authcon. */
+krb5_error_code
+k5_privsafe_gen_rdata(krb5_context context, krb5_auth_context authcon,
+                      krb5_replay_data *rdata, krb5_replay_data *caller_rdata);
+
+/*
+ * Set *local_out and *remote_out to addresses based on authcon.  The resulting
+ * pointers should not be freed, but addresses may be placed into *lstorage and
+ * *rstorage which the caller must free, even on error.
+ */
+krb5_error_code
+k5_privsafe_gen_addrs(krb5_context context, krb5_auth_context authcon,
+                      krb5_address *lstorage, krb5_address *rstorage,
+                      krb5_address **local_out, krb5_address **remote_out);
+
+/*
+ * If the DO_TIME flag is set in authcon, store a replay record in a memory
+ * replay cache (initializing one if necessary).  Either enc or cksum must be
+ * non-null.  If rdata is not null, also check that its timestamp is within
+ * clock skew.
+ */
+krb5_error_code
+k5_privsafe_check_replay(krb5_context context, krb5_auth_context authcon,
+                         const krb5_replay_data *rdata,
+                         const krb5_enc_data *enc, const krb5_checksum *cksum);
+
 krb5_boolean
 k5_privsafe_check_seqnum(krb5_context ctx, krb5_auth_context ac,
                          krb5_ui_4 in_seq);
@@ -267,6 +294,17 @@ k5_get_init_creds(krb5_context context, krb5_creds *creds,
                   get_as_key_fn gak, void *gak_data, int *master,
                   krb5_kdc_rep **as_reply);
 
+/*
+ * Make AS requests with the canonicalize flag set, stopping when we get a
+ * message indicating which realm the client principal is in.  Set *client_out
+ * to a copy of client with the canonical realm.  If subject_cert is non-null,
+ * include PA_S4U_X509_USER pa-data with the subject certificate each request.
+ * (See [MS-SFU] 3.1.5.1.1.1 and 3.1.5.1.1.2.)
+ */
+krb5_error_code
+k5_identify_realm(krb5_context context, krb5_principal client,
+                  const krb5_data *subject_cert, krb5_principal *client_out);
+
 krb5_error_code
 k5_populate_gic_opt(krb5_context context, krb5_get_init_creds_opt **opt,
                     krb5_flags options, krb5_address *const *addrs,
@@ -337,5 +375,15 @@ k5_gic_opt_pac_request(krb5_get_init_creds_opt *opt);
 krb5_error_code
 k5_get_etype_info(krb5_context context, krb5_init_creds_context ctx,
                   krb5_pa_data **padata);
+
+/*
+ * Make an S4U2Proxy (constrained delegation) request.  in_creds->client is the
+ * impersonator principal, and in_creds->second_ticket is the evidence
+ * ticket.
+ */
+krb5_error_code
+k5_get_proxy_cred_from_kdc(krb5_context context, krb5_flags options,
+                           krb5_ccache ccache, krb5_creds *in_creds,
+                           krb5_creds **out_creds);
 
 #endif /* KRB5_INT_FUNC_PROTO__ */

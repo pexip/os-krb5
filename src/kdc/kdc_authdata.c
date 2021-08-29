@@ -316,18 +316,18 @@ copy_tgt_authdata(krb5_context context, krb5_kdc_req *request,
 static krb5_error_code
 fetch_kdb_authdata(krb5_context context, unsigned int flags,
                    krb5_db_entry *client, krb5_db_entry *server,
-                   krb5_db_entry *header_server, krb5_keyblock *client_key,
-                   krb5_keyblock *server_key, krb5_keyblock *header_key,
-                   krb5_kdc_req *req, krb5_const_principal for_user_princ,
-                   krb5_enc_tkt_part *enc_tkt_req,
-                   krb5_enc_tkt_part *enc_tkt_reply)
+                   krb5_db_entry *header_server, krb5_db_entry *local_tgt,
+                   krb5_keyblock *client_key, krb5_keyblock *server_key,
+                   krb5_keyblock *header_key, krb5_keyblock *local_tgt_key,
+                   krb5_kdc_req *req, krb5_const_principal altcprinc,
+                   void *ad_info, krb5_enc_tkt_part *enc_tkt_req,
+                   krb5_enc_tkt_part *enc_tkt_reply,
+                   krb5_data ***auth_indicators)
 {
     krb5_error_code ret;
     krb5_authdata **tgt_authdata, **db_authdata = NULL;
     krb5_boolean tgs_req = (req->msg_type == KRB5_TGS_REQ);
     krb5_const_principal actual_client;
-    krb5_db_entry *krbtgt;
-    krb5_keyblock *krbtgt_key;
 
     /*
      * Check whether KDC issued authorization data should be included.
@@ -355,39 +355,31 @@ fetch_kdb_authdata(krb5_context context, unsigned int flags,
             return 0;
     }
 
-    /*
-     * We have this special case for protocol transition, because for
-     * cross-realm protocol transition the ticket reply client will
-     * not be changed until the final hop.
-     */
-    if (isflagset(flags, KRB5_KDB_FLAG_PROTOCOL_TRANSITION))
-        actual_client = for_user_princ;
+    /* S4U referral replies should contain authdata for the requested client,
+     * even though they use the requesting service as the ticket client. */
+    if (isflagset(flags, KRB5_KDB_FLAGS_S4U))
+        actual_client = altcprinc;
     else
         actual_client = enc_tkt_reply->client;
 
-    /*
-     * For DAL major version 5, always pass "krbtgt" and "krbtgt_key"
-     * parameters which are usually, but not always, for local or cross-realm
-     * TGT principals.  In the future we might rename the parameters and pass
-     * NULL for AS requests.
-     */
-    krbtgt = (header_server != NULL) ? header_server : server;
-    krbtgt_key = (header_key != NULL) ? header_key : server_key;
-
     tgt_authdata = tgs_req ? enc_tkt_req->authorization_data : NULL;
-    ret = krb5_db_sign_authdata(context, flags, actual_client, client,
-                                server, krbtgt, client_key, server_key,
-                                krbtgt_key, enc_tkt_reply->session,
+    ret = krb5_db_sign_authdata(context, flags, actual_client, req->server,
+                                client, server, header_server, local_tgt,
+                                client_key, server_key, header_key,
+                                local_tgt_key, enc_tkt_reply->session,
                                 enc_tkt_reply->times.authtime, tgt_authdata,
-                                &db_authdata);
+                                ad_info, auth_indicators, &db_authdata);
     if (ret)
         return (ret == KRB5_PLUGIN_OP_NOTSUPP) ? 0 : ret;
 
-    /* Add the KDB authdata to the ticket, without copying or filtering. */
-    ret = merge_authdata(context, db_authdata,
-                         &enc_tkt_reply->authorization_data, FALSE, FALSE);
+    /* Put the KDB authdata first in the ticket.  A successful merge places the
+     * combined list in db_authdata and releases the old ticket authdata. */
+    ret = merge_authdata(context, enc_tkt_reply->authorization_data,
+                         &db_authdata, FALSE, FALSE);
     if (ret)
         krb5_free_authdata(context, db_authdata);
+    else
+        enc_tkt_reply->authorization_data = db_authdata;
     return ret;
 }
 
@@ -438,6 +430,7 @@ make_signedpath_data(krb5_context context, krb5_const_principal client,
 
 static krb5_error_code
 verify_signedpath_checksum(krb5_context context, krb5_db_entry *local_tgt,
+                           krb5_keyblock *local_tgt_key,
                            krb5_enc_tkt_part *enc_tkt_part,
                            krb5_principal *deleg_path,
                            krb5_pa_data **method_data, krb5_checksum *cksum,
@@ -464,31 +457,31 @@ verify_signedpath_checksum(krb5_context context, krb5_db_entry *local_tgt,
     if (ret)
         return ret;
 
-    /* There is no kvno in AD-SIGNTICKET, so try the last three versions. */
-    kvno = 0;
-    tries = 3;
-    do {
-        /* Get the first local tgt key of this kvno (highest kvno for the first
-         * iteration). */
-        ret = krb5_dbe_find_enctype(context, local_tgt, -1, -1, kvno, &kd);
-        if (ret) {
-            ret = 0;
-            break;
+    ret = krb5_c_verify_checksum(context, local_tgt_key,
+                                 KRB5_KEYUSAGE_AD_SIGNEDPATH, data, cksum,
+                                 &valid);
+    if (ret || !valid) {
+        /* There is no kvno in AD-SIGNTICKET, so try two previous versions. */
+        kvno = local_tgt->key_data[0].key_data_kvno - 1;
+        for (tries = 2; tries > 0 && kvno > 0; tries--, kvno--) {
+            /* Get the first local tgt key of this kvno. */
+            ret = krb5_dbe_find_enctype(context, local_tgt, -1, -1, kvno, &kd);
+            if (ret) {
+                ret = 0;
+                break;
+            }
+            ret = krb5_dbe_decrypt_key_data(context, NULL, kd, &tgtkey, NULL);
+            if (ret)
+                break;
+
+            ret = krb5_c_verify_checksum(context, &tgtkey,
+                                         KRB5_KEYUSAGE_AD_SIGNEDPATH, data,
+                                         cksum, &valid);
+            krb5_free_keyblock_contents(context, &tgtkey);
+            if (!ret && valid)
+                break;
         }
-        ret = krb5_dbe_decrypt_key_data(context, NULL, kd, &tgtkey, NULL);
-        if (ret)
-            break;
-
-        ret = krb5_c_verify_checksum(context, &tgtkey,
-                                     KRB5_KEYUSAGE_AD_SIGNEDPATH, data, cksum,
-                                     &valid);
-        krb5_free_keyblock_contents(context, &tgtkey);
-        if (!ret && valid)
-            break;
-
-        /* Try the next lower kvno on the next iteration. */
-        kvno = kd->key_data_kvno - 1;
-    } while (--tries > 0 && kvno > 0);
+    }
 
     *valid_out = valid;
     krb5_free_data(context, data);
@@ -498,6 +491,7 @@ verify_signedpath_checksum(krb5_context context, krb5_db_entry *local_tgt,
 
 static krb5_error_code
 verify_signedpath(krb5_context context, krb5_db_entry *local_tgt,
+                  krb5_keyblock *local_tgt_key,
                   krb5_enc_tkt_part *enc_tkt_part,
                   krb5_principal **delegated_out, krb5_boolean *pathsigned_out)
 {
@@ -530,9 +524,10 @@ verify_signedpath(krb5_context context, krb5_db_entry *local_tgt,
         goto cleanup;
     }
 
-    ret = verify_signedpath_checksum(context, local_tgt, enc_tkt_part,
-                                     sp->delegated, sp->method_data,
-                                     &sp->checksum, pathsigned_out);
+    ret = verify_signedpath_checksum(context, local_tgt, local_tgt_key,
+                                     enc_tkt_part, sp->delegated,
+                                     sp->method_data, &sp->checksum,
+                                     pathsigned_out);
     if (ret)
         goto cleanup;
 
@@ -550,7 +545,7 @@ cleanup:
 static krb5_error_code
 make_signedpath_checksum(krb5_context context,
                          krb5_const_principal for_user_princ,
-                         krb5_db_entry *local_tgt,
+                         krb5_keyblock *local_tgt_key,
                          krb5_enc_tkt_part *enc_tkt_part,
                          krb5_principal *deleg_path,
                          krb5_pa_data **method_data, krb5_checksum *cksum_out,
@@ -559,42 +554,31 @@ make_signedpath_checksum(krb5_context context,
     krb5_error_code ret;
     krb5_data *data = NULL;
     krb5_const_principal client;
-    krb5_key_data *kd;
-    krb5_keyblock tgtkey;
 
-    memset(&tgtkey, 0, sizeof(tgtkey));
     memset(cksum_out, 0, sizeof(*cksum_out));
     *enctype_out = ENCTYPE_NULL;
 
     client = (for_user_princ != NULL) ? for_user_princ : enc_tkt_part->client;
 
-    /* Get the first local tgt key of the highest kvno. */
-    ret = krb5_dbe_find_enctype(context, local_tgt, -1, -1, 0, &kd);
-    if (ret)
-        goto cleanup;
-    ret = krb5_dbe_decrypt_key_data(context, NULL, kd, &tgtkey, NULL);
-    if (ret)
-        goto cleanup;
-
     ret = make_signedpath_data(context, client, enc_tkt_part->times.authtime,
                                deleg_path, method_data,
                                enc_tkt_part->authorization_data, &data);
     if (ret)
-        goto cleanup;
+        return ret;
 
-    ret = krb5_c_make_checksum(context, 0, &tgtkey,
+    ret = krb5_c_make_checksum(context, 0, local_tgt_key,
                                KRB5_KEYUSAGE_AD_SIGNEDPATH, data, cksum_out);
-    *enctype_out = tgtkey.enctype;
-
-cleanup:
     krb5_free_data(context, data);
-    krb5_free_keyblock_contents(context, &tgtkey);
-    return ret;
+    if (ret)
+        return ret;
+
+    *enctype_out = local_tgt_key->enctype;
+    return 0;
 }
 
 static krb5_error_code
 make_signedpath(krb5_context context, krb5_const_principal for_user_princ,
-                krb5_principal server, krb5_db_entry *local_tgt,
+                krb5_principal server, krb5_keyblock *local_tgt_key,
                 krb5_principal *deleg_path, krb5_enc_tkt_part *enc_tkt_reply)
 {
     krb5_error_code ret;
@@ -620,7 +604,7 @@ make_signedpath(krb5_context context, krb5_const_principal for_user_princ,
     sp.delegated[count] = NULL;
     sp.method_data = NULL;
 
-    ret = make_signedpath_checksum(context, for_user_princ, local_tgt,
+    ret = make_signedpath_checksum(context, for_user_princ, local_tgt_key,
                                    enc_tkt_reply, sp.delegated, sp.method_data,
                                    &sp.checksum, &sp.enctype);
     if (ret) {
@@ -677,23 +661,20 @@ free_deleg_path(krb5_context context, krb5_principal *deleg_path)
     free(deleg_path);
 }
 
-/* Return true if the Windows 2000 PAC is the only element in the supplied
- * authorization data. */
+/* Return true if the Windows PAC is present in authorization data. */
 static krb5_boolean
-only_pac_p(krb5_context context, krb5_authdata **authdata)
+has_pac(krb5_context context, krb5_authdata **authdata)
 {
-    return has_kdc_issued_authdata(context, authdata,
-                                   KRB5_AUTHDATA_WIN2K_PAC) &&
-        authdata[1] == NULL;
+    return has_kdc_issued_authdata(context, authdata, KRB5_AUTHDATA_WIN2K_PAC);
 }
 
 /* Verify AD-SIGNTICKET authdata if we need to, and insert an AD-SIGNEDPATH
  * element if we should. */
 static krb5_error_code
 handle_signticket(krb5_context context, unsigned int flags,
-                  krb5_db_entry *client, krb5_db_entry *server,
-                  krb5_db_entry *local_tgt, krb5_kdc_req *req,
-                  krb5_const_principal for_user_princ,
+                  krb5_db_entry *subject_server, krb5_db_entry *server,
+                  krb5_db_entry *local_tgt, krb5_keyblock *local_tgt_key,
+                  krb5_kdc_req *req, krb5_const_principal for_user_princ,
                   krb5_enc_tkt_part *enc_tkt_req,
                   krb5_enc_tkt_part *enc_tkt_reply)
 {
@@ -704,14 +685,13 @@ handle_signticket(krb5_context context, unsigned int flags,
 
     s4u2proxy = isflagset(flags, KRB5_KDB_FLAG_CONSTRAINED_DELEGATION);
 
-    /*
-     * The Windows PAC fulfils the same role as the signed path
-     * if it is the only authorization data element.
-     */
+    /* For cross-realm the Windows PAC must have been verified, and it
+     * fulfills the same role as the signed path. */
     if (req->msg_type == KRB5_TGS_REQ &&
-        !only_pac_p(context, enc_tkt_req->authorization_data)) {
-        ret = verify_signedpath(context, local_tgt, enc_tkt_req, &deleg_path,
-                                &signed_path);
+        (!isflagset(flags, KRB5_KDB_FLAG_CROSS_REALM) ||
+         !has_pac(context, enc_tkt_req->authorization_data))) {
+        ret = verify_signedpath(context, local_tgt, local_tgt_key, enc_tkt_req,
+                                &deleg_path, &signed_path);
         if (ret)
             goto cleanup;
 
@@ -724,11 +704,10 @@ handle_signticket(krb5_context context, unsigned int flags,
     /* No point in including signedpath authdata for a cross-realm TGT, since
      * it will be presented to a different KDC. */
     if (!isflagset(server->attributes, KRB5_KDB_NO_AUTH_DATA_REQUIRED) &&
-        !is_cross_tgs_principal(server->princ) &&
-        !only_pac_p(context, enc_tkt_reply->authorization_data)) {
+        !is_cross_tgs_principal(server->princ)) {
         ret = make_signedpath(context, for_user_princ,
-                              s4u2proxy ? client->princ : NULL, local_tgt,
-                              deleg_path, enc_tkt_reply);
+                              s4u2proxy ? subject_server->princ : NULL,
+                              local_tgt_key, deleg_path, enc_tkt_reply);
         if (ret)
             goto cleanup;
     }
@@ -743,6 +722,7 @@ cleanup:
 static krb5_error_code
 add_auth_indicators(krb5_context context, krb5_data *const *auth_indicators,
                     krb5_keyblock *server_key, krb5_db_entry *krbtgt,
+                    krb5_keyblock *krbtgt_key,
                     krb5_enc_tkt_part *enc_tkt_reply)
 {
     krb5_error_code ret;
@@ -760,8 +740,8 @@ add_auth_indicators(krb5_context context, krb5_data *const *auth_indicators,
     list[1] = NULL;
 
     /* Wrap the list in CAMMAC and IF-RELEVANT containers. */
-    ret = cammac_create(context, enc_tkt_reply, server_key, krbtgt, list,
-                        &cammac);
+    ret = cammac_create(context, enc_tkt_reply, server_key, krbtgt, krbtgt_key,
+                        list, &cammac);
     if (ret)
         goto cleanup;
 
@@ -782,7 +762,8 @@ cleanup:
  * enc_tkt. */
 krb5_error_code
 get_auth_indicators(krb5_context context, krb5_enc_tkt_part *enc_tkt,
-                    krb5_db_entry *local_tgt, krb5_data ***indicators_out)
+                    krb5_db_entry *local_tgt, krb5_keyblock *local_tgt_key,
+                    krb5_data ***indicators_out)
 {
     krb5_error_code ret;
     krb5_authdata **cammacs = NULL, **adp;
@@ -801,7 +782,8 @@ get_auth_indicators(krb5_context context, krb5_enc_tkt_part *enc_tkt,
         ret = decode_krb5_cammac(&der_cammac, &cammac);
         if (ret)
             goto cleanup;
-        if (cammac_check_kdcver(context, cammac, enc_tkt, local_tgt)) {
+        if (cammac_check_kdcver(context, cammac, enc_tkt, local_tgt,
+                                local_tgt_key)) {
             ret = authind_extract(context, cammac->elements, &indicators);
             if (ret)
                 goto cleanup;
@@ -823,12 +805,13 @@ cleanup:
 krb5_error_code
 handle_authdata(krb5_context context, unsigned int flags,
                 krb5_db_entry *client, krb5_db_entry *server,
-                krb5_db_entry *header_server, krb5_db_entry *local_tgt,
-                krb5_keyblock *client_key, krb5_keyblock *server_key,
-                krb5_keyblock *header_key, krb5_data *req_pkt,
-                krb5_kdc_req *req, krb5_const_principal for_user_princ,
+                krb5_db_entry *subject_server, krb5_db_entry *local_tgt,
+                krb5_keyblock *local_tgt_key, krb5_keyblock *client_key,
+                krb5_keyblock *server_key, krb5_keyblock *subject_key,
+                krb5_data *req_pkt, krb5_kdc_req *req,
+                krb5_const_principal altcprinc, void *ad_info,
                 krb5_enc_tkt_part *enc_tkt_req,
-                krb5_data *const *auth_indicators,
+                krb5_data ***auth_indicators,
                 krb5_enc_tkt_part *enc_tkt_reply)
 {
     kdcauthdata_handle *h;
@@ -850,8 +833,8 @@ handle_authdata(krb5_context context, unsigned int flags,
         for (i = 0; i < n_authdata_modules; i++) {
             h = &authdata_modules[i];
             ret = h->vt.handle(context, h->data, flags, client, server,
-                               header_server, client_key, server_key,
-                               header_key, req_pkt, req, for_user_princ,
+                               subject_server, client_key, server_key,
+                               subject_key, req_pkt, req, altcprinc,
                                enc_tkt_req, enc_tkt_reply);
             if (ret)
                 kdc_err(context, ret, "from authdata module %s", h->vt.name);
@@ -866,28 +849,32 @@ handle_authdata(krb5_context context, unsigned int flags,
             return ret;
     }
 
+    if (!isflagset(enc_tkt_reply->flags, TKT_FLG_ANONYMOUS)) {
+        /* Fetch authdata from the KDB if appropriate. */
+        ret = fetch_kdb_authdata(context, flags, client, server,
+                                 subject_server, local_tgt, client_key,
+                                 server_key, subject_key, local_tgt_key,
+                                 req, altcprinc, ad_info, enc_tkt_req,
+                                 enc_tkt_reply, auth_indicators);
+        if (ret)
+            return ret;
+    }
+
     /* Add auth indicators if any were given. */
     if (auth_indicators != NULL && *auth_indicators != NULL &&
         !isflagset(server->attributes, KRB5_KDB_NO_AUTH_DATA_REQUIRED)) {
-        ret = add_auth_indicators(context, auth_indicators, server_key,
-                                  local_tgt, enc_tkt_reply);
+        ret = add_auth_indicators(context, *auth_indicators, server_key,
+                                  local_tgt, local_tgt_key, enc_tkt_reply);
         if (ret)
             return ret;
     }
 
     if (!isflagset(enc_tkt_reply->flags, TKT_FLG_ANONYMOUS)) {
-        /* Fetch authdata from the KDB if appropriate. */
-        ret = fetch_kdb_authdata(context, flags, client, server, header_server,
-                                 client_key, server_key, header_key, req,
-                                 for_user_princ, enc_tkt_req, enc_tkt_reply);
-        if (ret)
-            return ret;
-
         /* Validate and insert AD-SIGNTICKET authdata.  This must happen last
          * since it contains a signature over the other authdata. */
-        ret = handle_signticket(context, flags, client, server, local_tgt,
-                                req, for_user_princ, enc_tkt_req,
-                                enc_tkt_reply);
+        ret = handle_signticket(context, flags, subject_server, server,
+                                local_tgt, local_tgt_key, req, altcprinc,
+                                enc_tkt_req, enc_tkt_reply);
         if (ret)
             return ret;
     }
