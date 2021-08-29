@@ -1,3 +1,12 @@
+krb5 (1.17-3+deb10u3) buster; urgency=high
+
+  * Fix KDC null dereference crash on FAST request with no server field,
+    CVE-2021-37750, Closes: #992607
+  * Fix memory leak in krb5_gss_inquire_cred, Closes: #991140
+
+
+ -- Sam Hartman <hartmans@debian.org>  Sun, 29 Aug 2021 16:23:02 -0600
+
 krb5 (1.17-3+deb10u2) buster-security; urgency=high
 
   * Import upstream patch for CVE-2021-36222, Closes: #991365
