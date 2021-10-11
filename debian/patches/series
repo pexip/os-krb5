@@ -11,3 +11,5 @@ upstream/0010-Fix-memory-leak-in-none-replay-cache-type.patch
 upstream/0011-Document-the-double-colon-behavior-of-DIR-ccaches.patch
 upstream/0012-CVE-2020-28196.patch
 upstream/0013-Fix-KDC-null-deref-on-bad-encrypted-challenge.patch
+0014-Fix-KDC-null-deref-on-TGS-inner-body-null-server.patch
+0015-Fix-defcred-leak-in-krb5-gss_inquire_cred.patch
