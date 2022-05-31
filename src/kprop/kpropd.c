@@ -117,7 +117,7 @@ static kadm5_config_params params;
 static char *progname;
 static int debug = 0;
 static int nodaemon = 0;
-static char *srvtab = NULL;
+static char *keytab_path = NULL;
 static int standalone = 0;
 static const char *pid_file = NULL;
 
@@ -135,7 +135,6 @@ static char *kdb5_util = KPROPD_DEFAULT_KDB5_UTIL;
 static char *kerb_database = NULL;
 static char *acl_file_name = KPROPD_ACL_FILE;
 
-static krb5_address *sender_addr;
 static krb5_address *receiver_addr;
 static const char *port = KPROP_SERVICE;
 
@@ -168,7 +167,7 @@ static void
 usage()
 {
     fprintf(stderr,
-            _("\nUsage: %s [-r realm] [-s srvtab] [-dS] [-f replica_file]\n"),
+            _("\nUsage: %s [-r realm] [-s keytab] [-dS] [-f replica_file]\n"),
             progname);
     fprintf(stderr, _("\t[-F kerberos_db_file ] [-p kdb5_util_pathname]\n"));
     fprintf(stderr, _("\t[-x db_args]* [-P port] [-a acl_file]\n"));
@@ -692,7 +691,7 @@ reinit:
                 iprop_svc_princstr);
     }
     retval = kadm5_init_with_skey(kpropd_context, iprop_svc_princstr,
-                                  srvtab,
+                                  keytab_path,
                                   master_svc_princstr,
                                   &params,
                                   KADM5_STRUCT_VERSION,
@@ -1083,7 +1082,7 @@ parse_args(int argc, char **argv)
             realm = optarg;
             break;
         case 's':
-            srvtab = optarg;
+            keytab_path = optarg;
             break;
         case 'D':
             nodaemon++;
@@ -1190,10 +1189,6 @@ kerberos_authenticate(krb5_context context, int fd, krb5_principal *clientp,
     krb5_keytab keytab = NULL;
     char *name, etypebuf[100];
 
-    /* Set recv_addr and send_addr. */
-    sockaddr2krbaddr(context, my_sin->ss_family, (struct sockaddr *)my_sin,
-                     &sender_addr);
-
     sin_length = sizeof(r_sin);
     if (getsockname(fd, (struct sockaddr *)&r_sin, &sin_length)) {
         com_err(progname, errno, _("while getting local socket address"));
@@ -1229,16 +1224,21 @@ kerberos_authenticate(krb5_context context, int fd, krb5_principal *clientp,
         exit(1);
     }
 
+    /*
+     * Do not set a remote address, to allow replication over a NAT that
+     * changes the client address.  A reflection attack against kpropd is
+     * impossible because kpropd only sends one message at the end.
+     */
     retval = krb5_auth_con_setaddrs(context, auth_context, receiver_addr,
-                                    sender_addr);
+                                    NULL);
     if (retval) {
         syslog(LOG_ERR, _("Error in krb5_auth_con_setaddrs: %s"),
                error_message(retval));
         exit(1);
     }
 
-    if (srvtab != NULL) {
-        retval = krb5_kt_resolve(context, srvtab, &keytab);
+    if (keytab_path != NULL) {
+        retval = krb5_kt_resolve(context, keytab_path, &keytab);
         if (retval) {
             syslog(LOG_ERR, _("Error in krb5_kt_resolve: %s"),
                    error_message(retval));
@@ -1270,7 +1270,8 @@ kerberos_authenticate(krb5_context context, int fd, krb5_principal *clientp,
             exit(1);
         }
 
-        retval = krb5_enctype_to_string(*etype, etypebuf, sizeof(etypebuf));
+        retval = krb5_enctype_to_name(*etype, FALSE, etypebuf,
+                                      sizeof(etypebuf));
         if (retval) {
             com_err(progname, retval, _("while unparsing ticket etype"));
             exit(1);

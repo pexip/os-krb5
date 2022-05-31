@@ -55,7 +55,7 @@
 
 \title{Kerberos User Guide}
 \date{ }
-\release{1.17}
+\release{1.18.3}
 \author{MIT}
 \newcommand{\sphinxlogo}{\vbox{}}
 \renewcommand{\releasename}{Release}
@@ -711,13 +711,22 @@ contains additional configuration directives for the Key
 Distribution Center daemon and associated programs.  The default
 is \DUrole{xref,std,std-ref}{LOCALSTATEDIR}\sphinxcode{/krb5kdc}\sphinxcode{/kdc.conf}.
 
+\item[{\sphinxstylestrong{KRB5RCACHENAME}}] \leavevmode
+(New in release 1.18) Specifies the location of the default replay
+cache, in the form \sphinxstyleemphasis{type}:\sphinxstyleemphasis{residual}.  The \sphinxcode{file2} type with a
+pathname residual specifies a replay cache file in the version-2
+format in the specified location.  The \sphinxcode{none} type (residual is
+ignored) disables the replay cache.  The \sphinxcode{dfl} type (residual is
+ignored) indicates the default, which uses a file2 replay cache in
+a temporary directory.  The default is \sphinxcode{dfl:}.
+
 \item[{\sphinxstylestrong{KRB5RCACHETYPE}}] \leavevmode
-Specifies the default type of replay cache to use for servers.
-Valid types include \sphinxcode{dfl} for the normal file type and \sphinxcode{none}
-for no replay cache.  The default is \sphinxcode{dfl}.
+Specifies the type of the default replay cache, if
+\sphinxstylestrong{KRB5RCACHENAME} is unspecified.  No residual can be specified,
+so \sphinxcode{none} and \sphinxcode{dfl} are the only useful types.
 
 \item[{\sphinxstylestrong{KRB5RCACHEDIR}}] \leavevmode
-Specifies the default directory for replay caches used by servers.
+Specifies the directory used by the \sphinxcode{dfl} replay cache type.
 The default is the value of the \sphinxstylestrong{TMPDIR} environment variable,
 or \sphinxcode{/var/tmp} if \sphinxstylestrong{TMPDIR} is not set.
 
@@ -735,6 +744,12 @@ used).
 
 \item[{\sphinxstylestrong{KPROP\_PORT}}] \leavevmode
 \DUrole{xref,std,std-ref}{kprop(8)} port to use.  Defaults to 754.
+
+\item[{\sphinxstylestrong{GSS\_MECH\_CONFIG}}] \leavevmode
+Specifies a filename containing GSSAPI mechanism module
+configuration.  The default is to read \DUrole{xref,std,std-ref}{SYSCONFDIR}\sphinxcode{/gss/mech}
+and files with a \sphinxcode{.conf} suffix within the directory
+\DUrole{xref,std,std-ref}{SYSCONFDIR}\sphinxcode{/gss/mech.d}.
 
 \end{description}
 
@@ -1067,8 +1082,7 @@ KDC to reply with a different client principal from the one
 requested.
 
 \item[{\sphinxstylestrong{-E}}] \leavevmode
-treats the principal name as an enterprise name (implies the
-\sphinxstylestrong{-C} option).
+treats the principal name as an enterprise name.
 
 \item[{\sphinxstylestrong{-v}}] \leavevmode
 requests that the ticket-granting ticket in the cache (with the
@@ -1497,7 +1511,8 @@ the following output:
 {[} \sphinxstylestrong{-c} \sphinxstyleemphasis{source\_cache\_name} {]}
 {[} \sphinxstylestrong{-k} {]}
 {[} \sphinxstylestrong{-r} time {]}
-{[} \sphinxstylestrong{-pf} {]}
+{[} \sphinxstylestrong{-p} \textbar{} \sphinxstylestrong{-P}{]}
+{[} \sphinxstylestrong{-f} \textbar{} \sphinxstylestrong{-F}{]}
 {[} \sphinxstylestrong{-l} \sphinxstyleemphasis{lifetime} {]}
 {[} \sphinxstylestrong{-z \textbar{} Z} {]}
 {[} \sphinxstylestrong{-q} {]}
@@ -1749,7 +1764,7 @@ Suppress the printing of status messages.
 
 Ticket granting ticket options:
 \begin{description}
-\item[{\sphinxstylestrong{-l} \sphinxstyleemphasis{lifetime} \sphinxstylestrong{-r} \sphinxstyleemphasis{time} \sphinxstylestrong{-pf}}] \leavevmode
+\item[{\sphinxstylestrong{-l} \sphinxstyleemphasis{lifetime} \sphinxstylestrong{-r} \sphinxstyleemphasis{time} \sphinxstylestrong{-p} \sphinxstylestrong{-P} \sphinxstylestrong{-f} \sphinxstylestrong{-F}}] \leavevmode
 The ticket granting ticket options only apply to the case where
 there are no appropriate tickets in the cache to authenticate the
 source user.  In this case if ksu is configured to prompt users
@@ -1771,9 +1786,19 @@ total lifetime of the ticket.
 specifies that the \sphinxstylestrong{proxiable} option should be requested for
 the ticket.
 
+\item[{\sphinxstylestrong{-P}}] \leavevmode
+specifies that the \sphinxstylestrong{proxiable} option should not be requested
+for the ticket, even if the default configuration is to ask for
+proxiable tickets.
+
 \item[{\sphinxstylestrong{-f}}] \leavevmode
 option specifies that the \sphinxstylestrong{forwardable} option should be
 requested for the ticket.
+
+\item[{\sphinxstylestrong{-F}}] \leavevmode
+option specifies that the \sphinxstylestrong{forwardable} option should not be
+requested for the ticket, even if the default configuration is to
+ask for forwardable tickets.
 
 \item[{\sphinxstylestrong{-e} \sphinxstyleemphasis{command} {[}\sphinxstyleemphasis{args} …{]}}] \leavevmode
 ksu proceeds exactly the same as if it was invoked without the
@@ -1970,11 +1995,9 @@ Default location of Kerberos 5 credentials cache
 {[}\sphinxstylestrong{-c} \sphinxstyleemphasis{ccache}{]}
 {[}\sphinxstylestrong{-e} \sphinxstyleemphasis{etype}{]}
 {[}\sphinxstylestrong{-q}{]}
-{[}\sphinxstylestrong{-h}{]}
+{[}\sphinxstylestrong{-u} \textbar{} \sphinxstylestrong{-S} \sphinxstyleemphasis{sname}{]}
 {[}\sphinxstylestrong{-P}{]}
-{[}\sphinxstylestrong{-S} \sphinxstyleemphasis{sname}{]}
-{[}\sphinxstylestrong{-U} \sphinxstyleemphasis{for\_user}{]}
-{[}\sphinxstylestrong{\textendash{}u2u} \sphinxstyleemphasis{ccache}{]}
+{[}{[}\{\sphinxstylestrong{-F} \sphinxstyleemphasis{cert\_file} \textbar{} \{\sphinxstylestrong{-I} \textbar{} \sphinxstylestrong{-U}\} \sphinxstyleemphasis{for\_user}\} {[}\sphinxstylestrong{-P}{]}{]} \textbar{} \sphinxstylestrong{\textendash{}u2u} \sphinxstyleemphasis{ccache}{]}
 \sphinxstyleemphasis{service1 service2} …
 
 
@@ -1995,13 +2018,18 @@ Specifies the enctype which will be requested for the session key
 of all the services named on the command line.  This is useful in
 certain backward compatibility situations.
 
+\item[{\sphinxstylestrong{-k} \sphinxstyleemphasis{keytab}}] \leavevmode
+Decrypt the acquired tickets using \sphinxstyleemphasis{keytab} to confirm their
+validity.
+
 \item[{\sphinxstylestrong{-q}}] \leavevmode
 Suppress printing output when successful.  If a service ticket
 cannot be obtained, an error message will still be printed and
 kvno will exit with nonzero status.
 
-\item[{\sphinxstylestrong{-h}}] \leavevmode
-Prints a usage statement and exits.
+\item[{\sphinxstylestrong{-u}}] \leavevmode
+Use the unknown name type in requested service principal names.
+This option Cannot be used with \sphinxstyleemphasis{-S}.
 
 \item[{\sphinxstylestrong{-P}}] \leavevmode
 Specifies that the \sphinxstyleemphasis{service1 service2} …  arguments are to be
@@ -2016,11 +2044,19 @@ constructed from those hostnames and the service name \sphinxstyleemphasis{sname
 The service hostnames will be canonicalized according to the usual
 rules for constructing service principals.
 
-\item[{\sphinxstylestrong{-U} \sphinxstyleemphasis{for\_user}}] \leavevmode
+\item[{\sphinxstylestrong{-I} \sphinxstyleemphasis{for\_user}}] \leavevmode
 Specifies that protocol transition (S4U2Self) is to be used to
 acquire a ticket on behalf of \sphinxstyleemphasis{for\_user}.  If constrained
 delegation is not requested, the service name must match the
 credentials cache client principal.
+
+\item[{\sphinxstylestrong{-U} \sphinxstyleemphasis{for\_user}}] \leavevmode
+Same as -I, but treats \sphinxstyleemphasis{for\_user} as an enterprise name.
+
+\item[{\sphinxstylestrong{-F} \sphinxstyleemphasis{cert\_file}}] \leavevmode
+Specifies that protocol transition is to be used, identifying the
+client principal with the X.509 certificate in \sphinxstyleemphasis{cert\_file}.  The
+certificate file must be in PEM format.
 
 \item[{\sphinxstylestrong{\textendash{}u2u} \sphinxstyleemphasis{ccache}}] \leavevmode
 Requests a user-to-user ticket.  \sphinxstyleemphasis{ccache} must contain a local

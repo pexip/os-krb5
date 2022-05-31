@@ -103,7 +103,7 @@ If you want to create a principal which is contained by a LDAP object,
 all you need to do is::
 
     kadmin: addprinc -x dn=cn=jennifer,dc=example,dc=com jennifer
-    WARNING: no policy specified for "jennifer@ATHENA.MIT.EDU";
+    No policy specified for "jennifer@ATHENA.MIT.EDU";
     defaulting to no policy.
     Enter password for principal jennifer@ATHENA.MIT.EDU:  <= Type the password.
     Re-enter password for principal jennifer@ATHENA.MIT.EDU:  <=Type it again.
@@ -114,7 +114,7 @@ If you want to create a principal under a specific LDAP container and
 link to an existing LDAP object, all you need to do is::
 
     kadmin: addprinc -x containerdn=dc=example,dc=com -x linkdn=cn=david,dc=example,dc=com david
-    WARNING: no policy specified for "david@ATHENA.MIT.EDU";
+    No policy specified for "david@ATHENA.MIT.EDU";
     defaulting to no policy.
     Enter password for principal david@ATHENA.MIT.EDU:  <= Type the password.
     Re-enter password for principal david@ATHENA.MIT.EDU:  <=Type it again.
@@ -393,20 +393,6 @@ To dump a single principal and later load it, updating the database:
           If the database file exists, and the *-update* flag was not
           given, *kdb5_util* will overwrite the existing database.
 
-Using kdb5_util to upgrade a master KDC from krb5 1.1.x:
-
-::
-
-    shell% kdb5_util dump old-kdb-dump
-    shell% kdb5_util dump -ov old-kdb-dump.ov
-      [Create a new KDC installation, using the old stash file/master password]
-    shell% kdb5_util load old-kdb-dump
-    shell% kdb5_util load -update old-kdb-dump.ov
-
-The use of old-kdb-dump.ov for an extra dump and load is necessary
-to preserve per-principal policy information, which is not included in
-the default dump format of krb5 1.1.x.
-
 .. note::
 
           Using kdb5_util to dump and reload the principal database is
@@ -497,7 +483,7 @@ availability.  To roll over the master key, follow these steps:
 
     $ kdb5_util list_mkeys
     Master keys for Principal: K/M@KRBTEST.COM
-    KVNO: 1, Enctype: des-cbc-crc, Active on: Wed Dec 31 19:00:00 EST 1969 *
+    KVNO: 1, Enctype: aes256-cts-hmac-sha384-192, Active on: Thu Jan 01 00:00:00 UTC 1970 *
 
 #. On the master KDC, run ``kdb5_util use_mkey 1`` to ensure that a
    master key activation list is present in the database.  This step
@@ -775,7 +761,7 @@ in the krbtgt keys is used by default to determine the session key
 types supported by the krbtgt service (see
 :ref:`session_key_selection`).  Because non-MIT Kerberos clients
 sometimes send a limited set of encryption types when making AS
-requests, it can be important to for the krbtgt service to support
+requests, it can be important for the krbtgt service to support
 multiple encryption types.  This can be accomplished by giving the
 krbtgt principal multiple keys, which is usually as simple as not
 specifying any **-e** option when changing the krbtgt key, or by
@@ -807,13 +793,7 @@ an "update log" file, maintained as a circular buffer of a certain
 size.  A process on each replica KDC connects to a service on the
 master KDC (currently implemented in the :ref:`kadmind(8)` server) and
 periodically requests the changes that have been made since the last
-check.  By default, this check is done every two minutes.  If the
-database has just been modified in the previous several seconds
-(currently the threshold is hard-coded at 10 seconds), the replica
-will not retrieve updates, but instead will pause and try again soon
-after.  This reduces the likelihood that incremental update queries
-will cause delays for an administrator trying to make a bunch of
-changes to the database at the same time.
+check.  By default, this check is done every two minutes.
 
 Incremental propagation uses the following entries in the per-realm
 data in the KDC config file (See :ref:`kdc.conf(5)`):

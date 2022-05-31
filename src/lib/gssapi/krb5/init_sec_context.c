@@ -129,6 +129,7 @@ static krb5_error_code get_credentials(context, cred, server, now,
     krb5_error_code     code;
     krb5_creds          in_creds, evidence_creds, mcreds, *result_creds = NULL;
     krb5_flags          flags = 0;
+    krb5_principal_data server_data;
 
     *out_creds = NULL;
 
@@ -139,8 +140,14 @@ static krb5_error_code get_credentials(context, cred, server, now,
 
     assert(cred->name != NULL);
 
+    /* Remove assumed realm from host-based S4U2Proxy requests as they must
+     * start in the client realm. */
+    server_data = *server->princ;
+    if (cred->impersonator != NULL && server_data.type == KRB5_NT_SRV_HST)
+        server_data.realm = empty_data();
+    in_creds.server = &server_data;
+
     in_creds.client = cred->name->princ;
-    in_creds.server = server->princ;
     in_creds.times.endtime = endtime;
     in_creds.authdata = NULL;
     in_creds.keyblock.enctype = 0;
@@ -189,7 +196,6 @@ static krb5_error_code get_credentials(context, cred, server, now,
         if (code)
             goto cleanup;
 
-        assert(evidence_creds.ticket_flags & TKT_FLG_FORWARDABLE);
         in_creds.client = cred->impersonator;
         in_creds.second_ticket = evidence_creds.ticket;
         flags = KRB5_GC_CANONICALIZE | KRB5_GC_CONSTRAINED_DELEGATION;
@@ -557,6 +563,13 @@ kg_new_connection(
     ctx->seed_init = 0;
     ctx->seqstate = 0;
 
+    /* enforce_ok_as_delegate causes GSS_C_DELEG_FLAG to be treated as
+     * GSS_C_DELEG_POLICY_FLAG (so ok-as-delegate is always enforced). */
+    if (context->enforce_ok_as_delegate && (req_flags & GSS_C_DELEG_FLAG)) {
+        req_flags &= ~GSS_C_DELEG_FLAG;
+        req_flags |= GSS_C_DELEG_POLICY_FLAG;
+    }
+
     ctx->gss_flags = req_flags & (GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG |
                                   GSS_C_MUTUAL_FLAG | GSS_C_REPLAY_FLAG |
                                   GSS_C_SEQUENCE_FLAG | GSS_C_DELEG_FLAG |
@@ -810,7 +823,7 @@ mutual_auth(
     if ((code = krb5_rd_rep(context, ctx->auth_context, &ap_rep,
                             &ap_rep_data))) {
         /*
-         * XXX A hack for backwards compatiblity.
+         * XXX A hack for backwards compatibility.
          * To be removed in 1999 -- proven
          */
         krb5_auth_con_setuseruserkey(context, ctx->auth_context,

@@ -6,11 +6,17 @@ conf = {'domain_realm': {'kerberos.org': 'R1',
                          'example.com': 'R2',
                          'mit.edu': 'R3'}}
 no_rdns_conf = {'libdefaults': {'rdns': 'false'}}
-no_canon_conf = {'libdefaults': {'dns_canonicalize_hostname': 'false'}}
+no_canon_conf = {'libdefaults': {'dns_canonicalize_hostname': 'false',
+                                 'qualify_shortname': 'example.com'}}
+fallback_canon_conf = {'libdefaults':
+                       {'rdns': 'false',
+                        'dns_canonicalize_hostname': 'fallback'}}
 
-realm = K5Realm(create_kdb=False, krb5_conf=conf)
+realm = K5Realm(realm='R1', create_host=False, krb5_conf=conf)
 no_rdns = realm.special_env('no_rdns', False, krb5_conf=no_rdns_conf)
 no_canon = realm.special_env('no_canon', False, krb5_conf=no_canon_conf)
+fallback_canon = realm.special_env('fallback_canon', False,
+                                   krb5_conf=fallback_canon_conf)
 
 def testbase(host, nametype, princhost, princrealm, env=None):
     # Run the sn2princ harness with a specified host and name type and
@@ -37,6 +43,10 @@ def testu(host, princhost, princrealm):
     # Test with the unknown name type.
     testbase(host, 'unknown', princhost, princrealm)
 
+def testfc(host, princhost, princrealm):
+    # Test with the host-based name type with canonicalization fallback.
+    testbase(host, 'srv-hst', princhost, princrealm, env=fallback_canon)
+
 # With the unknown principal type, we do not canonicalize or downcase,
 # but we do remove a trailing period and look up the realm.
 mark('unknown type')
@@ -53,12 +63,15 @@ testu('Example.COM:xyZ', 'Example.COM:xyZ', 'R2')
 testu('example.com.::123', 'example.com.::123', '')
 
 # With dns_canonicalize_hostname=false, we downcase and remove
-# trailing dots but do not canonicalize the hostname.  Trailers do not
-# get downcased.
+# trailing dots but do not canonicalize the hostname.
+# Single-component names are qualified with the configured suffix
+# (defaulting to the first OS search domain, but Python cannot easily
+# retrieve that value so we don't test it).  Trailers do not get
+# downcased.
 mark('dns_canonicalize_host=false')
 testnc('ptr-mismatch.kerberos.org', 'ptr-mismatch.kerberos.org', 'R1')
 testnc('Example.COM', 'example.com', 'R2')
-testnc('abcde', 'abcde', '')
+testnc('abcde', 'abcde.example.com', 'R2')
 testnc('example.com.:123', 'example.com:123', 'R2')
 testnc('Example.COM:xyZ', 'example.com:xyZ', 'R2')
 testnc('example.com.::123', 'example.com.::123', '')
@@ -70,6 +83,29 @@ if offline:
 # and reverse resolving to these names.
 oname = 'ptr-mismatch.kerberos.org'
 fname = 'www.kerberos.org'
+
+# Test fallback canonicalization krb5_sname_to_principal() results
+# (same as dns_canonicalize_hostname=false).
+mark('dns_canonicalize_host=fallback')
+testfc(oname, oname, 'R1')
+
+# Test fallback canonicalization in krb5_get_credentials().
+oprinc = 'host/' + oname
+fprinc = 'host/' + fname
+shutil.copy(realm.ccache, realm.ccache + '.save')
+realm.addprinc(fprinc)
+# oprinc doesn't exist, so we get the canonicalized fprinc as a fallback.
+msgs = ('Falling back to canonicalized server hostname ' + fname,)
+realm.run(['./gcred', 'srv-hst', oprinc], env=fallback_canon,
+          expected_msg=fprinc, expected_trace=msgs)
+realm.addprinc(oprinc)
+# oprinc now exists, but we still get the fprinc ticket from the cache.
+realm.run(['./gcred', 'srv-hst', oprinc], env=fallback_canon,
+          expected_msg=fprinc)
+# Without the cached result, we sould get oprinc in preference to fprinc.
+os.rename(realm.ccache + '.save', realm.ccache)
+realm.run(['./gcred', 'srv-hst', oprinc], env=fallback_canon,
+          expected_msg=oprinc)
 
 # Verify forward resolution before testing for it.
 try:

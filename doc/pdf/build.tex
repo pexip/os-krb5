@@ -55,7 +55,7 @@
 
 \title{Building MIT Kerberos}
 \date{ }
-\release{1.17}
+\release{1.18.3}
 \author{MIT}
 \newcommand{\sphinxlogo}{\vbox{}}
 \renewcommand{\releasename}{Release}
@@ -884,6 +884,10 @@ default credential cache, keytab, and client keytab names.  The
 default is to use \sphinxcode{krb5-config} from the program path.  Specify
 \sphinxcode{-{-}without-krb5-config} to disable the use of krb5-config and
 use the usual built-in defaults.
+
+\item[{\sphinxstylestrong{-}\sphinxstylestrong{-without-keyutils}}] \leavevmode
+Build without libkeyutils support.  This disables the KEYRING
+credential cache type.
 
 \end{description}
 

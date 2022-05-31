@@ -10,11 +10,9 @@ SYNOPSIS
 [**-c** *ccache*]
 [**-e** *etype*]
 [**-q**]
-[**-h**]
+[**-u** | **-S** *sname*]
 [**-P**]
-[**-S** *sname*]
-[**-U** *for_user*]
-[**--u2u** *ccache*]
+[[{**-F** *cert_file* | {**-I** | **-U**} *for_user*} [**-P**]] | **--u2u** *ccache*]
 *service1 service2* ...
 
 
@@ -37,13 +35,18 @@ OPTIONS
     of all the services named on the command line.  This is useful in
     certain backward compatibility situations.
 
+**-k** *keytab*
+    Decrypt the acquired tickets using *keytab* to confirm their
+    validity.
+
 **-q**
     Suppress printing output when successful.  If a service ticket
     cannot be obtained, an error message will still be printed and
     kvno will exit with nonzero status.
 
-**-h**
-    Prints a usage statement and exits.
+**-u**
+    Use the unknown name type in requested service principal names.
+    This option Cannot be used with *-S*.
 
 **-P**
     Specifies that the *service1 service2* ...  arguments are to be
@@ -58,11 +61,19 @@ OPTIONS
     The service hostnames will be canonicalized according to the usual
     rules for constructing service principals.
 
-**-U** *for_user*
+**-I** *for_user*
     Specifies that protocol transition (S4U2Self) is to be used to
     acquire a ticket on behalf of *for_user*.  If constrained
     delegation is not requested, the service name must match the
     credentials cache client principal.
+
+**-U** *for_user*
+    Same as -I, but treats *for_user* as an enterprise name.
+
+**-F** *cert_file*
+    Specifies that protocol transition is to be used, identifying the
+    client principal with the X.509 certificate in *cert_file*.  The
+    certificate file must be in PEM format.
 
 **--u2u** *ccache*
     Requests a user-to-user ticket.  *ccache* must contain a local
