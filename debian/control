@@ -14,7 +14,7 @@ XSBC-Pexip-Original-Uploaders: Russ Allbery <rra@debian.org>, Benjamin Kaduk <ka
 Homepage: http://web.mit.edu/kerberos/
 VCS-Git: https://salsa.debian.org/debian/krb5
 VCS-Browser: https://salsa.debian.org/debian/krb5
-XS-Pexip-Upstream: http://ftp.debian.org/debian/ buster
+XS-Pexip-Upstream: http://deb.debian.org/debian/ bullseye
 
 Package: krb5-user
 Architecture: any
