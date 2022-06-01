@@ -55,7 +55,7 @@
 
 \title{Kerberos Administration Guide}
 \date{ }
-\release{1.17}
+\release{1.18.3}
 \author{MIT}
 \newcommand{\sphinxlogo}{\vbox{}}
 \renewcommand{\releasename}{Release}
@@ -332,7 +332,7 @@ is created:
 
 \PYG{n}{kadmin}\PYG{o}{.}\PYG{n}{local}\PYG{p}{:} \PYG{n}{addprinc} \PYG{n}{admin}\PYG{o}{/}\PYG{n}{admin}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}
 
-\PYG{n}{WARNING}\PYG{p}{:} \PYG{n}{no} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{admin/admin@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;}
+\PYG{n}{No} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{admin/admin@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;}
 \PYG{n}{assigning} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{default}\PYG{l+s+s2}{\PYGZdq{}}\PYG{o}{.}
 \PYG{n}{Enter} \PYG{n}{password} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{admin}\PYG{o}{/}\PYG{n}{admin}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}\PYG{p}{:}  \PYG{o}{\PYGZlt{}}\PYG{o}{=} \PYG{n}{Enter} \PYG{n}{a} \PYG{n}{password}\PYG{o}{.}
 \PYG{n}{Re}\PYG{o}{\PYGZhy{}}\PYG{n}{enter} \PYG{n}{password} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{admin}\PYG{o}{/}\PYG{n}{admin}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}\PYG{p}{:}  \PYG{o}{\PYGZlt{}}\PYG{o}{=} \PYG{n}{Type} \PYG{n}{it} \PYG{n}{again}\PYG{o}{.}
@@ -415,11 +415,11 @@ following:
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{shell}\PYG{o}{\PYGZpc{}} \PYG{n}{kadmin}
 \PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{addprinc} \PYG{o}{\PYGZhy{}}\PYG{n}{randkey} \PYG{n}{host}\PYG{o}{/}\PYG{n}{kerberos}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-\PYG{n}{NOTICE}\PYG{p}{:} \PYG{n}{no} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{host/kerberos.mit.edu@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;} \PYG{n}{assigning} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{default}\PYG{l+s+s2}{\PYGZdq{}}
+\PYG{n}{No} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{host/kerberos.mit.edu@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;} \PYG{n}{assigning} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{default}\PYG{l+s+s2}{\PYGZdq{}}
 \PYG{n}{Principal} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{host/kerberos.mit.edu@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}} \PYG{n}{created}\PYG{o}{.}
 
 \PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{addprinc} \PYG{o}{\PYGZhy{}}\PYG{n}{randkey} \PYG{n}{host}\PYG{o}{/}\PYG{n}{kerberos}\PYG{o}{\PYGZhy{}}\PYG{l+m+mf}{1.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-\PYG{n}{NOTICE}\PYG{p}{:} \PYG{n}{no} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{host/kerberos\PYGZhy{}1.mit.edu@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;} \PYG{n}{assigning} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{default}\PYG{l+s+s2}{\PYGZdq{}}
+\PYG{n}{No} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{host/kerberos\PYGZhy{}1.mit.edu@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;} \PYG{n}{assigning} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{default}\PYG{l+s+s2}{\PYGZdq{}}
 \PYG{n}{Principal} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{host/kerberos\PYGZhy{}1.mit.edu@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}} \PYG{n}{created}\PYG{o}{.}
 \end{sphinxVerbatim}
 
@@ -442,7 +442,7 @@ To extract a keytab directly on a replica KDC called
 \PYG{n}{Entry} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{host}\PYG{o}{/}\PYG{n}{kerberos}\PYG{o}{\PYGZhy{}}\PYG{l+m+mf}{1.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{k}{with} \PYG{n}{kvno} \PYG{l+m+mi}{2}\PYG{p}{,} \PYG{n}{encryption}
     \PYG{n+nb}{type} \PYG{n}{aes128}\PYG{o}{\PYGZhy{}}\PYG{n}{cts}\PYG{o}{\PYGZhy{}}\PYG{n}{hmac}\PYG{o}{\PYGZhy{}}\PYG{n}{sha1}\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{96} \PYG{n}{added} \PYG{n}{to} \PYG{n}{keytab} \PYG{n}{FILE}\PYG{p}{:}\PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{krb5}\PYG{o}{.}\PYG{n}{keytab}\PYG{o}{.}
 \PYG{n}{Entry} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{host}\PYG{o}{/}\PYG{n}{kerberos}\PYG{o}{\PYGZhy{}}\PYG{l+m+mf}{1.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{k}{with} \PYG{n}{kvno} \PYG{l+m+mi}{2}\PYG{p}{,} \PYG{n}{encryption}
-    \PYG{n+nb}{type} \PYG{n}{des3}\PYG{o}{\PYGZhy{}}\PYG{n}{cbc}\PYG{o}{\PYGZhy{}}\PYG{n}{sha1} \PYG{n}{added} \PYG{n}{to} \PYG{n}{keytab} \PYG{n}{FILE}\PYG{p}{:}\PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{krb5}\PYG{o}{.}\PYG{n}{keytab}\PYG{o}{.}
+    \PYG{n+nb}{type} \PYG{n}{aes256}\PYG{o}{\PYGZhy{}}\PYG{n}{cts}\PYG{o}{\PYGZhy{}}\PYG{n}{hmac}\PYG{o}{\PYGZhy{}}\PYG{n}{sha384}\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{192} \PYG{n}{added} \PYG{n}{to} \PYG{n}{keytab} \PYG{n}{FILE}\PYG{p}{:}\PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{krb5}\PYG{o}{.}\PYG{n}{keytab}\PYG{o}{.}
 \PYG{n}{Entry} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{host}\PYG{o}{/}\PYG{n}{kerberos}\PYG{o}{\PYGZhy{}}\PYG{l+m+mf}{1.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{k}{with} \PYG{n}{kvno} \PYG{l+m+mi}{2}\PYG{p}{,} \PYG{n}{encryption}
     \PYG{n+nb}{type} \PYG{n}{arcfour}\PYG{o}{\PYGZhy{}}\PYG{n}{hmac} \PYG{n}{added} \PYG{n}{to} \PYG{n}{keytab} \PYG{n}{FILE}\PYG{p}{:}\PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{krb5}\PYG{o}{.}\PYG{n}{keytab}\PYG{o}{.}
 \end{sphinxVerbatim}
@@ -781,18 +781,13 @@ pop, the administrator \sphinxcode{joeadmin} would issue the command (on
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{trillium}\PYG{o}{\PYGZpc{}} \PYG{n}{kadmin}
-\PYG{n}{kadmin5}\PYG{p}{:} \PYG{n}{ktadd} \PYG{n}{host}\PYG{o}{/}\PYG{n}{trillium}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{n}{ftp}\PYG{o}{/}\PYG{n}{trillium}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-    \PYG{n}{pop}\PYG{o}{/}\PYG{n}{trillium}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-\PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{Entry} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{host}\PYG{o}{/}\PYG{n}{trillium}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{k}{with}
-    \PYG{n}{kvno} \PYG{l+m+mi}{3}\PYG{p}{,} \PYG{n}{encryption} \PYG{n+nb}{type} \PYG{n}{DES}\PYG{o}{\PYGZhy{}}\PYG{n}{CBC}\PYG{o}{\PYGZhy{}}\PYG{n}{CRC} \PYG{n}{added} \PYG{n}{to} \PYG{n}{keytab}
-    \PYG{n}{FILE}\PYG{p}{:}\PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{krb5}\PYG{o}{.}\PYG{n}{keytab}\PYG{o}{.}
-\PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{Entry} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{ftp}\PYG{o}{/}\PYG{n}{trillium}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{k}{with}
-    \PYG{n}{kvno} \PYG{l+m+mi}{3}\PYG{p}{,} \PYG{n}{encryption} \PYG{n+nb}{type} \PYG{n}{DES}\PYG{o}{\PYGZhy{}}\PYG{n}{CBC}\PYG{o}{\PYGZhy{}}\PYG{n}{CRC} \PYG{n}{added} \PYG{n}{to} \PYG{n}{keytab}
-    \PYG{n}{FILE}\PYG{p}{:}\PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{krb5}\PYG{o}{.}\PYG{n}{keytab}\PYG{o}{.}
-\PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{Entry} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{pop}\PYG{o}{/}\PYG{n}{trillium}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{k}{with}
-    \PYG{n}{kvno} \PYG{l+m+mi}{3}\PYG{p}{,} \PYG{n}{encryption} \PYG{n+nb}{type} \PYG{n}{DES}\PYG{o}{\PYGZhy{}}\PYG{n}{CBC}\PYG{o}{\PYGZhy{}}\PYG{n}{CRC} \PYG{n}{added} \PYG{n}{to} \PYG{n}{keytab}
-    \PYG{n}{FILE}\PYG{p}{:}\PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{krb5}\PYG{o}{.}\PYG{n}{keytab}\PYG{o}{.}
-\PYG{n}{kadmin5}\PYG{p}{:} \PYG{n}{quit}
+\PYG{n}{Authenticating} \PYG{k}{as} \PYG{n}{principal} \PYG{n}{root}\PYG{o}{/}\PYG{n}{admin}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{k}{with} \PYG{n}{password}\PYG{o}{.}
+\PYG{n}{Password} \PYG{k}{for} \PYG{n}{root}\PYG{o}{/}\PYG{n}{admin}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}\PYG{p}{:}
+\PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{ktadd} \PYG{n}{host}\PYG{o}{/}\PYG{n}{trillium}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{n}{ftp}\PYG{o}{/}\PYG{n}{trillium}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{n}{pop}\PYG{o}{/}\PYG{n}{trillium}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
+\PYG{n}{Entry} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{host}\PYG{o}{/}\PYG{n}{trillium}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{k}{with} \PYG{n}{kvno} \PYG{l+m+mi}{3}\PYG{p}{,} \PYG{n}{encryption} \PYG{n+nb}{type} \PYG{n}{aes256}\PYG{o}{\PYGZhy{}}\PYG{n}{cts}\PYG{o}{\PYGZhy{}}\PYG{n}{hmac}\PYG{o}{\PYGZhy{}}\PYG{n}{sha384}\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{192} \PYG{n}{added} \PYG{n}{to} \PYG{n}{keytab} \PYG{n}{FILE}\PYG{p}{:}\PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{krb5}\PYG{o}{.}\PYG{n}{keytab}\PYG{o}{.}
+\PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{Entry} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{ftp}\PYG{o}{/}\PYG{n}{trillium}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{k}{with} \PYG{n}{kvno} \PYG{l+m+mi}{3}\PYG{p}{,} \PYG{n}{encryption} \PYG{n+nb}{type} \PYG{n}{aes256}\PYG{o}{\PYGZhy{}}\PYG{n}{cts}\PYG{o}{\PYGZhy{}}\PYG{n}{hmac}\PYG{o}{\PYGZhy{}}\PYG{n}{sha384}\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{192} \PYG{n}{added} \PYG{n}{to} \PYG{n}{keytab} \PYG{n}{FILE}\PYG{p}{:}\PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{krb5}\PYG{o}{.}\PYG{n}{keytab}\PYG{o}{.}
+\PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{Entry} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{pop}\PYG{o}{/}\PYG{n}{trillium}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{k}{with} \PYG{n}{kvno} \PYG{l+m+mi}{3}\PYG{p}{,} \PYG{n}{encryption} \PYG{n+nb}{type} \PYG{n}{aes256}\PYG{o}{\PYGZhy{}}\PYG{n}{cts}\PYG{o}{\PYGZhy{}}\PYG{n}{hmac}\PYG{o}{\PYGZhy{}}\PYG{n}{sha384}\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{192} \PYG{n}{added} \PYG{n}{to} \PYG{n}{keytab} \PYG{n}{FILE}\PYG{p}{:}\PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{krb5}\PYG{o}{.}\PYG{n}{keytab}\PYG{o}{.}
+\PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{quit}
 \PYG{n}{trillium}\PYG{o}{\PYGZpc{}}
 \end{sphinxVerbatim}
 
@@ -826,7 +821,7 @@ readable only by root.
 Debian: \sphinxhref{http://techpubs.spinlocksolutions.com/dklar/kerberos.html}{Setting up MIT Kerberos 5}
 
 \item {} 
-Solaris: \sphinxhref{http://download.oracle.com/docs/cd/E19253-01/816-4557/6maosrjv2/index.html}{Configuring the Kerberos Service}
+Solaris: \sphinxhref{https://docs.oracle.com/cd/E19253-01/816-4557/6maosrjv2/index.html}{Configuring the Kerberos Service}
 
 \end{enumerate}
 
@@ -885,20 +880,11 @@ or:
 \PYG{p}{\PYGZcb{}}
 \end{sphinxVerbatim}
 
-Placing a ‘*’ at the end of a line indicates that this is the \sphinxstyleemphasis{final}
-value for the tag.  This means that neither the remainder of this
-configuration file nor any other configuration file will be checked
-for any other values for this tag.
-
-For example, if you have the following lines:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{foo} \PYG{o}{=} \PYG{n}{bar}\PYG{o}{*}
-\PYG{n}{foo} \PYG{o}{=} \PYG{n}{baz}
-\end{sphinxVerbatim}
-
-then the second value of \sphinxcode{foo} (\sphinxcode{baz}) would never be read.
+Placing a ‘*’ after the closing bracket of a section name indicates
+that the section is \sphinxstyleemphasis{final}, meaning that if the same section appears
+within a later file specified in \sphinxstylestrong{KRB5\_CONFIG}, it will be ignored.
+A subsection can be marked as final by placing a ‘*’ after either the
+tag name or the closing brace.
 
 The krb5.conf file can include other files using either of the
 following directives at the beginning of a line:
@@ -993,18 +979,7 @@ If this flag is set to false, then weak encryption types (as noted
 in {\hyperref[\detokenize{admin/conf_files/kdc_conf:encryption-types}]{\sphinxcrossref{\DUrole{std,std-ref}{Encryption types}}}} in {\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}}) will be filtered
 out of the lists \sphinxstylestrong{default\_tgs\_enctypes},
 \sphinxstylestrong{default\_tkt\_enctypes}, and \sphinxstylestrong{permitted\_enctypes}.  The default
-value for this tag is false, which may cause authentication
-failures in existing Kerberos infrastructures that do not support
-strong crypto.  Users in affected environments should set this tag
-to true until their infrastructure adopts stronger ciphers.
-
-\item[{\sphinxstylestrong{ap\_req\_checksum\_type}}] \leavevmode
-An integer which specifies the type of AP-REQ checksum to use in
-authenticators.  This variable should be unset so the appropriate
-checksum for the encryption key in use will be used.  This can be
-set if backward compatibility requires a specific checksum type.
-See the \sphinxstylestrong{kdc\_req\_checksum\_type} configuration option for the
-possible values and their meanings.
+value for this tag is false.
 
 \item[{\sphinxstylestrong{canonicalize}}] \leavevmode
 If this flag is set to true, initial ticket requests to the KDC
@@ -1046,6 +1021,11 @@ This relation specifies the default keytab name to be used by
 application servers such as sshd.  The default is {\hyperref[\detokenize{mitK5defaults:paths}]{\sphinxcrossref{\DUrole{std,std-ref}{DEFKTNAME}}}}.  This
 relation is subject to parameter expansion (see below).
 
+\item[{\sphinxstylestrong{default\_rcache\_name}}] \leavevmode
+This relation specifies the name of the default replay cache.
+The default is \sphinxcode{dfl:}.  This relation is subject to parameter
+expansion (see below).  New in release 1.18.
+
 \item[{\sphinxstylestrong{default\_realm}}] \leavevmode
 Identifies the default Kerberos realm for the client.  Set its
 value to your Kerberos realm.  If this value is not set, then a
@@ -1058,9 +1038,10 @@ the client should request when making a TGS-REQ, in order of
 preference from highest to lowest.  The list may be delimited with
 commas or whitespace.  See {\hyperref[\detokenize{admin/conf_files/kdc_conf:encryption-types}]{\sphinxcrossref{\DUrole{std,std-ref}{Encryption types}}}} in
 {\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}} for a list of the accepted values for this tag.
-The default value is \sphinxcode{aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 aes256-cts-hmac-sha384-192 aes128-cts-hmac-sha256-128 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4}, but single-DES encryption types
-will be implicitly removed from this list if the value of
-\sphinxstylestrong{allow\_weak\_crypto} is false.
+Starting in release 1.18, the default value is the value of
+\sphinxstylestrong{permitted\_enctypes}.  For previous releases or if
+\sphinxstylestrong{permitted\_enctypes} is not set, the default value is
+\sphinxcode{aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 aes256-cts-hmac-sha384-192 aes128-cts-hmac-sha256-128 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac}.
 
 Do not set this unless required for specific backward
 compatibility purposes; stale values of this setting can prevent
@@ -1071,10 +1052,10 @@ libraries are upgraded.
 Identifies the supported list of session key encryption types that
 the client should request when making an AS-REQ, in order of
 preference from highest to lowest.  The format is the same as for
-default\_tgs\_enctypes.  The default value for this tag is
-\sphinxcode{aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 aes256-cts-hmac-sha384-192 aes128-cts-hmac-sha256-128 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4}, but single-DES encryption types will be implicitly
-removed from this list if the value of \sphinxstylestrong{allow\_weak\_crypto} is
-false.
+default\_tgs\_enctypes.  Starting in release 1.18, the default
+value is the value of \sphinxstylestrong{permitted\_enctypes}.  For previous
+releases or if \sphinxstylestrong{permitted\_enctypes} is not set, the default
+value is \sphinxcode{aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 aes256-cts-hmac-sha384-192 aes128-cts-hmac-sha256-128 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac}.
 
 Do not set this unless required for specific backward
 compatibility purposes; stale values of this setting can prevent
@@ -1087,6 +1068,10 @@ hostnames for use in service principal names.  Setting this flag
 to false can improve security by reducing reliance on DNS, but
 means that short hostnames will not be canonicalized to
 fully-qualified hostnames.  The default value is true.
+
+If this option is set to \sphinxcode{fallback} (new in release 1.18), DNS
+canonicalization will only be performed the server hostname is not
+found with the original name when requesting credentials.
 
 \item[{\sphinxstylestrong{dns\_lookup\_kdc}}] \leavevmode
 Indicate whether DNS SRV records should be used to locate the KDCs
@@ -1110,6 +1095,13 @@ and other servers for a realm, if they are not listed in the
 krb5.conf information for the realm.  SRV records are used as a
 fallback if no URI records were found.  The default value is true.
 New in release 1.15.
+
+\item[{\sphinxstylestrong{enforce\_ok\_as\_delegate}}] \leavevmode
+If this flag to true, GSSAPI credential delegation will be
+disabled when the \sphinxcode{ok-as-delegate} flag is not set in the
+service ticket.  If this flag is false, the \sphinxcode{ok-as-delegate}
+ticket flag is only enforced when an application specifically
+requests enforcement.  The default value is false.
 
 \item[{\sphinxstylestrong{err\_fmt}}] \leavevmode
 This relation allows for custom error message formatting.  If a
@@ -1180,80 +1172,18 @@ requesting service tickets or authenticating to services.  This
 corrective factor is only used by the Kerberos library; it is not
 used to change the system clock.  The default value is 1.
 
-\item[{\sphinxstylestrong{kdc\_req\_checksum\_type}}] \leavevmode
-An integer which specifies the type of checksum to use for the KDC
-requests, for compatibility with very old KDC implementations.
-This value is only used for DES keys; other keys use the preferred
-checksum type for those keys.
-
-The possible values and their meanings are as follows.
-
-
-\begin{savenotes}\sphinxattablestart
-\centering
-\begin{tabulary}{\linewidth}[t]{|T|T|}
-\hline
-
-1
-&
-CRC32
-\\
-\hline
-2
-&
-RSA MD4
-\\
-\hline
-3
-&
-RSA MD4 DES
-\\
-\hline
-4
-&
-DES CBC
-\\
-\hline
-7
-&
-RSA MD5
-\\
-\hline
-8
-&
-RSA MD5 DES
-\\
-\hline
-9
-&
-NIST SHA
-\\
-\hline
-12
-&
-HMAC SHA1 DES3
-\\
-\hline
--138
-&
-Microsoft MD5 HMAC checksum type
-\\
-\hline
-\end{tabulary}
-\par
-\sphinxattableend\end{savenotes}
-
 \item[{\sphinxstylestrong{noaddresses}}] \leavevmode
 If this flag is true, requests for initial tickets will not be
 made with address restrictions set, allowing the tickets to be
 used across NATs.  The default value is true.
 
 \item[{\sphinxstylestrong{permitted\_enctypes}}] \leavevmode
-Identifies all encryption types that are permitted for use in
-session key encryption.  The default value for this tag is
-\sphinxcode{aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 aes256-cts-hmac-sha384-192 aes128-cts-hmac-sha256-128 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4}, but single-DES encryption types will be implicitly
-removed from this list if the value of \sphinxstylestrong{allow\_weak\_crypto} is
-false.
+Identifies the encryption types that servers will permit for
+session keys and for ticket and authenticator encryption, ordered
+by preference from highest to lowest.  Starting in release 1.18,
+this tag also acts as the default value for
+\sphinxstylestrong{default\_tgs\_enctypes} and \sphinxstylestrong{default\_tkt\_enctypes}.  The
+default value for this tag is \sphinxcode{aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 aes256-cts-hmac-sha384-192 aes128-cts-hmac-sha256-128 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac}.
 
 \item[{\sphinxstylestrong{plugin\_base\_dir}}] \leavevmode
 If set, determines the base directory where krb5 plugins are
@@ -1270,6 +1200,15 @@ which forces libkrb5 to attempt to use PKINIT if it is supported.
 \item[{\sphinxstylestrong{proxiable}}] \leavevmode
 If this flag is true, initial tickets will be proxiable by
 default, if allowed by the KDC.  The default value is false.
+
+\item[{\sphinxstylestrong{qualify\_shortname}}] \leavevmode
+If this string is set, it determines the domain suffix for
+single-component hostnames when DNS canonicalization is not used
+(either because \sphinxstylestrong{dns\_canonicalize\_hostname} is false or because
+forward canonicalization failed).  The default value is the first
+search domain of the system’s DNS configuration.  To disable
+qualification of shortnames, set this relation to the empty string
+with \sphinxcode{qualify\_shortname = ""}.  (New in release 1.18.)
 
 \item[{\sphinxstylestrong{rdns}}] \leavevmode
 If this flag is true, reverse name lookup will be used in addition
@@ -1290,15 +1229,6 @@ set.  The default is not to search domain components.
 \item[{\sphinxstylestrong{renew\_lifetime}}] \leavevmode
 (\DUrole{xref,std,std-ref}{duration} string.)  Sets the default renewable lifetime
 for initial ticket requests.  The default value is 0.
-
-\item[{\sphinxstylestrong{safe\_checksum\_type}}] \leavevmode
-An integer which specifies the type of checksum to use for the
-KRB-SAFE requests.  By default it is set to 8 (RSA MD5 DES).  For
-compatibility with applications linked against DCE version 1.1 or
-earlier Kerberos libraries, use a value of 3 to use the RSA MD4
-DES instead.  This field is ignored when its value is incompatible
-with the session key type.  See the \sphinxstylestrong{kdc\_req\_checksum\_type}
-configuration option for the possible values and their meanings.
 
 \item[{\sphinxstylestrong{spake\_preauth\_groups}}] \leavevmode
 A whitespace or comma-separated list of words which specifies the
@@ -2144,7 +2074,7 @@ default value.  Note that these values are not used if the user
 specifies \sphinxstylestrong{X509\_user\_identity} on the command line.
 
 \item[{\sphinxstylestrong{pkinit\_kdc\_hostname}}] \leavevmode
-The presense of this option indicates that the client is willing
+The presence of this option indicates that the client is willing
 to accept a KDC certificate with a dNSName SAN (Subject
 Alternative Name) rather than requiring the id-pkinit-san as
 defined in \index{RFC!RFC 4556}\sphinxhref{https://tools.ietf.org/html/rfc4556.html}{\sphinxstylestrong{RFC 4556}}.  This option may be specified multiple
@@ -2750,13 +2680,6 @@ marks the server principal as host-based or the service is also
 listed in \sphinxstylestrong{host\_based\_services}.  \sphinxcode{no\_host\_referral = *} will
 disable referral processing altogether.
 
-\item[{\sphinxstylestrong{des\_crc\_session\_supported}}] \leavevmode
-(Boolean value).  If set to true, the KDC will assume that service
-principals support des-cbc-crc for session key enctype negotiation
-purposes.  If \sphinxstylestrong{allow\_weak\_crypto} in {\hyperref[\detokenize{admin/conf_files/krb5_conf:libdefaults}]{\sphinxcrossref{\DUrole{std,std-ref}{{[}libdefaults{]}}}}} is
-false, or if des-cbc-crc is not a permitted enctype, then this
-variable has no effect.  Defaults to true.  New in release 1.11.
-
 \item[{\sphinxstylestrong{reject\_bad\_transit}}] \leavevmode
 (Boolean value.)  If set to true, the KDC will check the list of
 transited realms for cross-realm tickets against the transit path
@@ -2796,7 +2719,7 @@ specified multiple times.  New in release 1.17.
 (List of \sphinxstyleemphasis{key}:\sphinxstyleemphasis{salt} strings.)  Specifies the default key/salt
 combinations of principals for this realm.  Any principals created
 through {\hyperref[\detokenize{admin/admin_commands/kadmin_local:kadmin-1}]{\sphinxcrossref{\DUrole{std,std-ref}{kadmin}}}} will have keys of these types.  The
-default value for this tag is \sphinxcode{aes256-cts-hmac-sha1-96:normal aes128-cts-hmac-sha1-96:normal des3-cbc-sha1:normal arcfour-hmac-md5:normal}.  For lists of
+default value for this tag is \sphinxcode{aes256-cts-hmac-sha1-96:normal aes128-cts-hmac-sha1-96:normal}.  For lists of
 possible values, see {\hyperref[\detokenize{admin/conf_files/kdc_conf:keysalt-lists}]{\sphinxcrossref{\DUrole{std,std-ref}{Keysalt lists}}}}.
 
 \end{description}
@@ -2844,9 +2767,6 @@ definitions of these relations.
 
 \item {} 
 \sphinxstylestrong{ldap\_service\_password\_file}
-
-\item {} 
-\sphinxstylestrong{ldap\_servers}
 
 \item {} 
 \sphinxstylestrong{ldap\_conns\_per\_server}
@@ -3052,10 +2972,10 @@ facility is specified, the default is \sphinxstylestrong{AUTH}.
 \end{description}
 
 In the following example, the logging messages from the KDC will go to
-the console and to the system log under the facility LOG\_DAEMON with
-default severity of LOG\_INFO; and the logging messages from the
-administrative server will be appended to the file
-\sphinxcode{/var/adm/kadmin.log} and sent to the device \sphinxcode{/dev/tty04}.
+the console and to the system log under the facility LOG\_DAEMON, and
+the logging messages from the administrative server will be appended
+to the file \sphinxcode{/var/adm/kadmin.log} and sent to the device
+\sphinxcode{/dev/tty04}.
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
@@ -3065,6 +2985,9 @@ administrative server will be appended to the file
     \PYG{n}{admin\PYGZus{}server} \PYG{o}{=} \PYG{n}{FILE}\PYG{p}{:}\PYG{o}{/}\PYG{n}{var}\PYG{o}{/}\PYG{n}{adm}\PYG{o}{/}\PYG{n}{kadmin}\PYG{o}{.}\PYG{n}{log}
     \PYG{n}{admin\PYGZus{}server} \PYG{o}{=} \PYG{n}{DEVICE}\PYG{o}{=}\PYG{o}{/}\PYG{n}{dev}\PYG{o}{/}\PYG{n}{tty04}
 \end{sphinxVerbatim}
+
+If no logging specification is given, the default is to use syslog.
+To disable logging entirely, specify \sphinxcode{default = DEVICE=/dev/null}.
 
 
 \paragraph{{[}otp{]}}
@@ -3276,26 +3199,6 @@ not recommended for use.
 \begin{tabulary}{\linewidth}[t]{|T|T|}
 \hline
 
-des-cbc-crc
-&
-DES cbc mode with CRC-32 (weak)
-\\
-\hline
-des-cbc-md4
-&
-DES cbc mode with RSA-MD4 (weak)
-\\
-\hline
-des-cbc-md5
-&
-DES cbc mode with RSA-MD5 (weak)
-\\
-\hline
-des-cbc-raw
-&
-DES cbc mode raw (weak)
-\\
-\hline
 des3-cbc-raw
 &
 Triple DES cbc mode raw (weak)
@@ -3304,11 +3207,6 @@ Triple DES cbc mode raw (weak)
 des3-cbc-sha1 des3-hmac-sha1 des3-cbc-sha1-kd
 &
 Triple DES cbc mode with HMAC/sha1
-\\
-\hline
-des-hmac-sha1
-&
-DES with HMAC/sha1 (weak)
 \\
 \hline
 aes256-cts-hmac-sha1-96 aes256-cts aes256-sha1
@@ -3351,11 +3249,6 @@ camellia128-cts-cmac camellia128-cts
 Camellia-128 CTS mode with CMAC
 \\
 \hline
-des
-&
-The DES family: des-cbc-crc, des-cbc-md5, and des-cbc-md4 (weak)
-\\
-\hline
 des3
 &
 The triple DES family: des3-cbc-sha1
@@ -3385,8 +3278,8 @@ types for the variable in question.  Types or families can be removed
 from the current list by prefixing them with a minus sign (“-“).
 Types or families can be prefixed with a plus sign (“+”) for symmetry;
 it has the same meaning as just listing the type or family.  For
-example, “\sphinxcode{DEFAULT -des}” would be the default set of encryption
-types with DES types removed, and “\sphinxcode{des3 DEFAULT}” would be the
+example, “\sphinxcode{DEFAULT -rc4}” would be the default set of encryption
+types with RC4 types removed, and “\sphinxcode{des3 DEFAULT}” would be the
 default set of encryption types with triple DES types moved to the
 front.
 
@@ -3436,11 +3329,6 @@ normal
 default for Kerberos Version 5
 \\
 \hline
-v4
-&
-the only type used by Kerberos Version 4 (no salt)
-\\
-\hline
 norealm
 &
 same as the default, without using realm information
@@ -3449,11 +3337,6 @@ same as the default, without using realm information
 onlyrealm
 &
 uses only realm information as the salt
-\\
-\hline
-afs3
-&
-AFS version 3, only used for compatibility with Kerberos 4 in AFS
 \\
 \hline
 special
@@ -4422,7 +4305,7 @@ Example:
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{addprinc} \PYG{n}{jennifer}
-\PYG{n}{WARNING}\PYG{p}{:} \PYG{n}{no} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{jennifer@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;}
+\PYG{n}{No} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{jennifer@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;}
 \PYG{n}{defaulting} \PYG{n}{to} \PYG{n}{no} \PYG{n}{policy}\PYG{o}{.}
 \PYG{n}{Enter} \PYG{n}{password} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{jennifer}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}\PYG{p}{:}
 \PYG{n}{Re}\PYG{o}{\PYGZhy{}}\PYG{n}{enter} \PYG{n}{password} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{jennifer}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}\PYG{p}{:}
@@ -4478,7 +4361,7 @@ all you need to do is:
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{addprinc} \PYG{o}{\PYGZhy{}}\PYG{n}{x} \PYG{n}{dn}\PYG{o}{=}\PYG{n}{cn}\PYG{o}{=}\PYG{n}{jennifer}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com} \PYG{n}{jennifer}
-\PYG{n}{WARNING}\PYG{p}{:} \PYG{n}{no} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{jennifer@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;}
+\PYG{n}{No} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{jennifer@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;}
 \PYG{n}{defaulting} \PYG{n}{to} \PYG{n}{no} \PYG{n}{policy}\PYG{o}{.}
 \PYG{n}{Enter} \PYG{n}{password} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{jennifer}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}\PYG{p}{:}  \PYG{o}{\PYGZlt{}}\PYG{o}{=} \PYG{n}{Type} \PYG{n}{the} \PYG{n}{password}\PYG{o}{.}
 \PYG{n}{Re}\PYG{o}{\PYGZhy{}}\PYG{n}{enter} \PYG{n}{password} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{jennifer}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}\PYG{p}{:}  \PYG{o}{\PYGZlt{}}\PYG{o}{=}\PYG{n}{Type} \PYG{n}{it} \PYG{n}{again}\PYG{o}{.}
@@ -4492,7 +4375,7 @@ link to an existing LDAP object, all you need to do is:
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{addprinc} \PYG{o}{\PYGZhy{}}\PYG{n}{x} \PYG{n}{containerdn}\PYG{o}{=}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com} \PYG{o}{\PYGZhy{}}\PYG{n}{x} \PYG{n}{linkdn}\PYG{o}{=}\PYG{n}{cn}\PYG{o}{=}\PYG{n}{david}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com} \PYG{n}{david}
-\PYG{n}{WARNING}\PYG{p}{:} \PYG{n}{no} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{david@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;}
+\PYG{n}{No} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{david@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;}
 \PYG{n}{defaulting} \PYG{n}{to} \PYG{n}{no} \PYG{n}{policy}\PYG{o}{.}
 \PYG{n}{Enter} \PYG{n}{password} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{david}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}\PYG{p}{:}  \PYG{o}{\PYGZlt{}}\PYG{o}{=} \PYG{n}{Type} \PYG{n}{the} \PYG{n}{password}\PYG{o}{.}
 \PYG{n}{Re}\PYG{o}{\PYGZhy{}}\PYG{n}{enter} \PYG{n}{password} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{david}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}\PYG{p}{:}  \PYG{o}{\PYGZlt{}}\PYG{o}{=}\PYG{n}{Type} \PYG{n}{it} \PYG{n}{again}\PYG{o}{.}
@@ -4570,16 +4453,16 @@ Examples:
 \PYG{n}{Principal}\PYG{p}{:} \PYG{n}{tlyu}\PYG{o}{/}\PYG{n}{admin}\PYG{n+nd}{@BLEEP}\PYG{o}{.}\PYG{n}{COM}
 \PYG{n}{Expiration} \PYG{n}{date}\PYG{p}{:} \PYG{p}{[}\PYG{n}{never}\PYG{p}{]}
 \PYG{n}{Last} \PYG{n}{password} \PYG{n}{change}\PYG{p}{:} \PYG{n}{Mon} \PYG{n}{Aug} \PYG{l+m+mi}{12} \PYG{l+m+mi}{14}\PYG{p}{:}\PYG{l+m+mi}{16}\PYG{p}{:}\PYG{l+m+mi}{47} \PYG{n}{EDT} \PYG{l+m+mi}{1996}
-\PYG{n}{Password} \PYG{n}{expiration} \PYG{n}{date}\PYG{p}{:} \PYG{p}{[}\PYG{n}{none}\PYG{p}{]}
+\PYG{n}{Password} \PYG{n}{expiration} \PYG{n}{date}\PYG{p}{:} \PYG{p}{[}\PYG{n}{never}\PYG{p}{]}
 \PYG{n}{Maximum} \PYG{n}{ticket} \PYG{n}{life}\PYG{p}{:} \PYG{l+m+mi}{0} \PYG{n}{days} \PYG{l+m+mi}{10}\PYG{p}{:}\PYG{l+m+mi}{00}\PYG{p}{:}\PYG{l+m+mi}{00}
 \PYG{n}{Maximum} \PYG{n}{renewable} \PYG{n}{life}\PYG{p}{:} \PYG{l+m+mi}{7} \PYG{n}{days} \PYG{l+m+mi}{00}\PYG{p}{:}\PYG{l+m+mi}{00}\PYG{p}{:}\PYG{l+m+mi}{00}
 \PYG{n}{Last} \PYG{n}{modified}\PYG{p}{:} \PYG{n}{Mon} \PYG{n}{Aug} \PYG{l+m+mi}{12} \PYG{l+m+mi}{14}\PYG{p}{:}\PYG{l+m+mi}{16}\PYG{p}{:}\PYG{l+m+mi}{47} \PYG{n}{EDT} \PYG{l+m+mi}{1996} \PYG{p}{(}\PYG{n}{bjaspan}\PYG{o}{/}\PYG{n}{admin}\PYG{n+nd}{@BLEEP}\PYG{o}{.}\PYG{n}{COM}\PYG{p}{)}
 \PYG{n}{Last} \PYG{n}{successful} \PYG{n}{authentication}\PYG{p}{:} \PYG{p}{[}\PYG{n}{never}\PYG{p}{]}
 \PYG{n}{Last} \PYG{n}{failed} \PYG{n}{authentication}\PYG{p}{:} \PYG{p}{[}\PYG{n}{never}\PYG{p}{]}
 \PYG{n}{Failed} \PYG{n}{password} \PYG{n}{attempts}\PYG{p}{:} \PYG{l+m+mi}{0}
-\PYG{n}{Number} \PYG{n}{of} \PYG{n}{keys}\PYG{p}{:} \PYG{l+m+mi}{2}
-\PYG{n}{Key}\PYG{p}{:} \PYG{n}{vno} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{n}{des}\PYG{o}{\PYGZhy{}}\PYG{n}{cbc}\PYG{o}{\PYGZhy{}}\PYG{n}{crc}
-\PYG{n}{Key}\PYG{p}{:} \PYG{n}{vno} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{n}{des}\PYG{o}{\PYGZhy{}}\PYG{n}{cbc}\PYG{o}{\PYGZhy{}}\PYG{n}{crc}\PYG{p}{:}\PYG{n}{v4}
+\PYG{n}{Number} \PYG{n}{of} \PYG{n}{keys}\PYG{p}{:} \PYG{l+m+mi}{1}
+\PYG{n}{Key}\PYG{p}{:} \PYG{n}{vno} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{n}{aes256}\PYG{o}{\PYGZhy{}}\PYG{n}{cts}\PYG{o}{\PYGZhy{}}\PYG{n}{hmac}\PYG{o}{\PYGZhy{}}\PYG{n}{sha384}\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{192}
+\PYG{n}{MKey}\PYG{p}{:} \PYG{n}{vno} \PYG{l+m+mi}{1}
 \PYG{n}{Attributes}\PYG{p}{:}
 \PYG{n}{Policy}\PYG{p}{:} \PYG{p}{[}\PYG{n}{none}\PYG{p}{]}
 
@@ -5022,7 +4905,7 @@ To dump a Kerberos database into a file, use the {\hyperref[\detokenize{admin/ad
 \sphinxstylestrong{dump} command on one of the KDCs.
 \begin{quote}
 
-\sphinxstylestrong{dump} {[}\sphinxstylestrong{-b7}\textbar{}\sphinxstylestrong{-ov}\textbar{}\sphinxstylestrong{-r13}\textbar{}\sphinxstylestrong{-r18}{]}
+\sphinxstylestrong{dump} {[}\sphinxstylestrong{-b7}\textbar{}\sphinxstylestrong{-r13}\textbar{}\sphinxstylestrong{-r18}{]}
 {[}\sphinxstylestrong{-verbose}{]} {[}\sphinxstylestrong{-mkey\_convert}{]} {[}\sphinxstylestrong{-new\_mkey\_file}
 \sphinxstyleemphasis{mkey\_file}{]} {[}\sphinxstylestrong{-rev}{]} {[}\sphinxstylestrong{-recurse}{]} {[}\sphinxstyleemphasis{filename}
 {[}\sphinxstyleemphasis{principals}…{]}{]}
@@ -5037,9 +4920,6 @@ load\_dump version 7”.  If filename is not specified, or is the string
 causes the dump to be in the Kerberos 5 Beta 7 format (“kdb5\_util
 load\_dump version 4”).  This was the dump format produced on
 releases prior to 1.2.2.
-
-\item[{\sphinxstylestrong{-ov}}] \leavevmode
-causes the dump to be in “ovsec\_adm\_export” format.
 
 \item[{\sphinxstylestrong{-r13}}] \leavevmode
 causes the dump to be in the Kerberos 5 1.3 format (“kdb5\_util
@@ -5131,7 +5011,7 @@ To restore a Kerberos database dump from a file, use the
 {\hyperref[\detokenize{admin/admin_commands/kdb5_util:kdb5-util-8}]{\sphinxcrossref{\DUrole{std,std-ref}{kdb5\_util}}}} \sphinxstylestrong{load} command on one of the KDCs.
 \begin{quote}
 
-\sphinxstylestrong{load} {[}\sphinxstylestrong{-b7}\textbar{}\sphinxstylestrong{-ov}\textbar{}\sphinxstylestrong{-r13}\textbar{}\sphinxstylestrong{-r18}{]} {[}\sphinxstylestrong{-hash}{]}
+\sphinxstylestrong{load} {[}\sphinxstylestrong{-b7}\textbar{}\sphinxstylestrong{-r13}\textbar{}\sphinxstylestrong{-r18}{]} {[}\sphinxstylestrong{-hash}{]}
 {[}\sphinxstylestrong{-verbose}{]} {[}\sphinxstylestrong{-update}{]} \sphinxstyleemphasis{filename}
 \end{quote}
 
@@ -5149,10 +5029,6 @@ Options:
 requires the database to be in the Kerberos 5 Beta 7 format
 (“kdb5\_util load\_dump version 4”).  This was the dump format
 produced on releases prior to 1.2.2.
-
-\item[{\sphinxstylestrong{-ov}}] \leavevmode
-requires the database to be in “ovsec\_adm\_import” format.  Must be
-used with the \sphinxstylestrong{-update} option.
 
 \item[{\sphinxstylestrong{-r13}}] \leavevmode
 requires the database to be in Kerberos 5 1.3 format (“kdb5\_util
@@ -5201,21 +5077,6 @@ To dump a single principal and later load it, updating the database:
 If the database file exists, and the \sphinxstyleemphasis{-update} flag was not
 given, \sphinxstyleemphasis{kdb5\_util} will overwrite the existing database.
 \end{sphinxadmonition}
-
-Using kdb5\_util to upgrade a master KDC from krb5 1.1.x:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{shell}\PYG{o}{\PYGZpc{}} \PYG{n}{kdb5\PYGZus{}util} \PYG{n}{dump} \PYG{n}{old}\PYG{o}{\PYGZhy{}}\PYG{n}{kdb}\PYG{o}{\PYGZhy{}}\PYG{n}{dump}
-\PYG{n}{shell}\PYG{o}{\PYGZpc{}} \PYG{n}{kdb5\PYGZus{}util} \PYG{n}{dump} \PYG{o}{\PYGZhy{}}\PYG{n}{ov} \PYG{n}{old}\PYG{o}{\PYGZhy{}}\PYG{n}{kdb}\PYG{o}{\PYGZhy{}}\PYG{n}{dump}\PYG{o}{.}\PYG{n}{ov}
-  \PYG{p}{[}\PYG{n}{Create} \PYG{n}{a} \PYG{n}{new} \PYG{n}{KDC} \PYG{n}{installation}\PYG{p}{,} \PYG{n}{using} \PYG{n}{the} \PYG{n}{old} \PYG{n}{stash} \PYG{n}{file}\PYG{o}{/}\PYG{n}{master} \PYG{n}{password}\PYG{p}{]}
-\PYG{n}{shell}\PYG{o}{\PYGZpc{}} \PYG{n}{kdb5\PYGZus{}util} \PYG{n}{load} \PYG{n}{old}\PYG{o}{\PYGZhy{}}\PYG{n}{kdb}\PYG{o}{\PYGZhy{}}\PYG{n}{dump}
-\PYG{n}{shell}\PYG{o}{\PYGZpc{}} \PYG{n}{kdb5\PYGZus{}util} \PYG{n}{load} \PYG{o}{\PYGZhy{}}\PYG{n}{update} \PYG{n}{old}\PYG{o}{\PYGZhy{}}\PYG{n}{kdb}\PYG{o}{\PYGZhy{}}\PYG{n}{dump}\PYG{o}{.}\PYG{n}{ov}
-\end{sphinxVerbatim}
-
-The use of old-kdb-dump.ov for an extra dump and load is necessary
-to preserve per-principal policy information, which is not included in
-the default dump format of krb5 1.1.x.
 
 \begin{sphinxadmonition}{note}{Note:}
 Using kdb5\_util to dump and reload the principal database is
@@ -5319,7 +5180,7 @@ the master key before, this will likely be version 1:
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYGZdl{} kdb5\PYGZus{}util list\PYGZus{}mkeys
 Master keys for Principal: K/M@KRBTEST.COM
-KVNO: 1, Enctype: des\PYGZhy{}cbc\PYGZhy{}crc, Active on: Wed Dec 31 19:00:00 EST 1969 *
+KVNO: 1, Enctype: aes256\PYGZhy{}cts\PYGZhy{}hmac\PYGZhy{}sha384\PYGZhy{}192, Active on: Thu Jan 01 00:00:00 UTC 1970 *
 \end{sphinxVerbatim}
 
 \item {} 
@@ -5390,6 +5251,9 @@ realms, Kerberos services (KDC and Admin Server) and ticket policies.
 
 \sphinxstylestrong{OPTIONS}
 \begin{description}
+\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
+Specifies the realm to be operated on.
+
 \item[{\sphinxstylestrong{-D} \sphinxstyleemphasis{user\_dn}}] \leavevmode
 Specifies the Distinguished Name (DN) of the user who has
 sufficient rights to perform the operation on the LDAP server.
@@ -5399,10 +5263,14 @@ Specifies the password of \sphinxstyleemphasis{user\_dn}.  This option is not
 recommended.
 
 \item[{\sphinxstylestrong{-H} \sphinxstyleemphasis{ldapuri}}] \leavevmode
-Specifies the URI of the LDAP server.  It is recommended to use
-\sphinxcode{ldapi://} or \sphinxcode{ldaps://} to connect to the LDAP server.
+Specifies the URI of the LDAP server.
 
 \end{description}
+
+By default, kdb5\_ldap\_util operates on the default realm (as specified
+in {\hyperref[\detokenize{admin/conf_files/krb5_conf:krb5-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{krb5.conf}}}}) and connects and authenticates to the LDAP
+server in the same manner as :ref:kadmind(8){}` would given the
+parameters in {\hyperref[\detokenize{admin/conf_files/kdc_conf:dbdefaults}]{\sphinxcrossref{\DUrole{std,std-ref}{{[}dbdefaults{]}}}}} in {\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}}.
 
 
 \subsection{Creating a Kerberos realm}
@@ -5417,9 +5285,9 @@ If you need to create a new realm, use the {\hyperref[\detokenize{admin/admin_co
 {[}\sphinxstylestrong{-containerref} \sphinxstyleemphasis{container\_reference\_dn}{]}
 {[}\sphinxstylestrong{-k} \sphinxstyleemphasis{mkeytype}{]}
 {[}\sphinxstylestrong{-kv} \sphinxstyleemphasis{mkeyVNO}{]}
+{[}\sphinxstylestrong{-M} \sphinxstyleemphasis{mkeyname}{]}
 {[}\sphinxstylestrong{-m\textbar{}-P} \sphinxstyleemphasis{password}\textbar{}\sphinxstylestrong{-sf} \sphinxstyleemphasis{stashfilename}{]}
 {[}\sphinxstylestrong{-s}{]}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 {[}\sphinxstylestrong{-maxtktlife} \sphinxstyleemphasis{max\_ticket\_life}{]}
 {[}\sphinxstylestrong{-maxrenewlife} \sphinxstyleemphasis{max\_renewable\_ticket\_life}{]}
 {[}\sphinxstyleemphasis{ticket\_flags}{]}
@@ -5452,6 +5320,11 @@ default is given by the \sphinxstylestrong{master\_key\_type} variable in
 Specifies the version number of the master key in the database;
 the default is 1.  Note that 0 is not allowed.
 
+\item[{\sphinxstylestrong{-M} \sphinxstyleemphasis{mkeyname}}] \leavevmode
+Specifies the principal name for the master key in the database.
+If not specified, the name is determined by the
+\sphinxstylestrong{master\_key\_name} variable in {\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}}.
+
 \item[{\sphinxstylestrong{-m}}] \leavevmode
 Specifies that the master database password should be read from
 the TTY rather than fetched from a file on the disk.
@@ -5459,9 +5332,6 @@ the TTY rather than fetched from a file on the disk.
 \item[{\sphinxstylestrong{-P} \sphinxstyleemphasis{password}}] \leavevmode
 Specifies the master database password. This option is not
 recommended.
-
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
 
 \item[{\sphinxstylestrong{-sf} \sphinxstyleemphasis{stashfilename}}] \leavevmode
 Specifies the stash file of the master database password.
@@ -5489,7 +5359,7 @@ Example:
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-    \PYG{n}{create} \PYG{o}{\PYGZhy{}}\PYG{n}{subtrees} \PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{sscope} \PYG{n}{SUB} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}
+    \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{create} \PYG{o}{\PYGZhy{}}\PYG{n}{subtrees} \PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{sscope} \PYG{n}{SUB}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
 \PYG{n}{Initializing} \PYG{n}{database} \PYG{k}{for} \PYG{n}{realm} \PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{ATHENA.MIT.EDU}\PYG{l+s+s1}{\PYGZsq{}}
 \PYG{n}{You} \PYG{n}{will} \PYG{n}{be} \PYG{n}{prompted} \PYG{k}{for} \PYG{n}{the} \PYG{n}{database} \PYG{n}{Master} \PYG{n}{Password}\PYG{o}{.}
@@ -5509,7 +5379,6 @@ If you need to modify a realm, use the {\hyperref[\detokenize{admin/admin_comman
 {[}\sphinxstylestrong{-subtrees} \sphinxstyleemphasis{subtree\_dn\_list}{]}
 {[}\sphinxstylestrong{-sscope} \sphinxstyleemphasis{search\_scope}{]}
 {[}\sphinxstylestrong{-containerref} \sphinxstyleemphasis{container\_reference\_dn}{]}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 {[}\sphinxstylestrong{-maxtktlife} \sphinxstyleemphasis{max\_ticket\_life}{]}
 {[}\sphinxstylestrong{-maxrenewlife} \sphinxstyleemphasis{max\_renewable\_ticket\_life}{]}
 {[}\sphinxstyleemphasis{ticket\_flags}{]}
@@ -5531,9 +5400,6 @@ subtrees.  The possible values are 1 or one (one level), 2 or sub
 container object in which the principals of a realm will be
 created.
 
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
-
 \item[{\sphinxstylestrong{-maxtktlife} \sphinxstyleemphasis{max\_ticket\_life}}] \leavevmode
 (\DUrole{xref,std,std-ref}{getdate} string) Specifies maximum ticket life for
 principals in this realm.
@@ -5553,9 +5419,8 @@ Example:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{shell}\PYG{o}{\PYGZpc{}} \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H}
-    \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{n}{modify} \PYG{o}{+}\PYG{n}{requires\PYGZus{}preauth} \PYG{o}{\PYGZhy{}}\PYG{n}{r}
-    \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}
+\PYG{n}{shell}\PYG{o}{\PYGZpc{}} \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H}
+    \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{n}{modify} \PYG{o}{+}\PYG{n}{requires\PYGZus{}preauth}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
 \PYG{n}{shell}\PYG{o}{\PYGZpc{}}
 \end{sphinxVerbatim}
@@ -5567,7 +5432,7 @@ If you need to destroy a Kerberos realm, use the
 {\hyperref[\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-8}]{\sphinxcrossref{\DUrole{std,std-ref}{kdb5\_ldap\_util}}}} \sphinxstylestrong{destroy} command as follows.
 \begin{quote}
 
-\sphinxstylestrong{destroy} {[}\sphinxstylestrong{-f}{]} {[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
+\sphinxstylestrong{destroy} {[}\sphinxstylestrong{-f}{]}
 \end{quote}
 
 Destroys an existing realm. Options:
@@ -5575,17 +5440,14 @@ Destroys an existing realm. Options:
 \item[{\sphinxstylestrong{-f}}] \leavevmode
 If specified, will not prompt the user for confirmation.
 
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
-
 \end{description}
 
 Example:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
-shell\PYGZpc{} kdb5\PYGZus{}ldap\PYGZus{}util \PYGZhy{}D cn=admin,o=org \PYGZhy{}H
-    ldaps://ldap\PYGZhy{}server1.mit.edu destroy \PYGZhy{}r ATHENA.MIT.EDU
+shell\PYGZpc{} kdb5\PYGZus{}ldap\PYGZus{}util \PYGZhy{}r ATHENA.MIT.EDU \PYGZhy{}D cn=admin,o=org \PYGZhy{}H
+    ldaps://ldap\PYGZhy{}server1.mit.edu destroy
 Password for \PYGZdq{}cn=admin,o=org\PYGZdq{}:
 Deleting KDC database of \PYGZsq{}ATHENA.MIT.EDU\PYGZsq{}, are you sure?
 (type \PYGZsq{}yes\PYGZsq{} to confirm)? yes
@@ -5600,22 +5462,17 @@ If you need to display the attributes of a realm, use the
 {\hyperref[\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-8}]{\sphinxcrossref{\DUrole{std,std-ref}{kdb5\_ldap\_util}}}} \sphinxstylestrong{view} command as follows.
 \begin{quote}
 
-\sphinxstylestrong{view} {[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
+\sphinxstylestrong{view}
 \end{quote}
 
-Displays the attributes of a realm.  Options:
-\begin{description}
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
-
-\end{description}
+Displays the attributes of a realm.
 
 Example:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-    \PYG{n}{view} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}
+    \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{view}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
 \PYG{n}{Realm} \PYG{n}{Name}\PYG{p}{:} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}
 \PYG{n}{Subtree}\PYG{p}{:} \PYG{n}{ou}\PYG{o}{=}\PYG{n}{users}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org}
@@ -5636,7 +5493,7 @@ If you need to display the list of the realms, use the
 \sphinxstylestrong{list}
 \end{quote}
 
-Lists the name of realms.
+Lists the names of realms under the container.
 
 Example:
 
@@ -5707,7 +5564,6 @@ objects are created under the realm container.
 \begin{quote}
 
 \sphinxstylestrong{create\_policy}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 {[}\sphinxstylestrong{-maxtktlife} \sphinxstyleemphasis{max\_ticket\_life}{]}
 {[}\sphinxstylestrong{-maxrenewlife} \sphinxstyleemphasis{max\_renewable\_ticket\_life}{]}
 {[}\sphinxstyleemphasis{ticket\_flags}{]}
@@ -5716,9 +5572,6 @@ objects are created under the realm container.
 
 Creates a ticket policy in the directory.  Options:
 \begin{description}
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
-
 \item[{\sphinxstylestrong{-maxtktlife} \sphinxstyleemphasis{max\_ticket\_life}}] \leavevmode
 (\DUrole{xref,std,std-ref}{getdate} string) Specifies maximum ticket life for
 principals.
@@ -5743,7 +5596,7 @@ Example:
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-    \PYG{n}{create\PYGZus{}policy} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{o}{\PYGZhy{}}\PYG{n}{maxtktlife} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{1 day}\PYG{l+s+s2}{\PYGZdq{}}
+    \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{create\PYGZus{}policy} \PYG{o}{\PYGZhy{}}\PYG{n}{maxtktlife} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{1 day}\PYG{l+s+s2}{\PYGZdq{}}
     \PYG{o}{\PYGZhy{}}\PYG{n}{maxrenewlife} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{1 week}\PYG{l+s+s2}{\PYGZdq{}} \PYG{o}{\PYGZhy{}}\PYG{n}{allow\PYGZus{}postdated} \PYG{o}{+}\PYG{n}{needchange}
     \PYG{o}{\PYGZhy{}}\PYG{n}{allow\PYGZus{}forwardable} \PYG{n}{tktpolicy}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
@@ -5757,7 +5610,6 @@ To modify a ticket policy in directory, use the
 \begin{quote}
 
 \sphinxstylestrong{modify\_policy}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 {[}\sphinxstylestrong{-maxtktlife} \sphinxstyleemphasis{max\_ticket\_life}{]}
 {[}\sphinxstylestrong{-maxrenewlife} \sphinxstyleemphasis{max\_renewable\_ticket\_life}{]}
 {[}\sphinxstyleemphasis{ticket\_flags}{]}
@@ -5772,7 +5624,7 @@ Example:
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H}
-    \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{n}{modify\PYGZus{}policy} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}
+    \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{modify\PYGZus{}policy}
     \PYG{o}{\PYGZhy{}}\PYG{n}{maxtktlife} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{60 minutes}\PYG{l+s+s2}{\PYGZdq{}} \PYG{o}{\PYGZhy{}}\PYG{n}{maxrenewlife} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{10 hours}\PYG{l+s+s2}{\PYGZdq{}}
     \PYG{o}{+}\PYG{n}{allow\PYGZus{}postdated} \PYG{o}{\PYGZhy{}}\PYG{n}{requires\PYGZus{}preauth} \PYG{n}{tktpolicy}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
@@ -5786,23 +5638,17 @@ To display the attributes of a ticket policy, use the
 \begin{quote}
 
 \sphinxstylestrong{view\_policy}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 \sphinxstyleemphasis{policy\_name}
 \end{quote}
 
-Displays the attributes of a ticket policy.  Options:
-\begin{description}
-\item[{\sphinxstyleemphasis{policy\_name}}] \leavevmode
-Specifies the name of the ticket policy.
-
-\end{description}
+Displays the attributes of the named ticket policy.
 
 Example:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-    \PYG{n}{view\PYGZus{}policy} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{tktpolicy}
+    \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{view\PYGZus{}policy} \PYG{n}{tktpolicy}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
 \PYG{n}{Ticket} \PYG{n}{policy}\PYG{p}{:} \PYG{n}{tktpolicy}
 \PYG{n}{Maximum} \PYG{n}{ticket} \PYG{n}{life}\PYG{p}{:} \PYG{l+m+mi}{0} \PYG{n}{days} \PYG{l+m+mi}{01}\PYG{p}{:}\PYG{l+m+mi}{00}\PYG{p}{:}\PYG{l+m+mi}{00}
@@ -5818,16 +5664,12 @@ To destroy an existing ticket policy, use the {\hyperref[\detokenize{admin/admin
 \begin{quote}
 
 \sphinxstylestrong{destroy\_policy}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 {[}\sphinxstylestrong{-force}{]}
 \sphinxstyleemphasis{policy\_name}
 \end{quote}
 
 Destroys an existing ticket policy.  Options:
 \begin{description}
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
-
 \item[{\sphinxstylestrong{-force}}] \leavevmode
 Forces the deletion of the policy object.  If not specified, the
 user will be prompted for confirmation before deleting the policy.
@@ -5842,7 +5684,7 @@ Example:
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 kdb5\PYGZus{}ldap\PYGZus{}util \PYGZhy{}D cn=admin,o=org \PYGZhy{}H ldaps://ldap\PYGZhy{}server1.mit.edu
-    destroy\PYGZus{}policy \PYGZhy{}r ATHENA.MIT.EDU tktpolicy
+    \PYGZhy{}r ATHENA.MIT.EDU destroy\PYGZus{}policy tktpolicy
 Password for \PYGZdq{}cn=admin,o=org\PYGZdq{}:
 This will delete the policy object \PYGZsq{}tktpolicy\PYGZsq{}, are you sure?
 (type \PYGZsq{}yes\PYGZsq{} to confirm)? yes
@@ -5857,23 +5699,16 @@ To list the name of ticket policies in a realm, use the
 \begin{quote}
 
 \sphinxstylestrong{list\_policy}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 \end{quote}
 
-Lists the ticket policies in realm if specified or in the default
-realm.  Options:
-\begin{description}
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
-
-\end{description}
+Lists ticket policies.
 
 Example:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-    \PYG{n}{list\PYGZus{}policy} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}
+    \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{list\PYGZus{}policy}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
 \PYG{n}{tktpolicy}
 \PYG{n}{tmppolicy}
@@ -5960,7 +5795,7 @@ in the krbtgt keys is used by default to determine the session key
 types supported by the krbtgt service (see
 {\hyperref[\detokenize{admin/enctypes:session-key-selection}]{\sphinxcrossref{\DUrole{std,std-ref}{Session key selection}}}}).  Because non-MIT Kerberos clients
 sometimes send a limited set of encryption types when making AS
-requests, it can be important to for the krbtgt service to support
+requests, it can be important for the krbtgt service to support
 multiple encryption types.  This can be accomplished by giving the
 krbtgt principal multiple keys, which is usually as simple as not
 specifying any \sphinxstylestrong{-e} option when changing the krbtgt key, or by
@@ -5989,13 +5824,7 @@ an “update log” file, maintained as a circular buffer of a certain
 size.  A process on each replica KDC connects to a service on the
 master KDC (currently implemented in the {\hyperref[\detokenize{admin/admin_commands/kadmind:kadmind-8}]{\sphinxcrossref{\DUrole{std,std-ref}{kadmind}}}} server) and
 periodically requests the changes that have been made since the last
-check.  By default, this check is done every two minutes.  If the
-database has just been modified in the previous several seconds
-(currently the threshold is hard-coded at 10 seconds), the replica
-will not retrieve updates, but instead will pause and try again soon
-after.  This reduces the likelihood that incremental update queries
-will cause delays for an administrator trying to make a bunch of
-changes to the database at the same time.
+check.  By default, this check is done every two minutes.
 
 Incremental propagation uses the following entries in the per-realm
 data in the KDC config file (See {\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}}):
@@ -6481,68 +6310,50 @@ read access, account lockout will not function.
 \chapter{Configuring Kerberos with OpenLDAP back-end}
 \label{\detokenize{admin/conf_ldap:conf-ldap}}\label{\detokenize{admin/conf_ldap::doc}}\label{\detokenize{admin/conf_ldap:configuring-kerberos-with-openldap-back-end}}\begin{enumerate}
 \item {} 
-Set up SSL on the OpenLDAP server and client to ensure secure
-communication when the KDC service and LDAP server are on different
-machines.  \sphinxcode{ldapi://} can be used if the LDAP server and KDC
-service are running on the same machine.
-\begin{enumerate}
-\item {} 
-Setting up SSL on the OpenLDAP server:
-
-\end{enumerate}
-\begin{enumerate}
-\item {} 
-Get a CA certificate using OpenSSL tools
+Make sure the LDAP server is using local authentication
+(\sphinxcode{ldapi://}) or TLS (\sphinxcode{ldaps}).  See
+\sphinxurl{https://www.openldap.org/doc/admin24/tls.html} for instructions on
+configuring TLS support in OpenLDAP.
 
 \item {} 
-Configure OpenLDAP server for using SSL/TLS
-
-For the latter, you need to specify the location of CA
-certificate location in \sphinxstyleemphasis{slapd.conf} file.
-
-Refer to the following link for more information:
-\sphinxurl{https://www.openldap.org/doc/admin23/tls.html}
-
-\end{enumerate}
-\begin{enumerate}
-\setcounter{enumi}{1}
-\item {} 
-Setting up SSL on OpenLDAP client:
-\begin{enumerate}
-\item {} 
-For the KDC and Admin Server, you need to do the client-side
-configuration in ldap.conf.  For example:
+Add the Kerberos schema file to the LDAP Server using the OpenLDAP
+LDIF file from the krb5 source directory
+(\sphinxcode{src/plugins/kdb/ldap/libkdb\_ldap/kerberos.openldap.ldif}).
+The following example uses local authentication:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{TLS\PYGZus{}CACERT} \PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{openldap}\PYG{o}{/}\PYG{n}{certs}\PYG{o}{/}\PYG{n}{cacert}\PYG{o}{.}\PYG{n}{pem}
-\end{sphinxVerbatim}
-
-\end{enumerate}
-
-\end{enumerate}
-
-\item {} 
-Include the Kerberos schema file (kerberos.schema) in the
-configuration file (slapd.conf) on the LDAP Server, by providing
-the location where it is stored:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{include} \PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{openldap}\PYG{o}{/}\PYG{n}{schema}\PYG{o}{/}\PYG{n}{kerberos}\PYG{o}{.}\PYG{n}{schema}
+\PYG{n}{ldapadd} \PYG{o}{\PYGZhy{}}\PYG{n}{Y} \PYG{n}{EXTERNAL} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldapi}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{o}{/} \PYG{o}{\PYGZhy{}}\PYG{n}{f} \PYG{o}{/}\PYG{n}{path}\PYG{o}{/}\PYG{n}{to}\PYG{o}{/}\PYG{n}{kerberos}\PYG{o}{.}\PYG{n}{openldap}\PYG{o}{.}\PYG{n}{ldif}
 \end{sphinxVerbatim}
 
 \item {} 
 Choose DNs for the {\hyperref[\detokenize{admin/admin_commands/krb5kdc:krb5kdc-8}]{\sphinxcrossref{\DUrole{std,std-ref}{krb5kdc}}}} and {\hyperref[\detokenize{admin/admin_commands/kadmind:kadmind-8}]{\sphinxcrossref{\DUrole{std,std-ref}{kadmind}}}} servers
-to bind to the LDAP server, and create them if necessary. These DNs
-will be specified with the \sphinxstylestrong{ldap\_kdc\_dn} and \sphinxstylestrong{ldap\_kadmind\_dn}
-directives in {\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}}; their passwords can be stashed
-with “\sphinxcode{kdb5\_ldap\_util stashsrvpw}” and the resulting file
-specified with the \sphinxstylestrong{ldap\_service\_password\_file} directive.
+to bind to the LDAP server, and create them if necessary.  Specify
+these DNs with the \sphinxstylestrong{ldap\_kdc\_dn} and \sphinxstylestrong{ldap\_kadmind\_dn}
+directives in {\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}}.  The kadmind DN will also be
+used for administrative commands such as {\hyperref[\detokenize{admin/admin_commands/kdb5_util:kdb5-util-8}]{\sphinxcrossref{\DUrole{std,std-ref}{kdb5\_util}}}}.
+
+Alternatively, you may configure krb5kdc and kadmind to use SASL
+authentication to access the LDAP server; see the {\hyperref[\detokenize{admin/conf_files/kdc_conf:dbmodules}]{\sphinxcrossref{\DUrole{std,std-ref}{{[}dbmodules{]}}}}}
+relations \sphinxstylestrong{ldap\_kdc\_sasl\_mech} and similar.
+
+\item {} 
+Specify a location for the LDAP service password file by setting
+\sphinxstylestrong{ldap\_service\_password\_file}.  Use \sphinxcode{kdb5\_ldap\_util stashsrvpw}
+to stash passwords for the KDC and kadmind DNs chosen above.  For
+example:
+
+\fvset{hllines={, ,}}%
+\begin{sphinxVerbatim}[commandchars=\\\{\}]
+\PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{n}{stashsrvpw} \PYG{o}{\PYGZhy{}}\PYG{n}{f} \PYG{o}{/}\PYG{n}{path}\PYG{o}{/}\PYG{n}{to}\PYG{o}{/}\PYG{n}{service}\PYG{o}{.}\PYG{n}{keyfile} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{krbadmin}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com}
+\end{sphinxVerbatim}
+
+Skip this step if you are using SASL authentication and the
+mechanism does not require a password.
 
 \item {} 
 Choose a DN for the global Kerberos container entry (but do not
-create the entry at this time).  This DN will be specified with the
+create the entry at this time).  Specify this DN with the
 \sphinxstylestrong{ldap\_kerberos\_container\_dn} directive in {\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}}.
 Realm container entries will be created underneath this DN.
 Principal entries may exist either underneath the realm container
@@ -6566,21 +6377,13 @@ Sample access control information:
 \PYG{n}{access} \PYG{n}{to} \PYG{n}{dn}\PYG{o}{.}\PYG{n}{base}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=Subschema}\PYG{l+s+s2}{\PYGZdq{}}
     \PYG{n}{by} \PYG{o}{*} \PYG{n}{read}
 
-\PYG{n}{access} \PYG{n}{to} \PYG{n}{attrs}\PYG{o}{=}\PYG{n}{userPassword}\PYG{p}{,}\PYG{n}{userPKCS12}
-    \PYG{n}{by} \PYG{n+nb+bp}{self} \PYG{n}{write}
-    \PYG{n}{by} \PYG{o}{*} \PYG{n}{auth}
-
-\PYG{n}{access} \PYG{n}{to} \PYG{n}{attrs}\PYG{o}{=}\PYG{n}{shadowLastChange}
-    \PYG{n}{by} \PYG{n+nb+bp}{self} \PYG{n}{write}
-    \PYG{n}{by} \PYG{o}{*} \PYG{n}{read}
-
-\PYG{c+c1}{\PYGZsh{} Providing access to realm container}
+\PYG{c+c1}{\PYGZsh{} Provide access to the realm container.}
 \PYG{n}{access} \PYG{n}{to} \PYG{n}{dn}\PYG{o}{.}\PYG{n}{subtree}\PYG{o}{=} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=EXAMPLE.COM,cn=krbcontainer,dc=example,dc=com}\PYG{l+s+s2}{\PYGZdq{}}
     \PYG{n}{by} \PYG{n}{dn}\PYG{o}{.}\PYG{n}{exact}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=kdc\PYGZhy{}service,dc=example,dc=com}\PYG{l+s+s2}{\PYGZdq{}} \PYG{n}{write}
     \PYG{n}{by} \PYG{n}{dn}\PYG{o}{.}\PYG{n}{exact}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=adm\PYGZhy{}service,dc=example,dc=com}\PYG{l+s+s2}{\PYGZdq{}} \PYG{n}{write}
     \PYG{n}{by} \PYG{o}{*} \PYG{n}{none}
 
-\PYG{c+c1}{\PYGZsh{} Providing access to principals, if not underneath realm container}
+\PYG{c+c1}{\PYGZsh{} Provide access to principals, if not underneath the realm container.}
 \PYG{n}{access} \PYG{n}{to} \PYG{n}{dn}\PYG{o}{.}\PYG{n}{subtree}\PYG{o}{=} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{ou=users,dc=example,dc=com}\PYG{l+s+s2}{\PYGZdq{}}
     \PYG{n}{by} \PYG{n}{dn}\PYG{o}{.}\PYG{n}{exact}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=kdc\PYGZhy{}service,dc=example,dc=com}\PYG{l+s+s2}{\PYGZdq{}} \PYG{n}{write}
     \PYG{n}{by} \PYG{n}{dn}\PYG{o}{.}\PYG{n}{exact}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=adm\PYGZhy{}service,dc=example,dc=com}\PYG{l+s+s2}{\PYGZdq{}} \PYG{n}{write}
@@ -6590,35 +6393,22 @@ Sample access control information:
     \PYG{n}{by} \PYG{o}{*} \PYG{n}{read}
 \end{sphinxVerbatim}
 
-If the locations of the container and principals or the DNs of
-the service objects for a realm are changed then this
-information should be updated.
+If the locations of the container and principals or the DNs of the
+service objects for a realm are changed then this information
+should be updated.
 
 \item {} 
-Start the LDAP server as follows:
+In {\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}}, make sure the following relations are set
+in the {\hyperref[\detokenize{admin/conf_files/kdc_conf:dbmodules}]{\sphinxcrossref{\DUrole{std,std-ref}{{[}dbmodules{]}}}}} subsection for the realm:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{slapd} \PYG{o}{\PYGZhy{}}\PYG{n}{h} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{ldapi:/// ldaps:///}\PYG{l+s+s2}{\PYGZdq{}}
-\end{sphinxVerbatim}
-
-\item {} 
-Modify the {\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}} file to include LDAP specific items
-listed below:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{realms}
-    \PYG{n}{database\PYGZus{}module}
-
-\PYG{n}{dbmodules}
-    \PYG{n}{db\PYGZus{}library}
-    \PYG{n}{db\PYGZus{}module\PYGZus{}dir}
-    \PYG{n}{ldap\PYGZus{}kdc\PYGZus{}dn}
-    \PYG{n}{ldap\PYGZus{}kadmind\PYGZus{}dn}
-    \PYG{n}{ldap\PYGZus{}service\PYGZus{}password\PYGZus{}file}
-    \PYG{n}{ldap\PYGZus{}servers}
-    \PYG{n}{ldap\PYGZus{}conns\PYGZus{}per\PYGZus{}server}
+db\PYGZus{}library (set to {}`{}`kldap{}`{}`)
+ldap\PYGZus{}kerberos\PYGZus{}container\PYGZus{}dn
+ldap\PYGZus{}kdc\PYGZus{}dn
+ldap\PYGZus{}kadmind\PYGZus{}dn
+ldap\PYGZus{}service\PYGZus{}password\PYGZus{}file
+ldap\PYGZus{}servers
 \end{sphinxVerbatim}
 
 \item {} 
@@ -6627,7 +6417,7 @@ Create the realm using {\hyperref[\detokenize{admin/admin_commands/kdb5_ldap_uti
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com} \PYG{n}{create} \PYG{o}{\PYGZhy{}}\PYG{n}{subtrees} \PYG{n}{ou}\PYG{o}{=}\PYG{n}{users}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{EXAMPLE}\PYG{o}{.}\PYG{n}{COM} \PYG{o}{\PYGZhy{}}\PYG{n}{s}
+\PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{n}{create} \PYG{o}{\PYGZhy{}}\PYG{n}{subtrees} \PYG{n}{ou}\PYG{o}{=}\PYG{n}{users}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com} \PYG{o}{\PYGZhy{}}\PYG{n}{s}
 \end{sphinxVerbatim}
 
 Use the \sphinxstylestrong{-subtrees} option if the principals are to exist in a
@@ -6640,34 +6430,23 @@ and do not worry about creating the principal subtree.
 For more information, refer to the section {\hyperref[\detokenize{admin/database:ops-on-ldap}]{\sphinxcrossref{\DUrole{std,std-ref}{Operations on the LDAP database}}}}.
 
 The realm object is created under the
-\sphinxstylestrong{ldap\_kerberos\_container\_dn} specified in the configuration file.
-This operation will also create the Kerberos container, if not
-present already.  This will be used to store information related to
-all realms.
+\sphinxstylestrong{ldap\_kerberos\_container\_dn} specified in the configuration
+file.  This operation will also create the Kerberos container, if
+not present already.  This container can be used to store
+information related to multiple realms.
 
 \item {} 
-Stash the password of the service object used by the KDC and
-Administration service to bind to the LDAP server using the
-{\hyperref[\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-8}]{\sphinxcrossref{\DUrole{std,std-ref}{kdb5\_ldap\_util}}}} \sphinxstylestrong{stashsrvpw} command (see
-{\hyperref[\detokenize{admin/database:stash-ldap}]{\sphinxcrossref{\DUrole{std,std-ref}{Stashing service object’s password}}}}).  The object DN should be the same as
-\sphinxstylestrong{ldap\_kdc\_dn} and \sphinxstylestrong{ldap\_kadmind\_dn} values specified in the
-{\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}} file:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com} \PYG{n}{stashsrvpw} \PYG{o}{\PYGZhy{}}\PYG{n}{f} \PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{kerberos}\PYG{o}{/}\PYG{n}{service}\PYG{o}{.}\PYG{n}{keyfile} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{krbadmin}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com}
-\end{sphinxVerbatim}
-
-\item {} 
-Add \sphinxcode{krbPrincipalName} to the indexes in slapd.conf to speed up
-the access.
+Add an \sphinxcode{eq} index for \sphinxcode{krbPrincipalName} to speed up principal
+lookup operations.  See
+\sphinxurl{https://www.openldap.org/doc/admin24/tuning.html\#Indexes} for
+details.
 
 \end{enumerate}
 
 With the LDAP back end it is possible to provide aliases for principal
-entries.  Currently we provide no mechanism provided for creating
-aliases, so it must be done by direct manipulation of the LDAP
-entries.
+entries.  Currently we provide no administrative utilities for
+creating aliases, so it must be done by direct manipulation of the
+LDAP entries.
 
 An entry with aliases contains multiple values of the
 \sphinxstyleemphasis{krbPrincipalName} attribute.  Since LDAP attribute values are not
@@ -6683,14 +6462,6 @@ requests canonicalization.  Canonicalization is normally requested for
 service principals; for client principals, an explicit flag is often
 required (e.g., \sphinxcode{kinit -C}) and canonicalization is only performed
 for initial ticket requests.
-
-
-\sphinxstrong{See also:}
-
-
-{\hyperref[\detokenize{admin/advanced/ldapbackend:ldap-be-ubuntu}]{\sphinxcrossref{\DUrole{std,std-ref}{LDAP backend on Ubuntu 10.4 (lucid)}}}}
-
-
 
 
 \chapter{Application servers}
@@ -6832,6 +6603,48 @@ Example:
      \PYG{n}{FILE}\PYG{p}{:}\PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{krb5}\PYG{o}{.}\PYG{n}{keytab}
 \PYG{n}{kadmin}\PYG{p}{:}
 \end{sphinxVerbatim}
+
+
+\subsection{Using a keytab to acquire client credentials}
+\label{\detokenize{admin/appl_servers:using-a-keytab-to-acquire-client-credentials}}
+While keytabs are ordinarily used to accept credentials from clients,
+they can also be used to acquire initial credentials, allowing one
+service to authenticate to another.
+
+To manually obtain credentials using a keytab, use the \DUrole{xref,std,std-ref}{kinit(1)}
+\sphinxstylestrong{-k} option, together with the \sphinxstylestrong{-t} option if the keytab is not in
+the default location.
+
+Beginning with release 1.11, GSSAPI applications can be configured to
+automatically obtain initial credentials from a keytab as needed.  The
+recommended configuration is as follows:
+\begin{enumerate}
+\item {} 
+Create a keytab containing a single entry for the desired client
+identity.
+
+\item {} 
+Place the keytab in a location readable by the service, and set the
+\sphinxstylestrong{KRB5\_CLIENT\_KTNAME} environment variable to its filename.
+Alternatively, use the \sphinxstylestrong{default\_client\_keytab\_name} profile
+variable in {\hyperref[\detokenize{admin/conf_files/krb5_conf:libdefaults}]{\sphinxcrossref{\DUrole{std,std-ref}{{[}libdefaults{]}}}}}, or use the default location of
+{\hyperref[\detokenize{mitK5defaults:paths}]{\sphinxcrossref{\DUrole{std,std-ref}{DEFCKTNAME}}}}.
+
+\item {} 
+Set \sphinxstylestrong{KRB5CCNAME} to a filename writable by the service, which
+will not be used for any other purpose.  Do not manually obtain
+credentials at this location.  (Another credential cache type
+besides \sphinxstylestrong{FILE} can be used if desired, as long the cache will not
+conflict with another use.  A \sphinxstylestrong{MEMORY} cache can be used if the
+service runs as a long-lived process.  See \DUrole{xref,std,std-ref}{ccache\_definition}
+for details.)
+
+\item {} 
+Start the service.  When it authenticates using GSSAPI, it will
+automatically obtain credentials from the client keytab into the
+specified credential cache, and refresh them before they expire.
+
+\end{enumerate}
 
 
 \section{Clock Skew}
@@ -7026,7 +6839,7 @@ to principals from a different realm than the default realm:
         \PYGZsh{} only principals in OTHER.REALM are matched.
         \PYGZsh{}
         \PYGZsh{} s/@OTHER\PYGZbs{}.REALM\PYGZdl{}// removes the realm name, leaving behind the
-        \PYGZsh{} principal name as the acount name.
+        \PYGZsh{} principal name as the account name.
         auth\PYGZus{}to\PYGZus{}local = RULE:[1:\PYGZdl{}1@\PYGZdl{}0](.*@OTHER\PYGZbs{}.REALM)s/@OTHER\PYGZbs{}.REALM\PYGZdl{}//
 
         \PYGZsh{} Also allow principals from the default realm.  Omit this line
@@ -7139,23 +6952,27 @@ locator plugin would be registered by placing its shared object in
 \subsection{GSSAPI mechanism modules}
 \label{\detokenize{admin/host_config:gssapi-plugin-config}}\label{\detokenize{admin/host_config:gssapi-mechanism-modules}}
 GSSAPI mechanism modules are registered using the file
-\sphinxcode{/etc/gss/mech} or configuration files in the \sphinxcode{/etc/gss/mech.d/}
-directory.  Only files with a \sphinxcode{.conf} suffix will be read from the
-\sphinxcode{/etc/gss/mech.d/} directory.  Each line in these files has the
-form:
+{\hyperref[\detokenize{mitK5defaults:paths}]{\sphinxcrossref{\DUrole{std,std-ref}{SYSCONFDIR}}}}\sphinxcode{/gss/mech} or configuration files in the
+{\hyperref[\detokenize{mitK5defaults:paths}]{\sphinxcrossref{\DUrole{std,std-ref}{SYSCONFDIR}}}}\sphinxcode{/gss/mech.d} directory with a \sphinxcode{.conf}
+suffix.  Each line in these files has the form:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{oid}  \PYG{n}{pathname}  \PYG{p}{[}\PYG{n}{options}\PYG{p}{]}  \PYG{o}{\PYGZlt{}}\PYG{n+nb}{type}\PYG{o}{\PYGZgt{}}
+\PYG{n}{name}  \PYG{n}{oid}  \PYG{n}{pathname}  \PYG{p}{[}\PYG{n}{options}\PYG{p}{]}  \PYG{o}{\PYGZlt{}}\PYG{n+nb}{type}\PYG{o}{\PYGZgt{}}
 \end{sphinxVerbatim}
 
-Only the oid and pathname are required.  \sphinxstyleemphasis{oid} is the object
-identifier of the GSSAPI mechanism to be registered.  \sphinxstyleemphasis{pathname} is a
-path to the module shared object or DLL.  \sphinxstyleemphasis{options} (if present) are
-options provided to the plugin module, surrounded in square brackets.
-\sphinxstyleemphasis{type} (if present) can be used to indicate a special type of module.
-Currently the only special module type is “interposer”, for a module
-designed to intercept calls to other mechanisms.
+Only the name, oid, and pathname are required.  \sphinxstyleemphasis{name} is the
+mechanism name, which may be used for debugging or logging purposes.
+\sphinxstyleemphasis{oid} is the object identifier of the GSSAPI mechanism to be
+registered.  \sphinxstyleemphasis{pathname} is a path to the module shared object or DLL.
+\sphinxstyleemphasis{options} (if present) are options provided to the plugin module,
+surrounded in square brackets.  \sphinxstyleemphasis{type} (if present) can be used to
+indicate a special type of module.  Currently the only special module
+type is “interposer”, for a module designed to intercept calls to
+other mechanisms.
+
+If the environment variable \sphinxstylestrong{GSS\_MECH\_CONFIG} is set, its value is
+used as the sole mechanism configuration filename.
 
 
 \subsection{Configuration profile modules}
@@ -7254,7 +7071,7 @@ interoperability issues in rare circumstances.
 The result of these commands will be two files, cakey.pem and
 cacert.pem.  cakey.pem will contain a 2048-bit RSA private key, which
 must be carefully protected.  cacert.pem will contain the CA
-certificate, which must be placed in the filesytems of the KDC and
+certificate, which must be placed in the filesystems of the KDC and
 each client host.  cakey.pem will be required to create KDC and client
 certificates.
 
@@ -7281,7 +7098,7 @@ realm=EXP:0,GeneralString:\PYGZdl{}\PYGZob{}ENV::REALM\PYGZcb{}
 principal\PYGZus{}name=EXP:1,SEQUENCE:kdc\PYGZus{}principal\PYGZus{}seq
 
 [kdc\PYGZus{}principal\PYGZus{}seq]
-name\PYGZus{}type=EXP:0,INTEGER:1
+name\PYGZus{}type=EXP:0,INTEGER:2
 name\PYGZus{}string=EXP:1,SEQUENCE:kdc\PYGZus{}principals
 
 [kdc\PYGZus{}principals]
@@ -7746,7 +7563,7 @@ principal entries, as you would for any preauthentication mechanism:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{modprinc} \PYG{o}{+}\PYG{n}{requires\PYGZus{}preauth} \PYG{o}{\PYGZhy{}}\PYG{n}{allow\PYGZus{}srv} \PYG{n}{PRINCNAME}
+\PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{modprinc} \PYG{o}{+}\PYG{n}{requires\PYGZus{}preauth} \PYG{o}{\PYGZhy{}}\PYG{n}{allow\PYGZus{}svr} \PYG{n}{PRINCNAME}
 \end{sphinxVerbatim}
 
 Clients which do not implement SPAKE preauthentication will fall back
@@ -8035,17 +7852,12 @@ TGS-REQ, this list only affects the session key selection.
 The KDC chooses the session key enctype by taking the intersection of
 its \sphinxstylestrong{permitted\_enctypes} list, the list of long-term keys for the
 most recent kvno of the service, and the client’s requested list of
-enctypes.  If \sphinxstylestrong{allow\_weak\_crypto} is true, all services are assumed
-to support des-cbc-crc.
+enctypes.
 
-Starting in krb5-1.11, \sphinxstylestrong{des\_crc\_session\_supported} in
-{\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}} allows additional control over whether the KDC
-issues des-cbc-crc session keys.
-
-Also starting in krb5-1.11, it is possible to set a string attribute
-on a service principal to control what session key enctypes the KDC
-may issue for service tickets for that principal.  See
-{\hyperref[\detokenize{admin/admin_commands/kadmin_local:set-string}]{\sphinxcrossref{\DUrole{std,std-ref}{set\_string}}}} in {\hyperref[\detokenize{admin/admin_commands/kadmin_local:kadmin-1}]{\sphinxcrossref{\DUrole{std,std-ref}{kadmin}}}} for details.
+Starting in krb5-1.11, it is possible to set a string attribute on a
+service principal to control what session key enctypes the KDC may
+issue for service tickets for that principal.  See {\hyperref[\detokenize{admin/admin_commands/kadmin_local:set-string}]{\sphinxcrossref{\DUrole{std,std-ref}{set\_string}}}}
+in {\hyperref[\detokenize{admin/admin_commands/kadmin_local:kadmin-1}]{\sphinxcrossref{\DUrole{std,std-ref}{kadmin}}}} for details.
 
 
 \section{Choosing enctypes for a service}
@@ -8071,15 +7883,19 @@ affect how enctypes are chosen.
 \begin{description}
 \item[{\sphinxstylestrong{allow\_weak\_crypto}}] \leavevmode
 defaults to \sphinxstyleemphasis{false} starting with krb5-1.8.  When \sphinxstyleemphasis{false}, removes
-single-DES enctypes (and other weak enctypes) from
-\sphinxstylestrong{permitted\_enctypes}, \sphinxstylestrong{default\_tkt\_enctypes}, and
-\sphinxstylestrong{default\_tgs\_enctypes}.  Do not set this to \sphinxstyleemphasis{true} unless the
-use of weak enctypes is an acceptable risk for your environment
-and the weak enctypes are required for backward compatibility.
+weak enctypes from \sphinxstylestrong{permitted\_enctypes},
+\sphinxstylestrong{default\_tkt\_enctypes}, and \sphinxstylestrong{default\_tgs\_enctypes}.  Do not
+set this to \sphinxstyleemphasis{true} unless the use of weak enctypes is an
+acceptable risk for your environment and the weak enctypes are
+required for backward compatibility.
 
 \item[{\sphinxstylestrong{permitted\_enctypes}}] \leavevmode
-controls the set of enctypes that a service will accept as session
-keys.
+controls the set of enctypes that a service will permit for
+session keys and for ticket and authenticator encryption.  The KDC
+and other programs that access the Kerberos database will ignore
+keys of non-permitted enctypes.  Starting in release 1.18, this
+setting also acts as the default for \sphinxstylestrong{default\_tkt\_enctypes} and
+\sphinxstylestrong{defaut\_tgs\_enctypes}.
 
 \item[{\sphinxstylestrong{default\_tkt\_enctypes}}] \leavevmode
 controls the default set of enctypes that the Kerberos client
@@ -8131,7 +7947,7 @@ des-cbc-crc
 &
 weak
 &
-all
+\textless{}1.18
 &
 \textgreater{}=2000
 \\
@@ -8140,7 +7956,7 @@ des-cbc-md4
 &
 weak
 &
-all
+\textless{}1.18
 &
 ?
 \\
@@ -8149,7 +7965,7 @@ des-cbc-md5
 &
 weak
 &
-all
+\textless{}1.18
 &
 \textgreater{}=2000
 \\
@@ -8223,9 +8039,10 @@ none
 \par
 \sphinxattableend\end{savenotes}
 
-krb5 releases 1.8 and later disable the single-DES enctypes by
-default.  Microsoft Windows releases Windows 7 and later disable
-single-DES enctypes by default.
+krb5 releases 1.18 and later do not support single-DES.  krb5 releases
+1.8 and later disable the single-DES enctypes by default.  Microsoft
+Windows releases Windows 7 and later disable single-DES enctypes by
+default.
 
 
 \chapter{HTTPS proxy configuration}
@@ -8788,7 +8605,7 @@ Example:
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kadmin}\PYG{p}{:} \PYG{n}{addprinc} \PYG{n}{jennifer}
-\PYG{n}{WARNING}\PYG{p}{:} \PYG{n}{no} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{jennifer@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;}
+\PYG{n}{No} \PYG{n}{policy} \PYG{n}{specified} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{jennifer@ATHENA.MIT.EDU}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{;}
 \PYG{n}{defaulting} \PYG{n}{to} \PYG{n}{no} \PYG{n}{policy}\PYG{o}{.}
 \PYG{n}{Enter} \PYG{n}{password} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{jennifer}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}\PYG{p}{:}
 \PYG{n}{Re}\PYG{o}{\PYGZhy{}}\PYG{n}{enter} \PYG{n}{password} \PYG{k}{for} \PYG{n}{principal} \PYG{n}{jennifer}\PYG{n+nd}{@ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}\PYG{p}{:}
@@ -8939,16 +8756,16 @@ Examples:
 \PYG{n}{Principal}\PYG{p}{:} \PYG{n}{tlyu}\PYG{o}{/}\PYG{n}{admin}\PYG{n+nd}{@BLEEP}\PYG{o}{.}\PYG{n}{COM}
 \PYG{n}{Expiration} \PYG{n}{date}\PYG{p}{:} \PYG{p}{[}\PYG{n}{never}\PYG{p}{]}
 \PYG{n}{Last} \PYG{n}{password} \PYG{n}{change}\PYG{p}{:} \PYG{n}{Mon} \PYG{n}{Aug} \PYG{l+m+mi}{12} \PYG{l+m+mi}{14}\PYG{p}{:}\PYG{l+m+mi}{16}\PYG{p}{:}\PYG{l+m+mi}{47} \PYG{n}{EDT} \PYG{l+m+mi}{1996}
-\PYG{n}{Password} \PYG{n}{expiration} \PYG{n}{date}\PYG{p}{:} \PYG{p}{[}\PYG{n}{none}\PYG{p}{]}
+\PYG{n}{Password} \PYG{n}{expiration} \PYG{n}{date}\PYG{p}{:} \PYG{p}{[}\PYG{n}{never}\PYG{p}{]}
 \PYG{n}{Maximum} \PYG{n}{ticket} \PYG{n}{life}\PYG{p}{:} \PYG{l+m+mi}{0} \PYG{n}{days} \PYG{l+m+mi}{10}\PYG{p}{:}\PYG{l+m+mi}{00}\PYG{p}{:}\PYG{l+m+mi}{00}
 \PYG{n}{Maximum} \PYG{n}{renewable} \PYG{n}{life}\PYG{p}{:} \PYG{l+m+mi}{7} \PYG{n}{days} \PYG{l+m+mi}{00}\PYG{p}{:}\PYG{l+m+mi}{00}\PYG{p}{:}\PYG{l+m+mi}{00}
 \PYG{n}{Last} \PYG{n}{modified}\PYG{p}{:} \PYG{n}{Mon} \PYG{n}{Aug} \PYG{l+m+mi}{12} \PYG{l+m+mi}{14}\PYG{p}{:}\PYG{l+m+mi}{16}\PYG{p}{:}\PYG{l+m+mi}{47} \PYG{n}{EDT} \PYG{l+m+mi}{1996} \PYG{p}{(}\PYG{n}{bjaspan}\PYG{o}{/}\PYG{n}{admin}\PYG{n+nd}{@BLEEP}\PYG{o}{.}\PYG{n}{COM}\PYG{p}{)}
 \PYG{n}{Last} \PYG{n}{successful} \PYG{n}{authentication}\PYG{p}{:} \PYG{p}{[}\PYG{n}{never}\PYG{p}{]}
 \PYG{n}{Last} \PYG{n}{failed} \PYG{n}{authentication}\PYG{p}{:} \PYG{p}{[}\PYG{n}{never}\PYG{p}{]}
 \PYG{n}{Failed} \PYG{n}{password} \PYG{n}{attempts}\PYG{p}{:} \PYG{l+m+mi}{0}
-\PYG{n}{Number} \PYG{n}{of} \PYG{n}{keys}\PYG{p}{:} \PYG{l+m+mi}{2}
-\PYG{n}{Key}\PYG{p}{:} \PYG{n}{vno} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{n}{des}\PYG{o}{\PYGZhy{}}\PYG{n}{cbc}\PYG{o}{\PYGZhy{}}\PYG{n}{crc}
-\PYG{n}{Key}\PYG{p}{:} \PYG{n}{vno} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{n}{des}\PYG{o}{\PYGZhy{}}\PYG{n}{cbc}\PYG{o}{\PYGZhy{}}\PYG{n}{crc}\PYG{p}{:}\PYG{n}{v4}
+\PYG{n}{Number} \PYG{n}{of} \PYG{n}{keys}\PYG{p}{:} \PYG{l+m+mi}{1}
+\PYG{n}{Key}\PYG{p}{:} \PYG{n}{vno} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{n}{aes256}\PYG{o}{\PYGZhy{}}\PYG{n}{cts}\PYG{o}{\PYGZhy{}}\PYG{n}{hmac}\PYG{o}{\PYGZhy{}}\PYG{n}{sha384}\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{192}
+\PYG{n}{MKey}\PYG{p}{:} \PYG{n}{vno} \PYG{l+m+mi}{1}
 \PYG{n}{Attributes}\PYG{p}{:}
 \PYG{n}{Policy}\PYG{p}{:} \PYG{p}{[}\PYG{n}{none}\PYG{p}{]}
 
@@ -9468,8 +9285,7 @@ disk.
 
 \item[{\sphinxstylestrong{-nofork}}] \leavevmode
 causes the server to remain in the foreground and remain
-associated to the terminal.  In normal operation, you should allow
-the server to place itself in the background.
+associated to the terminal.
 
 \item[{\sphinxstylestrong{-proponly}}] \leavevmode
 causes the server to only listen and respond to Kerberos replica
@@ -9643,7 +9459,7 @@ argument can be used to override the \sphinxstyleemphasis{keyfile} specified in
 \subsubsection{dump}
 \label{\detokenize{admin/admin_commands/kdb5_util:kdb5-util-stash-end}}\label{\detokenize{admin/admin_commands/kdb5_util:dump}}\phantomsection\label{\detokenize{admin/admin_commands/kdb5_util:kdb5-util-dump}}\begin{quote}
 
-\sphinxstylestrong{dump} {[}\sphinxstylestrong{-b7}\textbar{}\sphinxstylestrong{-ov}\textbar{}\sphinxstylestrong{-r13}\textbar{}\sphinxstylestrong{-r18}{]}
+\sphinxstylestrong{dump} {[}\sphinxstylestrong{-b7}\textbar{}\sphinxstylestrong{-r13}\textbar{}\sphinxstylestrong{-r18}{]}
 {[}\sphinxstylestrong{-verbose}{]} {[}\sphinxstylestrong{-mkey\_convert}{]} {[}\sphinxstylestrong{-new\_mkey\_file}
 \sphinxstyleemphasis{mkey\_file}{]} {[}\sphinxstylestrong{-rev}{]} {[}\sphinxstylestrong{-recurse}{]} {[}\sphinxstyleemphasis{filename}
 {[}\sphinxstyleemphasis{principals}…{]}{]}
@@ -9658,9 +9474,6 @@ load\_dump version 7”.  If filename is not specified, or is the string
 causes the dump to be in the Kerberos 5 Beta 7 format (“kdb5\_util
 load\_dump version 4”).  This was the dump format produced on
 releases prior to 1.2.2.
-
-\item[{\sphinxstylestrong{-ov}}] \leavevmode
-causes the dump to be in “ovsec\_adm\_export” format.
 
 \item[{\sphinxstylestrong{-r13}}] \leavevmode
 causes the dump to be in the Kerberos 5 1.3 format (“kdb5\_util
@@ -9709,7 +9522,7 @@ doing a normal dump instead of a recursive traversal.
 \subsubsection{load}
 \label{\detokenize{admin/admin_commands/kdb5_util:kdb5-util-dump-end}}\label{\detokenize{admin/admin_commands/kdb5_util:load}}\phantomsection\label{\detokenize{admin/admin_commands/kdb5_util:kdb5-util-load}}\begin{quote}
 
-\sphinxstylestrong{load} {[}\sphinxstylestrong{-b7}\textbar{}\sphinxstylestrong{-ov}\textbar{}\sphinxstylestrong{-r13}\textbar{}\sphinxstylestrong{-r18}{]} {[}\sphinxstylestrong{-hash}{]}
+\sphinxstylestrong{load} {[}\sphinxstylestrong{-b7}\textbar{}\sphinxstylestrong{-r13}\textbar{}\sphinxstylestrong{-r18}{]} {[}\sphinxstylestrong{-hash}{]}
 {[}\sphinxstylestrong{-verbose}{]} {[}\sphinxstylestrong{-update}{]} \sphinxstyleemphasis{filename}
 \end{quote}
 
@@ -9727,10 +9540,6 @@ Options:
 requires the database to be in the Kerberos 5 Beta 7 format
 (“kdb5\_util load\_dump version 4”).  This was the dump format
 produced on releases prior to 1.2.2.
-
-\item[{\sphinxstylestrong{-ov}}] \leavevmode
-requires the database to be in “ovsec\_adm\_import” format.  Must be
-used with the \sphinxstylestrong{-update} option.
 
 \item[{\sphinxstylestrong{-r13}}] \leavevmode
 requires the database to be in Kerberos 5 1.3 format (“kdb5\_util
@@ -10046,17 +9855,17 @@ Examples:
 \PYGZdl{} kdb5\PYGZus{}util tabdump \PYGZhy{}o keyinfo.txt keyinfo
 \PYGZdl{} cat keyinfo.txt
 name        keyindex        kvno    enctype salttype        salt
+K/M@EXAMPLE.COM     0       1       aes256\PYGZhy{}cts\PYGZhy{}hmac\PYGZhy{}sha384\PYGZhy{}192      normal  \PYGZhy{}1
 foo@EXAMPLE.COM     0       1       aes128\PYGZhy{}cts\PYGZhy{}hmac\PYGZhy{}sha1\PYGZhy{}96 normal  \PYGZhy{}1
 bar@EXAMPLE.COM     0       1       aes128\PYGZhy{}cts\PYGZhy{}hmac\PYGZhy{}sha1\PYGZhy{}96 normal  \PYGZhy{}1
-bar@EXAMPLE.COM     1       1       des\PYGZhy{}cbc\PYGZhy{}crc     normal  \PYGZhy{}1
 \PYGZdl{} sqlite3
 sqlite\PYGZgt{} .mode tabs
 sqlite\PYGZgt{} .import keyinfo.txt keyinfo
-sqlite\PYGZgt{} select * from keyinfo where enctype like \PYGZsq{}des\PYGZhy{}cbc\PYGZhy{}\PYGZpc{}\PYGZsq{};
-bar@EXAMPLE.COM     1       1       des\PYGZhy{}cbc\PYGZhy{}crc     normal  \PYGZhy{}1
+sqlite\PYGZgt{} select * from keyinfo where enctype like \PYGZsq{}aes256\PYGZhy{}\PYGZpc{}\PYGZsq{};
+K/M@EXAMPLE.COM     1       1       aes256\PYGZhy{}cts\PYGZhy{}hmac\PYGZhy{}sha384\PYGZhy{}192      normal  \PYGZhy{}1
 sqlite\PYGZgt{} .quit
-\PYGZdl{} awk \PYGZhy{}F\PYGZsq{}\PYGZbs{}t\PYGZsq{} \PYGZsq{}\PYGZdl{}4 \PYGZti{} /des\PYGZhy{}cbc\PYGZhy{}/ \PYGZob{} print \PYGZcb{}\PYGZsq{} keyinfo.txt
-bar@EXAMPLE.COM     1       1       des\PYGZhy{}cbc\PYGZhy{}crc     normal  \PYGZhy{}1
+\PYGZdl{} awk \PYGZhy{}F\PYGZsq{}\PYGZbs{}t\PYGZsq{} \PYGZsq{}\PYGZdl{}4 \PYGZti{} /aes256\PYGZhy{}/ \PYGZob{} print \PYGZcb{}\PYGZsq{} keyinfo.txt
+K/M@EXAMPLE.COM     1       1       aes256\PYGZhy{}cts\PYGZhy{}hmac\PYGZhy{}sha384\PYGZhy{}192      normal  \PYGZhy{}1
 \end{sphinxVerbatim}
 
 
@@ -10091,6 +9900,9 @@ services and ticket policies.
 
 \subsection{COMMAND-LINE OPTIONS}
 \label{\detokenize{admin/admin_commands/kdb5_ldap_util:command-line-options}}\phantomsection\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-options}}\begin{description}
+\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
+Specifies the realm to be operated on.
+
 \item[{\sphinxstylestrong{-D} \sphinxstyleemphasis{user\_dn}}] \leavevmode
 Specifies the Distinguished Name (DN) of the user who has
 sufficient rights to perform the operation on the LDAP server.
@@ -10100,10 +9912,14 @@ Specifies the password of \sphinxstyleemphasis{user\_dn}.  This option is not
 recommended.
 
 \item[{\sphinxstylestrong{-H} \sphinxstyleemphasis{ldapuri}}] \leavevmode
-Specifies the URI of the LDAP server.  It is recommended to use
-\sphinxcode{ldapi://} or \sphinxcode{ldaps://} to connect to the LDAP server.
+Specifies the URI of the LDAP server.
 
 \end{description}
+
+By default, kdb5\_ldap\_util operates on the default realm (as specified
+in {\hyperref[\detokenize{admin/conf_files/krb5_conf:krb5-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{krb5.conf}}}}) and connects and authenticates to the LDAP
+server in the same manner as :ref:kadmind(8){}` would given the
+parameters in {\hyperref[\detokenize{admin/conf_files/kdc_conf:dbdefaults}]{\sphinxcrossref{\DUrole{std,std-ref}{{[}dbdefaults{]}}}}} in {\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}}.
 
 
 \subsection{COMMANDS}
@@ -10118,9 +9934,9 @@ Specifies the URI of the LDAP server.  It is recommended to use
 {[}\sphinxstylestrong{-containerref} \sphinxstyleemphasis{container\_reference\_dn}{]}
 {[}\sphinxstylestrong{-k} \sphinxstyleemphasis{mkeytype}{]}
 {[}\sphinxstylestrong{-kv} \sphinxstyleemphasis{mkeyVNO}{]}
+{[}\sphinxstylestrong{-M} \sphinxstyleemphasis{mkeyname}{]}
 {[}\sphinxstylestrong{-m\textbar{}-P} \sphinxstyleemphasis{password}\textbar{}\sphinxstylestrong{-sf} \sphinxstyleemphasis{stashfilename}{]}
 {[}\sphinxstylestrong{-s}{]}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 {[}\sphinxstylestrong{-maxtktlife} \sphinxstyleemphasis{max\_ticket\_life}{]}
 {[}\sphinxstylestrong{-maxrenewlife} \sphinxstyleemphasis{max\_renewable\_ticket\_life}{]}
 {[}\sphinxstyleemphasis{ticket\_flags}{]}
@@ -10153,6 +9969,11 @@ default is given by the \sphinxstylestrong{master\_key\_type} variable in
 Specifies the version number of the master key in the database;
 the default is 1.  Note that 0 is not allowed.
 
+\item[{\sphinxstylestrong{-M} \sphinxstyleemphasis{mkeyname}}] \leavevmode
+Specifies the principal name for the master key in the database.
+If not specified, the name is determined by the
+\sphinxstylestrong{master\_key\_name} variable in {\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{kdc.conf}}}}.
+
 \item[{\sphinxstylestrong{-m}}] \leavevmode
 Specifies that the master database password should be read from
 the TTY rather than fetched from a file on the disk.
@@ -10160,9 +9981,6 @@ the TTY rather than fetched from a file on the disk.
 \item[{\sphinxstylestrong{-P} \sphinxstyleemphasis{password}}] \leavevmode
 Specifies the master database password. This option is not
 recommended.
-
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
 
 \item[{\sphinxstylestrong{-sf} \sphinxstyleemphasis{stashfilename}}] \leavevmode
 Specifies the stash file of the master database password.
@@ -10190,7 +10008,7 @@ Example:
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-    \PYG{n}{create} \PYG{o}{\PYGZhy{}}\PYG{n}{subtrees} \PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{sscope} \PYG{n}{SUB} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}
+    \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{create} \PYG{o}{\PYGZhy{}}\PYG{n}{subtrees} \PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{sscope} \PYG{n}{SUB}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
 \PYG{n}{Initializing} \PYG{n}{database} \PYG{k}{for} \PYG{n}{realm} \PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{ATHENA.MIT.EDU}\PYG{l+s+s1}{\PYGZsq{}}
 \PYG{n}{You} \PYG{n}{will} \PYG{n}{be} \PYG{n}{prompted} \PYG{k}{for} \PYG{n}{the} \PYG{n}{database} \PYG{n}{Master} \PYG{n}{Password}\PYG{o}{.}
@@ -10207,7 +10025,6 @@ Example:
 {[}\sphinxstylestrong{-subtrees} \sphinxstyleemphasis{subtree\_dn\_list}{]}
 {[}\sphinxstylestrong{-sscope} \sphinxstyleemphasis{search\_scope}{]}
 {[}\sphinxstylestrong{-containerref} \sphinxstyleemphasis{container\_reference\_dn}{]}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 {[}\sphinxstylestrong{-maxtktlife} \sphinxstyleemphasis{max\_ticket\_life}{]}
 {[}\sphinxstylestrong{-maxrenewlife} \sphinxstyleemphasis{max\_renewable\_ticket\_life}{]}
 {[}\sphinxstyleemphasis{ticket\_flags}{]}
@@ -10229,9 +10046,6 @@ subtrees.  The possible values are 1 or one (one level), 2 or sub
 container object in which the principals of a realm will be
 created.
 
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
-
 \item[{\sphinxstylestrong{-maxtktlife} \sphinxstyleemphasis{max\_ticket\_life}}] \leavevmode
 (\DUrole{xref,std,std-ref}{getdate} string) Specifies maximum ticket life for
 principals in this realm.
@@ -10251,9 +10065,8 @@ Example:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{shell}\PYG{o}{\PYGZpc{}} \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H}
-    \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{n}{modify} \PYG{o}{+}\PYG{n}{requires\PYGZus{}preauth} \PYG{o}{\PYGZhy{}}\PYG{n}{r}
-    \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}
+\PYG{n}{shell}\PYG{o}{\PYGZpc{}} \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H}
+    \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{n}{modify} \PYG{o}{+}\PYG{n}{requires\PYGZus{}preauth}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
 \PYG{n}{shell}\PYG{o}{\PYGZpc{}}
 \end{sphinxVerbatim}
@@ -10262,22 +10075,17 @@ Example:
 \subsubsection{view}
 \label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-modify-end}}\label{\detokenize{admin/admin_commands/kdb5_ldap_util:view}}\phantomsection\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-view}}\begin{quote}
 
-\sphinxstylestrong{view} {[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
+\sphinxstylestrong{view}
 \end{quote}
 
-Displays the attributes of a realm.  Options:
-\begin{description}
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
-
-\end{description}
+Displays the attributes of a realm.
 
 Example:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-    \PYG{n}{view} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}
+    \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{view}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
 \PYG{n}{Realm} \PYG{n}{Name}\PYG{p}{:} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}
 \PYG{n}{Subtree}\PYG{p}{:} \PYG{n}{ou}\PYG{o}{=}\PYG{n}{users}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org}
@@ -10292,7 +10100,7 @@ Example:
 \subsubsection{destroy}
 \label{\detokenize{admin/admin_commands/kdb5_ldap_util:destroy}}\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-view-end}}\phantomsection\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-destroy}}\begin{quote}
 
-\sphinxstylestrong{destroy} {[}\sphinxstylestrong{-f}{]} {[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
+\sphinxstylestrong{destroy} {[}\sphinxstylestrong{-f}{]}
 \end{quote}
 
 Destroys an existing realm. Options:
@@ -10300,17 +10108,14 @@ Destroys an existing realm. Options:
 \item[{\sphinxstylestrong{-f}}] \leavevmode
 If specified, will not prompt the user for confirmation.
 
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
-
 \end{description}
 
 Example:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
-shell\PYGZpc{} kdb5\PYGZus{}ldap\PYGZus{}util \PYGZhy{}D cn=admin,o=org \PYGZhy{}H
-    ldaps://ldap\PYGZhy{}server1.mit.edu destroy \PYGZhy{}r ATHENA.MIT.EDU
+shell\PYGZpc{} kdb5\PYGZus{}ldap\PYGZus{}util \PYGZhy{}r ATHENA.MIT.EDU \PYGZhy{}D cn=admin,o=org \PYGZhy{}H
+    ldaps://ldap\PYGZhy{}server1.mit.edu destroy
 Password for \PYGZdq{}cn=admin,o=org\PYGZdq{}:
 Deleting KDC database of \PYGZsq{}ATHENA.MIT.EDU\PYGZsq{}, are you sure?
 (type \PYGZsq{}yes\PYGZsq{} to confirm)? yes
@@ -10325,7 +10130,7 @@ shell\PYGZpc{}
 \sphinxstylestrong{list}
 \end{quote}
 
-Lists the name of realms.
+Lists the names of realms under the container.
 
 Example:
 
@@ -10384,7 +10189,6 @@ Example:
 \label{\detokenize{admin/admin_commands/kdb5_ldap_util:create-policy}}\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-stashsrvpw-end}}\phantomsection\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-create-policy}}\begin{quote}
 
 \sphinxstylestrong{create\_policy}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 {[}\sphinxstylestrong{-maxtktlife} \sphinxstyleemphasis{max\_ticket\_life}{]}
 {[}\sphinxstylestrong{-maxrenewlife} \sphinxstyleemphasis{max\_renewable\_ticket\_life}{]}
 {[}\sphinxstyleemphasis{ticket\_flags}{]}
@@ -10393,9 +10197,6 @@ Example:
 
 Creates a ticket policy in the directory.  Options:
 \begin{description}
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
-
 \item[{\sphinxstylestrong{-maxtktlife} \sphinxstyleemphasis{max\_ticket\_life}}] \leavevmode
 (\DUrole{xref,std,std-ref}{getdate} string) Specifies maximum ticket life for
 principals.
@@ -10420,7 +10221,7 @@ Example:
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-    \PYG{n}{create\PYGZus{}policy} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{o}{\PYGZhy{}}\PYG{n}{maxtktlife} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{1 day}\PYG{l+s+s2}{\PYGZdq{}}
+    \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{create\PYGZus{}policy} \PYG{o}{\PYGZhy{}}\PYG{n}{maxtktlife} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{1 day}\PYG{l+s+s2}{\PYGZdq{}}
     \PYG{o}{\PYGZhy{}}\PYG{n}{maxrenewlife} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{1 week}\PYG{l+s+s2}{\PYGZdq{}} \PYG{o}{\PYGZhy{}}\PYG{n}{allow\PYGZus{}postdated} \PYG{o}{+}\PYG{n}{needchange}
     \PYG{o}{\PYGZhy{}}\PYG{n}{allow\PYGZus{}forwardable} \PYG{n}{tktpolicy}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
@@ -10431,7 +10232,6 @@ Example:
 \label{\detokenize{admin/admin_commands/kdb5_ldap_util:modify-policy}}\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-create-policy-end}}\phantomsection\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-modify-policy}}\begin{quote}
 
 \sphinxstylestrong{modify\_policy}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 {[}\sphinxstylestrong{-maxtktlife} \sphinxstyleemphasis{max\_ticket\_life}{]}
 {[}\sphinxstylestrong{-maxrenewlife} \sphinxstyleemphasis{max\_renewable\_ticket\_life}{]}
 {[}\sphinxstyleemphasis{ticket\_flags}{]}
@@ -10446,7 +10246,7 @@ Example:
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H}
-    \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{n}{modify\PYGZus{}policy} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}
+    \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{modify\PYGZus{}policy}
     \PYG{o}{\PYGZhy{}}\PYG{n}{maxtktlife} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{60 minutes}\PYG{l+s+s2}{\PYGZdq{}} \PYG{o}{\PYGZhy{}}\PYG{n}{maxrenewlife} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{10 hours}\PYG{l+s+s2}{\PYGZdq{}}
     \PYG{o}{+}\PYG{n}{allow\PYGZus{}postdated} \PYG{o}{\PYGZhy{}}\PYG{n}{requires\PYGZus{}preauth} \PYG{n}{tktpolicy}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
@@ -10457,23 +10257,17 @@ Example:
 \label{\detokenize{admin/admin_commands/kdb5_ldap_util:view-policy}}\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-modify-policy-end}}\phantomsection\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-view-policy}}\begin{quote}
 
 \sphinxstylestrong{view\_policy}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 \sphinxstyleemphasis{policy\_name}
 \end{quote}
 
-Displays the attributes of a ticket policy.  Options:
-\begin{description}
-\item[{\sphinxstyleemphasis{policy\_name}}] \leavevmode
-Specifies the name of the ticket policy.
-
-\end{description}
+Displays the attributes of the named ticket policy.
 
 Example:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-    \PYG{n}{view\PYGZus{}policy} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{tktpolicy}
+    \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{view\PYGZus{}policy} \PYG{n}{tktpolicy}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
 \PYG{n}{Ticket} \PYG{n}{policy}\PYG{p}{:} \PYG{n}{tktpolicy}
 \PYG{n}{Maximum} \PYG{n}{ticket} \PYG{n}{life}\PYG{p}{:} \PYG{l+m+mi}{0} \PYG{n}{days} \PYG{l+m+mi}{01}\PYG{p}{:}\PYG{l+m+mi}{00}\PYG{p}{:}\PYG{l+m+mi}{00}
@@ -10486,16 +10280,12 @@ Example:
 \label{\detokenize{admin/admin_commands/kdb5_ldap_util:destroy-policy}}\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-view-policy-end}}\phantomsection\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-destroy-policy}}\begin{quote}
 
 \sphinxstylestrong{destroy\_policy}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 {[}\sphinxstylestrong{-force}{]}
 \sphinxstyleemphasis{policy\_name}
 \end{quote}
 
 Destroys an existing ticket policy.  Options:
 \begin{description}
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
-
 \item[{\sphinxstylestrong{-force}}] \leavevmode
 Forces the deletion of the policy object.  If not specified, the
 user will be prompted for confirmation before deleting the policy.
@@ -10510,7 +10300,7 @@ Example:
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 kdb5\PYGZus{}ldap\PYGZus{}util \PYGZhy{}D cn=admin,o=org \PYGZhy{}H ldaps://ldap\PYGZhy{}server1.mit.edu
-    destroy\PYGZus{}policy \PYGZhy{}r ATHENA.MIT.EDU tktpolicy
+    \PYGZhy{}r ATHENA.MIT.EDU destroy\PYGZus{}policy tktpolicy
 Password for \PYGZdq{}cn=admin,o=org\PYGZdq{}:
 This will delete the policy object \PYGZsq{}tktpolicy\PYGZsq{}, are you sure?
 (type \PYGZsq{}yes\PYGZsq{} to confirm)? yes
@@ -10522,23 +10312,16 @@ This will delete the policy object \PYGZsq{}tktpolicy\PYGZsq{}, are you sure?
 \label{\detokenize{admin/admin_commands/kdb5_ldap_util:list-policy}}\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-destroy-policy-end}}\phantomsection\label{\detokenize{admin/admin_commands/kdb5_ldap_util:kdb5-ldap-util-list-policy}}\begin{quote}
 
 \sphinxstylestrong{list\_policy}
-{[}\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}{]}
 \end{quote}
 
-Lists the ticket policies in realm if specified or in the default
-realm.  Options:
-\begin{description}
-\item[{\sphinxstylestrong{-r} \sphinxstyleemphasis{realm}}] \leavevmode
-Specifies the Kerberos realm of the database.
-
-\end{description}
+Lists ticket policies.
 
 Example:
 
 \fvset{hllines={, ,}}%
 \begin{sphinxVerbatim}[commandchars=\\\{\}]
 \PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{o}\PYG{o}{=}\PYG{n}{org} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldaps}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{server1}\PYG{o}{.}\PYG{n}{mit}\PYG{o}{.}\PYG{n}{edu}
-    \PYG{n}{list\PYGZus{}policy} \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU}
+    \PYG{o}{\PYGZhy{}}\PYG{n}{r} \PYG{n}{ATHENA}\PYG{o}{.}\PYG{n}{MIT}\PYG{o}{.}\PYG{n}{EDU} \PYG{n}{list\PYGZus{}policy}
 \PYG{n}{Password} \PYG{k}{for} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cn=admin,o=org}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
 \PYG{n}{tktpolicy}
 \PYG{n}{tmppolicy}
@@ -10585,7 +10368,9 @@ Distribution Center (AS/KDC).
 \subsection{OPTIONS}
 \label{\detokenize{admin/admin_commands/krb5kdc:options}}
 The \sphinxstylestrong{-r} \sphinxstyleemphasis{realm} option specifies the realm for which the server
-should provide service.
+should provide service.  This option may be specified multiple times
+to serve multiple realms.  If no \sphinxstylestrong{-r} option is given, the default
+realm (as specified in {\hyperref[\detokenize{admin/conf_files/krb5_conf:krb5-conf-5}]{\sphinxcrossref{\DUrole{std,std-ref}{krb5.conf}}}}) will be served.
 
 The \sphinxstylestrong{-d} \sphinxstyleemphasis{dbname} option specifies the name under which the
 principal database can be found.  This option does not apply to the
@@ -10593,7 +10378,7 @@ LDAP database.
 
 The \sphinxstylestrong{-k} \sphinxstyleemphasis{keytype} option specifies the key type of the master key
 to be entered manually as a password when \sphinxstylestrong{-m} is given; the default
-is \sphinxcode{des-cbc-crc}.
+is \sphinxcode{aes256-cts-hmac-sha1-96}.
 
 The \sphinxstylestrong{-M} \sphinxstyleemphasis{mkeyname} option specifies the principal name for the
 master key in the database (usually \sphinxcode{K/M} in the KDC’s realm).
@@ -10602,9 +10387,7 @@ The \sphinxstylestrong{-m} option specifies that the master database password sh
 be fetched from the keyboard rather than from a stash file.
 
 The \sphinxstylestrong{-n} option specifies that the KDC does not put itself in the
-background and does not disassociate itself from the terminal.  In
-normal operation, you should always allow the KDC to place itself in
-the background.
+background and does not disassociate itself from the terminal.
 
 The \sphinxstylestrong{-P} \sphinxstyleemphasis{pid\_file} option tells the KDC to write its PID into
 \sphinxstyleemphasis{pid\_file} after it starts up.  This can be used to identify whether
@@ -10969,8 +10752,8 @@ variables.
 \subsection{DESCRIPTION}
 \label{\detokenize{admin/admin_commands/ktutil:description}}
 The ktutil command invokes a command interface from which an
-administrator can read, write, or edit entries in a keytab or Kerberos
-V4 srvtab file.
+administrator can read, write, or edit entries in a keytab.  (Kerberos
+V4 srvtab files are no longer supported.)
 
 
 \subsection{COMMANDS}
@@ -10998,17 +10781,6 @@ Read the Kerberos V5 keytab file \sphinxstyleemphasis{keytab} into the current k
 Alias: \sphinxstylestrong{rkt}
 
 
-\subsubsection{read\_st}
-\label{\detokenize{admin/admin_commands/ktutil:read-st}}\begin{quote}
-
-\sphinxstylestrong{read\_st} \sphinxstyleemphasis{srvtab}
-\end{quote}
-
-Read the Kerberos V4 srvtab file \sphinxstyleemphasis{srvtab} into the current keylist.
-
-Alias: \sphinxstylestrong{rst}
-
-
 \subsubsection{write\_kt}
 \label{\detokenize{admin/admin_commands/ktutil:write-kt}}\begin{quote}
 
@@ -11018,17 +10790,6 @@ Alias: \sphinxstylestrong{rst}
 Write the current keylist into the Kerberos V5 keytab file \sphinxstyleemphasis{keytab}.
 
 Alias: \sphinxstylestrong{wkt}
-
-
-\subsubsection{write\_st}
-\label{\detokenize{admin/admin_commands/ktutil:write-st}}\begin{quote}
-
-\sphinxstylestrong{write\_st} \sphinxstyleemphasis{srvtab}
-\end{quote}
-
-Write the current keylist into the Kerberos V4 srvtab file \sphinxstyleemphasis{srvtab}.
-
-Alias: \sphinxstylestrong{wst}
 
 
 \subsubsection{clear\_list}
@@ -11372,6 +11133,13 @@ KDC config file {\hyperref[\detokenize{admin/conf_files/kdc_conf:kdc-conf-5}]{\s
 \sphinxstylestrong{KRB5\_KDC\_PROFILE}
 \\
 \hline
+GSS mechanism config file
+&
+{\hyperref[\detokenize{mitK5defaults:paths}]{\sphinxcrossref{\DUrole{std,std-ref}{SYSCONFDIR}}}}\sphinxcode{/gss/mech}
+&
+\sphinxstylestrong{GSS\_MECH\_CONFIG}
+\\
+\hline
 KDC database path (DB2)
 &
 {\hyperref[\detokenize{mitK5defaults:paths}]{\sphinxcrossref{\DUrole{std,std-ref}{LOCALSTATEDIR}}}}\sphinxcode{/krb5kdc}\sphinxcode{/principal}
@@ -11411,12 +11179,12 @@ Master key default enctype
 \hline
 Default {\hyperref[\detokenize{admin/conf_files/kdc_conf:keysalt-lists}]{\sphinxcrossref{\DUrole{std,std-ref}{keysalt list}}}}
 &
-\sphinxcode{aes256-cts-hmac-sha1-96:normal aes128-cts-hmac-sha1-96:normal des3-cbc-sha1:normal arcfour-hmac-md5:normal}
+\sphinxcode{aes256-cts-hmac-sha1-96:normal aes128-cts-hmac-sha1-96:normal}
 &\\
 \hline
 Permitted enctypes
 &
-\sphinxcode{aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 aes256-cts-hmac-sha384-192 aes128-cts-hmac-sha256-128 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4}
+\sphinxcode{aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 aes256-cts-hmac-sha384-192 aes128-cts-hmac-sha256-128 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac}
 &\\
 \hline
 KDC default port
@@ -11741,191 +11509,6 @@ The replica has a keytab file in the default location containing a
 \chapter{Advanced topics}
 \label{\detokenize{admin/advanced/index:advanced-topics}}\label{\detokenize{admin/advanced/index::doc}}
 
-\section{LDAP backend on Ubuntu 10.4 (lucid)}
-\label{\detokenize{admin/advanced/ldapbackend:ldap-backend-on-ubuntu-10-4-lucid}}\label{\detokenize{admin/advanced/ldapbackend::doc}}\label{\detokenize{admin/advanced/ldapbackend:ldap-be-ubuntu}}
-Setting up Kerberos v1.9 with LDAP backend on Ubuntu 10.4 (Lucid Lynx)
-
-
-\subsection{Prerequisites}
-\label{\detokenize{admin/advanced/ldapbackend:prerequisites}}
-Install the following packages: \sphinxstyleemphasis{slapd, ldap-utils} and \sphinxstyleemphasis{libldap2-dev}
-
-You can install the necessary packages with these commands:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{sudo} \PYG{n}{apt}\PYG{o}{\PYGZhy{}}\PYG{n}{get} \PYG{n}{install} \PYG{n}{slapd}
-\PYG{n}{sudo} \PYG{n}{apt}\PYG{o}{\PYGZhy{}}\PYG{n}{get} \PYG{n}{install} \PYG{n}{ldap}\PYG{o}{\PYGZhy{}}\PYG{n}{utils}
-\PYG{n}{sudo} \PYG{n}{apt}\PYG{o}{\PYGZhy{}}\PYG{n}{get} \PYG{n}{install} \PYG{n}{libldap2}\PYG{o}{\PYGZhy{}}\PYG{n}{dev}
-\end{sphinxVerbatim}
-
-Extend the user schema using schemas from standart OpenLDAP
-distribution: \sphinxstyleemphasis{cosine, mics, nis, inetcomperson}
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{ldapadd} \PYG{o}{\PYGZhy{}}\PYG{n}{Y} \PYG{n}{EXTERNAL} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldapi}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{o}{/} \PYG{o}{\PYGZhy{}}\PYG{n}{f} \PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{/}\PYG{n}{schema}\PYG{o}{/}\PYG{n}{cosine}\PYG{o}{.}\PYG{n}{ldif}
-\PYG{n}{ldapadd} \PYG{o}{\PYGZhy{}}\PYG{n}{Y} \PYG{n}{EXTERNAL} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldapi}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{o}{/} \PYG{o}{\PYGZhy{}}\PYG{n}{f} \PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{/}\PYG{n}{schema}\PYG{o}{/}\PYG{n}{mics}\PYG{o}{.}\PYG{n}{ldif}
-\PYG{n}{ldapadd} \PYG{o}{\PYGZhy{}}\PYG{n}{Y} \PYG{n}{EXTERNAL} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldapi}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{o}{/} \PYG{o}{\PYGZhy{}}\PYG{n}{f} \PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{/}\PYG{n}{schema}\PYG{o}{/}\PYG{n}{nis}\PYG{o}{.}\PYG{n}{ldif}
-\PYG{n}{ldapadd} \PYG{o}{\PYGZhy{}}\PYG{n}{Y} \PYG{n}{EXTERNAL} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldapi}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{o}{/} \PYG{o}{\PYGZhy{}}\PYG{n}{f} \PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{/}\PYG{n}{schema}\PYG{o}{/}\PYG{n}{inetcomperson}\PYG{o}{.}\PYG{n}{ldif}
-\end{sphinxVerbatim}
-
-
-\subsection{Building Kerberos from source}
-\label{\detokenize{admin/advanced/ldapbackend:building-kerberos-from-source}}
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{o}{.}\PYG{o}{/}\PYG{n}{configure} \PYG{o}{\PYGZhy{}}\PYG{o}{\PYGZhy{}}\PYG{k}{with}\PYG{o}{\PYGZhy{}}\PYG{n}{ldap}
-\PYG{n}{make}
-\PYG{n}{sudo} \PYG{n}{make} \PYG{n}{install}
-\end{sphinxVerbatim}
-
-
-\subsection{Setting up Kerberos}
-\label{\detokenize{admin/advanced/ldapbackend:setting-up-kerberos}}
-
-\subsubsection{Configuration}
-\label{\detokenize{admin/advanced/ldapbackend:configuration}}
-Update kdc.conf with the LDAP back-end information:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{p}{[}\PYG{n}{realms}\PYG{p}{]}
-    \PYG{n}{EXAMPLE}\PYG{o}{.}\PYG{n}{COM} \PYG{o}{=} \PYG{p}{\PYGZob{}}
-        \PYG{n}{database\PYGZus{}module} \PYG{o}{=} \PYG{n}{LDAP}
-    \PYG{p}{\PYGZcb{}}
-
-\PYG{p}{[}\PYG{n}{dbmodules}\PYG{p}{]}
-    \PYG{n}{LDAP} \PYG{o}{=} \PYG{p}{\PYGZob{}}
-        \PYG{n}{db\PYGZus{}library} \PYG{o}{=} \PYG{n}{kldap}
-        \PYG{n}{ldap\PYGZus{}kerberos\PYGZus{}container\PYGZus{}dn} \PYG{o}{=} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{krbContainer}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com}
-        \PYG{n}{ldap\PYGZus{}kdc\PYGZus{}dn} \PYG{o}{=} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com}
-        \PYG{n}{ldap\PYGZus{}kadmind\PYGZus{}dn} \PYG{o}{=} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com}
-        \PYG{n}{ldap\PYGZus{}service\PYGZus{}password\PYGZus{}file} \PYG{o}{=} \PYG{o}{/}\PYG{n}{usr}\PYG{o}{/}\PYG{n}{local}\PYG{o}{/}\PYG{n}{var}\PYG{o}{/}\PYG{n}{krb5kdc}\PYG{o}{/}\PYG{n}{admin}\PYG{o}{.}\PYG{n}{stash}
-        \PYG{n}{ldap\PYGZus{}servers} \PYG{o}{=} \PYG{n}{ldapi}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{o}{/}
-    \PYG{p}{\PYGZcb{}}
-\end{sphinxVerbatim}
-
-
-\subsubsection{Schema}
-\label{\detokenize{admin/advanced/ldapbackend:schema}}
-From the source tree copy
-\sphinxcode{src/plugins/kdb/ldap/libkdb\_ldap/kerberos.schema} into
-\sphinxcode{/etc/ldap/schema}
-
-Warning: this step should be done after slapd is installed to avoid
-problems with slapd installation.
-
-To convert kerberos.schema to run-time configuration (\sphinxcode{cn=config})
-do the following:
-\begin{enumerate}
-\item {} 
-Create a temporary file \sphinxcode{/tmp/schema\_convert.conf} with the
-following content:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{include} \PYG{o}{/}\PYG{n}{etc}\PYG{o}{/}\PYG{n}{ldap}\PYG{o}{/}\PYG{n}{schema}\PYG{o}{/}\PYG{n}{kerberos}\PYG{o}{.}\PYG{n}{schema}
-\end{sphinxVerbatim}
-
-\item {} 
-Create a temporary directory \sphinxcode{/tmp/krb5\_ldif}.
-
-\item {} 
-Run:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{slaptest} \PYG{o}{\PYGZhy{}}\PYG{n}{f} \PYG{o}{/}\PYG{n}{tmp}\PYG{o}{/}\PYG{n}{schema\PYGZus{}convert}\PYG{o}{.}\PYG{n}{conf} \PYG{o}{\PYGZhy{}}\PYG{n}{F} \PYG{o}{/}\PYG{n}{tmp}\PYG{o}{/}\PYG{n}{krb5\PYGZus{}ldif}
-\end{sphinxVerbatim}
-
-This should in a new file named
-\sphinxcode{/tmp/krb5\_ldif/cn=config/cn=schema/cn=\{0\}kerberos.ldif}.
-
-\item {} 
-Edit \sphinxcode{/tmp/krb5\_ldif/cn=config/cn=schema/cn=\{0\}kerberos.ldif} by
-replacing the lines:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{dn}\PYG{p}{:} \PYG{n}{cn}\PYG{o}{=}\PYG{p}{\PYGZob{}}\PYG{l+m+mi}{0}\PYG{p}{\PYGZcb{}}\PYG{n}{kerberos}
-\PYG{n}{cn}\PYG{p}{:} \PYG{p}{\PYGZob{}}\PYG{l+m+mi}{0}\PYG{p}{\PYGZcb{}}\PYG{n}{kerberos}
-\end{sphinxVerbatim}
-
-with
-\begin{quote}
-
-dn: cn=kerberos,cn=schema,cn=config
-cn: kerberos
-\end{quote}
-
-Also, remove following attribute-value pairs:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{structuralObjectClass}\PYG{p}{:} \PYG{n}{olcSchemaConfig}
-\PYG{n}{entryUUID}\PYG{p}{:} \PYG{o}{.}\PYG{o}{.}\PYG{o}{.}
-\PYG{n}{creatorsName}\PYG{p}{:} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{config}
-\PYG{n}{createTimestamp}\PYG{p}{:} \PYG{o}{.}\PYG{o}{.}\PYG{o}{.}
-\PYG{n}{entryCSN}\PYG{p}{:} \PYG{o}{.}\PYG{o}{.}\PYG{o}{.}
-\PYG{n}{modifiersName}\PYG{p}{:} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{config}
-\PYG{n}{modifyTimestamp}\PYG{p}{:} \PYG{o}{.}\PYG{o}{.}\PYG{o}{.}
-\end{sphinxVerbatim}
-
-\item {} 
-Load the new schema with ldapadd (with the proper authentication):
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{ldapadd} \PYG{o}{\PYGZhy{}}\PYG{n}{Y} \PYG{n}{EXTERNAL} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldapi}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{o}{/} \PYG{o}{\PYGZhy{}}\PYG{n}{f}  \PYG{o}{/}\PYG{n}{tmp}\PYG{o}{/}\PYG{n}{krb5\PYGZus{}ldif}\PYG{o}{/}\PYG{n}{cn}\PYG{o}{=}\PYG{n}{config}\PYG{o}{/}\PYG{n}{cn}\PYG{o}{=}\PYG{n}{schema}\PYG{o}{/}\PYG{n}{cn}\PYG{o}{=}\PYG{p}{\PYGZob{}}\PYG{l+m+mi}{0}\PYG{p}{\PYGZcb{}}\PYG{n}{kerberos}\PYG{o}{.}\PYG{n}{ldif}
-\end{sphinxVerbatim}
-
-which should result the message \sphinxcode{adding new entry
-"cn=kerberos,cn=schema,cn=config"}.
-
-\end{enumerate}
-
-
-\subsection{Create Kerberos database}
-\label{\detokenize{admin/advanced/ldapbackend:create-kerberos-database}}
-Using LDAP administrator credentials, create Kerberos database and
-master key stash:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldapi}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{o}{/} \PYG{n}{create} \PYG{o}{\PYGZhy{}}\PYG{n}{s}
-\end{sphinxVerbatim}
-
-Stash the LDAP administrative passwords:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldapi}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{o}{/} \PYG{n}{stashsrvpw} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com}
-\end{sphinxVerbatim}
-
-Start {\hyperref[\detokenize{admin/admin_commands/krb5kdc:krb5kdc-8}]{\sphinxcrossref{\DUrole{std,std-ref}{krb5kdc}}}}:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{krb5kdc}
-\end{sphinxVerbatim}
-
-To destroy database run:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{kdb5\PYGZus{}ldap\PYGZus{}util} \PYG{o}{\PYGZhy{}}\PYG{n}{D} \PYG{n}{cn}\PYG{o}{=}\PYG{n}{admin}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{example}\PYG{p}{,}\PYG{n}{dc}\PYG{o}{=}\PYG{n}{com} \PYG{o}{\PYGZhy{}}\PYG{n}{H} \PYG{n}{ldapi}\PYG{p}{:}\PYG{o}{/}\PYG{o}{/}\PYG{o}{/} \PYG{n}{destroy} \PYG{o}{\PYGZhy{}}\PYG{n}{f}
-\end{sphinxVerbatim}
-
-
-\subsection{Useful references}
-\label{\detokenize{admin/advanced/ldapbackend:useful-references}}\begin{itemize}
-\item {} 
-\sphinxhref{https://help.ubuntu.com/10.04/serverguide/C/kerberos-ldap.html}{Kerberos and LDAP}
-
-\end{itemize}
-
-
 \section{Retiring DES}
 \label{\detokenize{admin/advanced/retiring-des:retiring-des}}\label{\detokenize{admin/advanced/retiring-des::doc}}\label{\detokenize{admin/advanced/retiring-des:id1}}
 Version 5 of the Kerberos protocol was originally implemented using
@@ -11946,6 +11529,11 @@ partial support in version 1.3.0 of krb5 and full support in version 1.3.2.
 However, deployments of krb5 using Kerberos databases created with older
 versions of krb5 will not necessarily start using strong crypto for
 ordinary operation without administrator intervention.
+
+MIT krb5 began flagging deprecated encryption types with release 1.17,
+and removed DES (single-DES) support in release 1.18.  As a
+consequence, a release prior to 1.18 is required to perform these
+migrations.
 
 
 \subsection{Types of keys}
@@ -12371,7 +11959,7 @@ converted to the new master key.
 \section{Whitepapers}
 \label{\detokenize{admin/various_envs:whitepapers}}\begin{enumerate}
 \item {} 
-\sphinxurl{http://kerberos.org/software/whitepapers.html}
+\sphinxurl{https://kerberos.org/software/whitepapers.html}
 
 \end{enumerate}
 
@@ -12379,7 +11967,7 @@ converted to the new master key.
 \section{Tutorials}
 \label{\detokenize{admin/various_envs:tutorials}}\begin{enumerate}
 \item {} 
-Fulvio Ricciardi  \textless{}\sphinxurl{http://www.kerberos.org/software/tutorial.html}\textgreater{}\_
+Fulvio Ricciardi  \textless{}\sphinxurl{https://www.kerberos.org/software/tutorial.html}\textgreater{}\_
 
 \end{enumerate}
 
@@ -12387,28 +11975,19 @@ Fulvio Ricciardi  \textless{}\sphinxurl{http://www.kerberos.org/software/tutoria
 \section{Troubleshooting}
 \label{\detokenize{admin/various_envs:troubleshooting}}\begin{enumerate}
 \item {} 
-\sphinxurl{http://www.ncsa.illinois.edu/UserInfo/Resources/Software/kerberos/troubleshooting.html}
+\sphinxurl{https://wiki.ncsa.illinois.edu/display/ITS/Windows+Kerberos+Troubleshooting}
 
 \item {} 
-\sphinxurl{http://nfsv4.bullopensource.org/doc/kerberosnfs/krbnfs\_howto\_v3.pdf}
+\sphinxurl{https://www.shrubbery.net/solaris9ab/SUNWaadm/SYSADV6/p27.html}
 
 \item {} 
-\sphinxurl{http://sysdoc.doors.ch/HP/T1417-90005.pdf}
+\sphinxurl{https://docs.oracle.com/cd/E19253-01/816-4557/trouble-1/index.html}
 
 \item {} 
-\sphinxurl{http://www.shrubbery.net/solaris9ab/SUNWaadm/SYSADV6/p27.html}
-
-\item {} 
-\sphinxurl{http://download.oracle.com/docs/cd/E19253-01/816-4557/trouble-1/index.html}
-
-\item {} 
-\sphinxurl{http://technet.microsoft.com/en-us/library/bb463167.aspx\#EBAA}
+\sphinxurl{https://docs.microsoft.com/en-us/previous-versions/tn-archive/bb463167(v=technet.10})\#EBAA
 
 \item {} 
 \sphinxurl{https://bugs.launchpad.net/ubuntu/+source/libpam-heimdal/+bug/86528}
-
-\item {} 
-\sphinxurl{http://h71000.www7.hp.com/doc/83final/ba548\_90007/ch06s05.html}
 
 \end{enumerate}
 

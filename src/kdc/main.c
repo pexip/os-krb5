@@ -210,12 +210,24 @@ init_realm(kdc_realm_t * rdp, krb5_pointer aprof, char *realm,
     char                *svalue = NULL;
     const char          *hierarchy[4];
     krb5_kvno       mkvno = IGNORE_VNO;
+    char ename[32];
 
     memset(rdp, 0, sizeof(kdc_realm_t));
     if (!realm) {
         kret = EINVAL;
         goto whoops;
     }
+
+    if (def_enctype != ENCTYPE_UNKNOWN &&
+        krb5int_c_deprecated_enctype(def_enctype)) {
+        if (krb5_enctype_to_name(def_enctype, FALSE, ename, sizeof(ename)))
+            ename[0] = '\0';
+        fprintf(stderr,
+                _("Requested master password enctype %s in %s is "
+                  "DEPRECATED!\n"),
+                ename, realm);
+    }
+
     hierarchy[0] = KRB5_CONF_REALMS;
     hierarchy[1] = realm;
     hierarchy[3] = NULL;
@@ -295,12 +307,6 @@ init_realm(kdc_realm_t * rdp, krb5_pointer aprof, char *realm,
                                 &rdp->realm_reject_bad_transit))
         rdp->realm_reject_bad_transit = TRUE;
 
-    /* Handle assume des-cbc-crc is supported for session keys */
-    hierarchy[2] = KRB5_CONF_DES_CRC_SESSION_SUPPORTED;
-    if (krb5_aprof_get_boolean(aprof, hierarchy, TRUE,
-                               &rdp->realm_assume_des_crc_sess))
-        rdp->realm_assume_des_crc_sess = TRUE;
-
     /* Handle ticket maximum life */
     hierarchy[2] = KRB5_CONF_MAX_LIFE;
     if (krb5_aprof_get_deltat(aprof, hierarchy, TRUE, &rdp->realm_maxlife))
@@ -368,6 +374,14 @@ init_realm(kdc_realm_t * rdp, krb5_pointer aprof, char *realm,
                 _("while fetching master key %s for realm %s"),
                 rdp->realm_mpname, realm);
         goto whoops;
+    }
+
+    if (krb5int_c_deprecated_enctype(rdp->realm_mkey.enctype)) {
+        if (krb5_enctype_to_name(rdp->realm_mkey.enctype, FALSE, ename,
+                                 sizeof(ename)))
+            ename[0] = '\0';
+        fprintf(stderr, _("Stash file %s uses DEPRECATED enctype %s!\n"),
+                rdp->realm_stash, ename);
     }
 
     if ((kret = krb5_db_fetch_mkey_list(rdp->realm_context, rdp->realm_mprinc,
@@ -729,7 +743,7 @@ initialize_realms(krb5_context kcontext, int argc, char **argv,
             }
             break;
         case 'd':                       /* pathname for db */
-            /* now db_name is not a seperate argument.
+            /* now db_name is not a separate argument.
              * It has to be passed as part of the db_args
              */
             if( db_name == NULL ) {
@@ -758,7 +772,7 @@ initialize_realms(krb5_context kcontext, int argc, char **argv,
         case 'm':                       /* manual type-in of master key */
             manual = TRUE;
             if (menctype == ENCTYPE_UNKNOWN)
-                menctype = ENCTYPE_DES_CBC_CRC;
+                menctype = DEFAULT_KDC_ENCTYPE;
             break;
         case 'M':                       /* master key name in DB */
             mkey_name = optarg;
@@ -1011,9 +1025,13 @@ int main(int argc, char **argv)
         finish_realms();
         return 1;
     }
+
+    /* Clean up realms for now and reinitialize them after daemonizing, since
+     * some KDB modules are not fork-safe. */
+    finish_realms();
+
     if (!nofork && daemon(0, 0)) {
         kdc_err(kcontext, errno, _("while detaching from tty"));
-        finish_realms();
         return 1;
     }
     if (pid_file != NULL) {
@@ -1025,15 +1043,14 @@ int main(int argc, char **argv)
         }
     }
     if (workers > 0) {
-        finish_realms();
         retval = create_workers(ctx, workers);
         if (retval) {
             kdc_err(kcontext, errno, _("creating worker processes"));
             return 1;
         }
-        /* We get here only in a worker child process; re-initialize realms. */
-        initialize_realms(kcontext, argc, argv, NULL);
     }
+
+    initialize_realms(kcontext, argc, argv, NULL);
 
     /* Initialize audit system and audit KDC startup. */
     retval = load_audit_modules(kcontext);

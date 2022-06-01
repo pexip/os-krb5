@@ -191,6 +191,9 @@ void krb5int_trace(krb5_context context, const char *fmt, ...);
 #define TRACE_FAST_REQUIRED(c)                                  \
     TRACE(c, "Using FAST due to KRB5_FAST_REQUIRED flag")
 
+#define TRACE_GET_CREDS_FALLBACK(c, hostname)                           \
+    TRACE(c, "Falling back to canonicalized server hostname {str}", hostname)
+
 #define TRACE_GIC_PWD_CHANGED(c)                                \
     TRACE(c, "Getting initial TGT with changed password")
 #define TRACE_GIC_PWD_CHANGEPW(c, tries)                                \
@@ -224,6 +227,8 @@ void krb5int_trace(krb5_context context, const char *fmt, ...);
 #define TRACE_INIT_CREDS_GAK(c, salt, s2kparams)                    \
     TRACE(c, "Getting AS key, salt \"{data}\", params \"{data}\"",  \
           salt, s2kparams)
+#define TRACE_INIT_CREDS_IDENTIFIED_REALM(c, realm)                     \
+    TRACE(c, "Identified realm of client principal as {data}", realm)
 #define TRACE_INIT_CREDS_KEYTAB_LOOKUP(c, etypes)               \
     TRACE(c, "Looked up etypes in keytab: {etypes}", etypes)
 #define TRACE_INIT_CREDS_KEYTAB_LOOKUP_FAILED(c, code)          \
@@ -288,6 +293,11 @@ void krb5int_trace(krb5_context context, const char *fmt, ...);
     TRACE(c, "PAC checksum verification failed: {kerr}", err)
 #define TRACE_MSPAC_DISCARD_UNVERF(c)           \
     TRACE(c, "Filtering out unverified MS PAC")
+
+#define TRACE_NEGOEX_INCOMING(c, seqnum, typestr, info)                 \
+    TRACE(c, "NegoEx received [{int}]{str}: {str}", (int)seqnum, typestr, info)
+#define TRACE_NEGOEX_OUTGOING(c, seqnum, typestr, info)                 \
+    TRACE(c, "NegoEx sending [{int}]{str}: {str}", (int)seqnum, typestr, info)
 
 #define TRACE_PREAUTH_CONFLICT(c, name1, name2, patype)                 \
     TRACE(c, "Preauth module {str} conflicts with module {str} for pa " \

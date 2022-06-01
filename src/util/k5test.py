@@ -241,7 +241,8 @@ Scripts may use the following realm methods and attributes:
   return code other than 0, expected_msg=MSG to expect a substring in
   the command output, and expected_trace=('a', 'b', ...) to expect an
   ordered series of line substrings in the command's KRB5_TRACE
-  output.
+  output, or return_trace=True to return a tuple of the command output
+  and the trace output.
 
 * realm.kprop_port(): Returns a port number based on realm.portbase
   intended for use by kprop and kpropd.
@@ -371,6 +372,7 @@ command-line flags.  These are documented in the --help output.
 """
 
 import atexit
+import fcntl
 import optparse
 import os
 import shlex
@@ -406,6 +408,7 @@ def fail(msg):
 
 def success(msg):
     global _success
+    _check_daemons()
     output('*** Success: %s\n' % msg)
     _success = True
 
@@ -426,6 +429,7 @@ def skipped(whatmsg, whymsg):
 def skip_rest(whatmsg, whymsg):
     global _success
     skipped(whatmsg, whymsg)
+    _check_daemons()
     _success = True
     sys.exit(0)
 
@@ -457,21 +461,14 @@ def password(name):
 def _onexit():
     global _daemons, _success, srctop, verbose
     global _debug, _stop_before, _stop_after, _shell_before, _shell_after
-    if _daemons is None:
-        # In Python 2.5, if we exit as a side-effect of importing
-        # k5test, _onexit will execute in an empty global namespace.
-        # This can happen if argument processing fails or the build
-        # root isn't valid.  In this case we can safely assume that no
-        # daemons have been launched and that we don't really need to
-        # amend the error message.  The bug is fixed in Python 2.6.
-        return
     if _debug or _stop_before or _stop_after or _shell_before or _shell_after:
         # Wait before killing daemons in case one is being debugged.
         sys.stdout.write('*** Press return to kill daemons and exit script: ')
         sys.stdout.flush()
         sys.stdin.readline()
     for proc in _daemons:
-        os.kill(proc.pid, signal.SIGTERM)
+        if _check_daemon(proc) is None:
+            os.kill(proc.pid, signal.SIGTERM)
     if not _success:
         print
         if not verbose:
@@ -638,7 +635,9 @@ def _cfg_merge(cfg1, cfg2):
         return cfg2
     result = cfg1.copy()
     for key, value2 in cfg2.items():
-        if value2 is None or key not in result:
+        if value2 is None:
+            result.pop(key, None)
+        elif key not in result:
             result[key] = value2
         else:
             value1 = result[key]
@@ -677,25 +676,23 @@ def _stop_or_shell(stop, shell, env, ind):
         subprocess.call(os.getenv('SHELL'), env=env)
 
 
-# Read tracefile and look for the expected strings in successive lines.
-def _check_trace(tracefile, expected):
-    output('*** Trace output for previous command:\n')
+# Look for the expected strings in successive lines of trace.
+def _check_trace(trace, expected):
     i = 0
-    with open(tracefile, 'r') as f:
-        for line in f:
-            output(line)
-            if i < len(expected) and expected[i] in line:
-                i += 1
+    for line in trace.splitlines():
+        if i < len(expected) and expected[i] in line:
+            i += 1
     if i < len(expected):
         fail('Expected string not found in trace output: ' + expected[i])
 
 
 def _run_cmd(args, env, input=None, expected_code=0, expected_msg=None,
-             expected_trace=None):
+             expected_trace=None, return_trace=False):
     global null_input, _cmd_index, _last_cmd, _last_cmd_output, _debug
     global _stop_before, _stop_after, _shell_before, _shell_after
 
-    if expected_trace is not None:
+    tracefile = None
+    if expected_trace is not None or return_trace:
         tracefile = 'testtrace'
         if os.path.exists(tracefile):
             os.remove(tracefile)
@@ -735,10 +732,15 @@ def _run_cmd(args, env, input=None, expected_code=0, expected_msg=None,
     if expected_msg is not None and expected_msg not in outdata:
         fail('Expected string not found in command output: ' + expected_msg)
 
-    if expected_trace is not None:
-        _check_trace(tracefile, expected_trace)
+    if tracefile is not None:
+        with open(tracefile, 'r') as f:
+            trace = f.read()
+        output('*** Trace output for previous command:\n')
+        output(trace)
+        if expected_trace is not None:
+            _check_trace(trace, expected_trace)
 
-    return outdata
+    return (outdata, trace) if return_trace else outdata
 
 
 def _debug_cmd(args, env, input):
@@ -812,11 +814,58 @@ def _start_daemon(args, env, sentinel):
     return proc
 
 
+# Check a daemon's status prior to terminating it.  Display its return
+# code if it already exited, and display any output it has generated.
+# Return the daemon's exit status or None if it is still running.
+def _check_daemon(proc):
+    exited = False
+    code = proc.poll()
+    if code is not None:
+        output('*** Daemon pid %d exited with code %d\n' % (proc.pid, code))
+
+    flags = fcntl.fcntl(proc.stdout, fcntl.F_GETFL)
+    fcntl.fcntl(proc.stdout, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+    try:
+        out = proc.stdout.read()
+    except:
+        return
+
+    output('*** Daemon pid %d output:\n' % proc.pid)
+    output(out)
+    return code
+
+
+# Check all tracked daemon processes.  If any daemons already exited,
+# remove them from the list (so we don't try to terminate them again).
+# If any daemons exited with an error, fail out.
+def _check_daemons():
+    exited = []
+    daemon_error = False
+    for proc in _daemons:
+        code = _check_daemon(proc)
+        if code is not None:
+            exited.append(proc)
+            if code != 0:
+                daemon_error = True
+
+    for proc in exited:
+        _daemons.remove(proc)
+
+    if daemon_error:
+        fail('One or more daemon processes exited with an error')
+
+
 def stop_daemon(proc):
-    output('*** Terminating process %d\n' % proc.pid)
-    os.kill(proc.pid, signal.SIGTERM)
-    proc.wait()
-    _daemons.remove(proc)
+    code = _check_daemon(proc)
+    if code is not None:
+        _daemons.remove(proc)
+        if code != 0:
+            fail('Daemon process %d exited early' % proc.pid)
+    else:
+        output('*** Terminating process %d\n' % proc.pid)
+        os.kill(proc.pid, signal.SIGTERM)
+        proc.wait()
+        _daemons.remove(proc)
 
 
 class K5Realm(object):
@@ -841,6 +890,7 @@ class K5Realm(object):
         self.keytab = os.path.join(self.testdir, 'keytab')
         self.client_keytab = os.path.join(self.testdir, 'client_keytab')
         self.ccache = os.path.join(self.testdir, 'ccache')
+        self.gss_mech_config = os.path.join(self.testdir, 'mech.conf')
         self.kadmin_ccache = os.path.join(self.testdir, 'kadmin_ccache')
         self._krb5_conf = _cfg_merge(_default_krb5_conf, krb5_conf)
         base_kdc_conf = _default_kdc_conf
@@ -912,28 +962,30 @@ class K5Realm(object):
                 # A string value yields a straightforward variable setting.
                 value = self._subst_cfg_value(value)
                 file.write('%s%s = %s\n' % (indent, name, value))
-            elif value is not None:
+            else:
                 raise TypeError()
 
     def _subst_cfg_value(self, value):
         global buildtop, srctop, hostname
         template = string.Template(value)
-        return template.substitute(realm=self.realm,
-                                   testdir=self.testdir,
-                                   buildtop=buildtop,
-                                   srctop=srctop,
-                                   plugins=plugins,
-                                   hostname=hostname,
-                                   port0=self.portbase,
-                                   port1=self.portbase + 1,
-                                   port2=self.portbase + 2,
-                                   port3=self.portbase + 3,
-                                   port4=self.portbase + 4,
-                                   port5=self.portbase + 5,
-                                   port6=self.portbase + 6,
-                                   port7=self.portbase + 7,
-                                   port8=self.portbase + 8,
-                                   port9=self.portbase + 9)
+        subst = template.substitute(realm=self.realm,
+                                    testdir=self.testdir,
+                                    buildtop=buildtop,
+                                    srctop=srctop,
+                                    plugins=plugins,
+                                    hostname=hostname,
+                                    port0=self.portbase,
+                                    port1=self.portbase + 1,
+                                    port2=self.portbase + 2,
+                                    port3=self.portbase + 3,
+                                    port4=self.portbase + 4,
+                                    port5=self.portbase + 5,
+                                    port6=self.portbase + 6,
+                                    port7=self.portbase + 7,
+                                    port8=self.portbase + 8,
+                                    port9=self.portbase + 9)
+        # Empty values must be quoted to avoid a syntax error.
+        return subst if subst else '""'
 
     def _create_acl(self):
         global hostname
@@ -959,6 +1011,7 @@ class K5Realm(object):
         env['KRB5RCACHEDIR'] = self.testdir
         env['KPROPD_PORT'] = str(self.kprop_port())
         env['KPROP_PORT'] = str(self.kprop_port())
+        env['GSS_MECH_CONFIG'] = self.gss_mech_config
         return env
 
     def run(self, args, env=None, **keywords):
@@ -1246,79 +1299,50 @@ _passes = [
     # No special settings; exercises AES256.
     ('default', None, None, None),
 
-    # Exercise a DES enctype and the v4 salt type.
-    ('desv4', None,
-     {'libdefaults': {
-                'default_tgs_enctypes': 'des-cbc-crc',
-                'default_tkt_enctypes': 'des-cbc-crc',
-                'permitted_enctypes': 'des-cbc-crc',
-                'allow_weak_crypto': 'true'}},
-     {'realms': {'$realm': {
-                    'supported_enctypes': 'des-cbc-crc:v4',
-                    'master_key_type': 'des-cbc-crc'}}}),
-
     # Exercise the DES3 enctype.
     ('des3', None,
-     {'libdefaults': {
-                'default_tgs_enctypes': 'des3',
-                'default_tkt_enctypes': 'des3',
-                'permitted_enctypes': 'des3'}},
+     {'libdefaults': {'permitted_enctypes': 'des3'}},
      {'realms': {'$realm': {
                     'supported_enctypes': 'des3-cbc-sha1:normal',
                     'master_key_type': 'des3-cbc-sha1'}}}),
 
     # Exercise the arcfour enctype.
     ('arcfour', None,
-     {'libdefaults': {
-                'default_tgs_enctypes': 'rc4',
-                'default_tkt_enctypes': 'rc4',
-                'permitted_enctypes': 'rc4'}},
+     {'libdefaults': {'permitted_enctypes': 'rc4'}},
      {'realms': {'$realm': {
                     'supported_enctypes': 'arcfour-hmac:normal',
                     'master_key_type': 'arcfour-hmac'}}}),
 
     # Exercise the AES128 enctype.
     ('aes128', None,
-      {'libdefaults': {
-                'default_tgs_enctypes': 'aes128-cts',
-                'default_tkt_enctypes': 'aes128-cts',
-                'permitted_enctypes': 'aes128-cts'}},
+      {'libdefaults': {'permitted_enctypes': 'aes128-cts'}},
       {'realms': {'$realm': {
                     'supported_enctypes': 'aes128-cts:normal',
                     'master_key_type': 'aes128-cts'}}}),
 
     # Exercise the camellia256-cts enctype.
     ('camellia256', None,
-      {'libdefaults': {
-                'default_tgs_enctypes': 'camellia256-cts',
-                'default_tkt_enctypes': 'camellia256-cts',
-                'permitted_enctypes': 'camellia256-cts'}},
+      {'libdefaults': {'permitted_enctypes': 'camellia256-cts'}},
       {'realms': {'$realm': {
                     'supported_enctypes': 'camellia256-cts:normal',
                     'master_key_type': 'camellia256-cts'}}}),
 
     # Exercise the aes128-sha2 enctype.
     ('aes128-sha2', None,
-      {'libdefaults': {
-                'default_tgs_enctypes': 'aes128-sha2',
-                'default_tkt_enctypes': 'aes128-sha2',
-                'permitted_enctypes': 'aes128-sha2'}},
+      {'libdefaults': {'permitted_enctypes': 'aes128-sha2'}},
       {'realms': {'$realm': {
                     'supported_enctypes': 'aes128-sha2:normal',
                     'master_key_type': 'aes128-sha2'}}}),
 
     # Exercise the aes256-sha2 enctype.
     ('aes256-sha2', None,
-      {'libdefaults': {
-                'default_tgs_enctypes': 'aes256-sha2',
-                'default_tkt_enctypes': 'aes256-sha2',
-                'permitted_enctypes': 'aes256-sha2'}},
+      {'libdefaults': {'permitted_enctypes': 'aes256-sha2'}},
       {'realms': {'$realm': {
                     'supported_enctypes': 'aes256-sha2:normal',
                     'master_key_type': 'aes256-sha2'}}}),
 
     # Test a setup with modern principal keys but an old TGT key.
-    ('aes256.destgt', 'des-cbc-crc:normal',
+    ('aes256.destgt', 'arcfour-hmac:normal',
      {'libdefaults': {'allow_weak_crypto': 'true'}},
      None)
 ]

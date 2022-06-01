@@ -514,10 +514,8 @@ rd_req_decoded_opt(krb5_context context, krb5_auth_context *auth_context,
 
     /* Get an rcache if necessary. */
     if (((*auth_context)->rcache == NULL) &&
-        ((*auth_context)->auth_context_flags & KRB5_AUTH_CONTEXT_DO_TIME) &&
-        server != NULL && server->length > 0) {
-        retval = krb5_get_server_rcache(context, &server->data[0],
-                                        &(*auth_context)->rcache);
+        ((*auth_context)->auth_context_flags & KRB5_AUTH_CONTEXT_DO_TIME)) {
+        retval = k5_rc_default(context, &(*auth_context)->rcache);
         if (retval)
             goto cleanup;
     }
@@ -566,16 +564,19 @@ rd_req_decoded_opt(krb5_context context, krb5_auth_context *auth_context,
     {
         krb5_data      * realm;
         krb5_transited * trans;
+        krb5_flags       flags;
 
         realm = &req->ticket->enc_part2->client->realm;
         trans = &(req->ticket->enc_part2->transited);
+        flags = req->ticket->enc_part2->flags;
 
         /*
-         * If the transited list is not empty, then check that all realms
-         * transited are within the hierarchy between the client's realm
-         * and the local realm.
+         * If the transited list is not empty and the KDC hasn't checked it,
+         * then check that all realms transited are within the hierarchy
+         * between the client's realm and the local realm.
          */
-        if (trans->tr_contents.length > 0 && trans->tr_contents.data[0]) {
+        if (!(flags & TKT_FLG_TRANSIT_POLICY_CHECKED) &&
+            trans->tr_contents.length > 0 && trans->tr_contents.data[0]) {
             retval = krb5_check_transited_list(context, &(trans->tr_contents),
                                                realm, &server->realm);
         }
@@ -588,24 +589,9 @@ rd_req_decoded_opt(krb5_context context, krb5_auth_context *auth_context,
     /* only check rcache if sender has provided one---some services
        may not be able to use replay caches (such as datagram servers) */
 
-    if ((*auth_context)->rcache) {
-        krb5_donot_replay  rep;
-        krb5_tkt_authent   tktauthent;
-
-        tktauthent.ticket = req->ticket;
-        tktauthent.authenticator = (*auth_context)->authentp;
-        if (!(retval = krb5_auth_to_rep(context, &tktauthent, &rep))) {
-            retval = krb5_rc_hash_message(context,
-                                          &req->authenticator.ciphertext,
-                                          &rep.msghash);
-            if (!retval) {
-                retval = krb5_rc_store(context, (*auth_context)->rcache, &rep);
-                free(rep.msghash);
-            }
-            free(rep.server);
-            free(rep.client);
-        }
-
+    if ((*auth_context)->rcache != NULL) {
+        retval = k5_rc_store(context, (*auth_context)->rcache,
+                             &req->authenticator);
         if (retval)
             goto cleanup;
     }
@@ -864,9 +850,8 @@ negotiate_etype(krb5_context context,
         if (permitted == FALSE) {
             char enctype_name[30];
 
-            if (krb5_enctype_to_string(desired_etypes[i],
-                                       enctype_name,
-                                       sizeof(enctype_name)) == 0)
+            if (krb5_enctype_to_name(desired_etypes[i], FALSE, enctype_name,
+                                     sizeof(enctype_name)) == 0)
                 k5_setmsg(context, KRB5_NOPERM_ETYPE,
                           _("Encryption type %s not permitted"), enctype_name);
             return KRB5_NOPERM_ETYPE;

@@ -797,11 +797,11 @@ kadmin_cpw(int argc, char *argv[])
     char **db_args = NULL;
     int db_args_size = 0;
 
-    if (argc < 2) {
+    if (argc < 1) {
         cpw_usage(NULL);
         return;
     }
-    for (argv++, argc--; argc > 1; argc--, argv++) {
+    for (argv++, argc--; argc > 0 && **argv == '-'; argc--, argv++) {
         if (!strcmp("-x", *argv)) {
             argc--;
             if (argc < 1) {
@@ -841,12 +841,16 @@ kadmin_cpw(int argc, char *argv[])
                 goto cleanup;
             }
         } else {
+            com_err("change_password", 0, _("unrecognized option %s"), *argv);
             cpw_usage(NULL);
             goto cleanup;
         }
     }
-    if (*argv == NULL) {
-        com_err("change_password", 0, _("missing principal name"));
+    if (argc != 1) {
+        if (argc < 1)
+            com_err("change_password", 0, _("missing principal name"));
+        else
+            com_err("change_password", 0, _("too many arguments"));
         cpw_usage(NULL);
         goto cleanup;
     }
@@ -1225,13 +1229,13 @@ kadmin_addprinc(int argc, char *argv[])
         /* If the policy "default" exists, assign it. */
         if (policy_exists("default")) {
             if (!script_mode) {
-                fprintf(stderr, _("NOTICE: no policy specified for %s; "
+                fprintf(stderr, _("No policy specified for %s; "
                                   "assigning \"default\"\n"), canon);
             }
             princ.policy = "default";
             mask |= KADM5_POLICY;
         } else if (!script_mode) {
-            fprintf(stderr, _("WARNING: no policy specified for %s; "
+            fprintf(stderr, _("No policy specified for %s; "
                               "defaulting to no policy\n"), canon);
         }
     }
@@ -1451,12 +1455,18 @@ kadmin_getprinc(int argc, char *argv[])
         for (i = 0; i < dprinc.n_key_data; i++) {
             krb5_key_data *key_data = &dprinc.key_data[i];
             char enctype[BUFSIZ], salttype[BUFSIZ];
+            char *deprecated = "";
 
             if (krb5_enctype_to_name(key_data->key_data_type[0], FALSE,
                                      enctype, sizeof(enctype)))
                 snprintf(enctype, sizeof(enctype), _("<Encryption type 0x%x>"),
                          key_data->key_data_type[0]);
-            printf("Key: vno %d, %s", key_data->key_data_kvno, enctype);
+            if (!krb5_c_valid_enctype(key_data->key_data_type[0]))
+                deprecated = "UNSUPPORTED:";
+            else if (krb5int_c_deprecated_enctype(key_data->key_data_type[0]))
+                deprecated = "DEPRECATED:";
+            printf("Key: vno %d, %s%s", key_data->key_data_kvno, deprecated,
+                   enctype);
             if (key_data->key_data_ver > 1 &&
                 key_data->key_data_type[1] != KRB5_KDB_SALTTYPE_NORMAL) {
                 if (krb5_salttype_to_string(key_data->key_data_type[1],
