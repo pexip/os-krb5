@@ -188,20 +188,22 @@ krb5_ldap_iterate(krb5_context context, char *match_expr,
                 for (i=0; values[i] != NULL; ++i) {
                     if (krb5_ldap_parse_principal_name(values[i], &princ_name) != 0)
                         continue;
-                    if (krb5_parse_name(context, princ_name, &principal) != 0)
+                    st = krb5_parse_name(context, princ_name, &principal);
+                    free(princ_name);
+                    if (st)
                         continue;
+
                     if (is_principal_in_realm(ldap_context, principal)) {
-                        if ((st = populate_krb5_db_entry(context, ldap_context, ld, ent, principal,
-                                                         &entry)) != 0)
+                        st = populate_krb5_db_entry(context, ldap_context, ld,
+                                                    ent, principal, &entry);
+                        krb5_free_principal(context, principal);
+                        if (st)
                             goto cleanup;
                         (*func)(func_arg, &entry);
                         krb5_dbe_free_contents(context, &entry);
-                        (void) krb5_free_principal(context, principal);
-                        free(princ_name);
                         break;
                     }
                     (void) krb5_free_principal(context, principal);
-                    free(princ_name);
                 }
                 ldap_value_free(values);
             }
@@ -291,7 +293,7 @@ krb5_ldap_delete_principal(krb5_context context,
              * From the attrsetmask value, identify the attributes set on the directory user
              * object and delete them.
              * NOTE: krbsecretkey attribute has per principal entries. There can be chances that the
-             * other principals' keys are exisiting/left-over. So delete all the values.
+             * other principals' keys are existing/left-over. So delete all the values.
              */
             while (attrsetmask) {
                 if (attrsetmask & 1) {
@@ -565,7 +567,7 @@ cleanup:
 /*
  * Function: krb5_ldap_unparse_principal_name
  *
- * Purpose: Removes '\\' that comes before every occurence of '@'
+ * Purpose: Removes '\\' that comes before every occurrence of '@'
  *          in the principal name component.
  *
  * Arguments:
@@ -593,7 +595,7 @@ krb5_ldap_unparse_principal_name(char *user_name)
 /*
  * Function: krb5_ldap_parse_principal_name
  *
- * Purpose: Inserts '\\' before every occurence of '@'
+ * Purpose: Inserts '\\' before every occurrence of '@'
  *          in the principal name component.
  *
  * Arguments:

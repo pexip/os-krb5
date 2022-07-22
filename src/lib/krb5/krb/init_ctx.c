@@ -157,12 +157,6 @@ krb5_init_context_profile(profile_t profile, krb5_flags flags,
 {
     krb5_context ctx = 0;
     krb5_error_code retval;
-    struct {
-        krb5_timestamp now;
-        krb5_int32 now_usec;
-        long pid;
-    } seed_data;
-    krb5_data seed;
     int tmp;
     char *plugin_dir = NULL;
 
@@ -243,17 +237,6 @@ krb5_init_context_profile(profile_t profile, krb5_flags flags,
         goto cleanup;
     ctx->dns_canonicalize_hostname = tmp;
 
-    /* initialize the prng (not well, but passable) */
-    if ((retval = krb5_c_random_os_entropy( ctx, 0, NULL)) !=0)
-        goto cleanup;
-    if ((retval = krb5_crypto_us_timeofday(&seed_data.now, &seed_data.now_usec)))
-        goto cleanup;
-    seed_data.pid = getpid ();
-    seed.length = sizeof(seed_data);
-    seed.data = (char *) &seed_data;
-    if ((retval = krb5_c_random_add_entropy(ctx, KRB5_C_RANDSOURCE_TIMING, &seed)))
-        goto cleanup;
-
     ctx->default_realm = 0;
     get_integer(ctx, KRB5_CONF_CLOCKSKEW, DEFAULT_CLOCKSKEW, &tmp);
     ctx->clockskew = tmp;
@@ -310,8 +293,6 @@ krb5_free_context(krb5_context ctx)
         return;
     k5_os_free_context(ctx);
 
-    free(ctx->in_tkt_etypes);
-    ctx->in_tkt_etypes = NULL;
     free(ctx->tgs_etypes);
     ctx->tgs_etypes = NULL;
     free(ctx->default_realm);
@@ -339,9 +320,8 @@ krb5_free_context(krb5_context ctx)
 /*
  * Set the desired default ktypes, making sure they are valid.
  */
-static krb5_error_code
-set_default_etype_var(krb5_context context, const krb5_enctype *etypes,
-                      krb5_enctype **var)
+krb5_error_code KRB5_CALLCONV
+krb5_set_default_tgs_enctypes(krb5_context context, const krb5_enctype *etypes)
 {
     krb5_error_code code;
     krb5_enctype *list;
@@ -374,29 +354,20 @@ set_default_etype_var(krb5_context context, const krb5_enctype *etypes,
         list = NULL;
     }
 
-    free(*var);
-    *var = list;
+    free(context->tgs_etypes);
+    context->tgs_etypes = list;
     return 0;
 }
 
+/* Old name for above function.  This is not a public API, but Samba (as of
+ * 2021-02-12) uses this name if it finds it in the library. */
 krb5_error_code
-krb5_set_default_in_tkt_ktypes(krb5_context context,
-                               const krb5_enctype *etypes)
-{
-    return set_default_etype_var(context, etypes, &context->in_tkt_etypes);
-}
+krb5_set_default_tgs_ktypes(krb5_context context, const krb5_enctype *etypes);
 
-krb5_error_code KRB5_CALLCONV
-krb5_set_default_tgs_enctypes(krb5_context context, const krb5_enctype *etypes)
-{
-    return set_default_etype_var(context, etypes, &context->tgs_etypes);
-}
-
-/* Old name for above function. */
 krb5_error_code
 krb5_set_default_tgs_ktypes(krb5_context context, const krb5_enctype *etypes)
 {
-    return set_default_etype_var(context, etypes, &context->tgs_etypes);
+    return krb5_set_default_tgs_enctypes(context, etypes);
 }
 
 /*
@@ -517,9 +488,6 @@ krb5_get_default_in_tkt_ktypes(krb5_context context, krb5_enctype **ktypes)
     const char *profkey;
 
     *ktypes = NULL;
-
-    if (context->in_tkt_etypes != NULL)
-        return k5_copy_etypes(context->in_tkt_etypes, ktypes);
 
     profkey = KRB5_CONF_DEFAULT_TKT_ENCTYPES;
     ret = profile_get_string(context->profile, KRB5_CONF_LIBDEFAULTS,

@@ -12,7 +12,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../',
-        VERSION:     '1.18.3',
+        VERSION:     '1.20',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true,
@@ -122,11 +122,15 @@ OIDs to be interposed.  The returned OID set must have been created
 using the mechglue’s gss_create_empty_oid_set and
 gss_add_oid_set_member functions.</p>
 <p>An interposer module must use the prefix <code class="docutils literal"><span class="pre">gssi_</span></code> for the GSSAPI
-functions it exports, instead of the prefix <code class="docutils literal"><span class="pre">gss_</span></code>.</p>
+functions it exports, instead of the prefix <code class="docutils literal"><span class="pre">gss_</span></code>.  In most cases,
+unexported <code class="docutils literal"><span class="pre">gssi_</span></code> functions will result in failure from their
+corresponding <code class="docutils literal"><span class="pre">gss_</span></code> calls.</p>
 <p>An interposer module can link against the GSSAPI library in order to
 make calls to the original mechanism.  To do so, it must specify a
 special mechanism OID which is the concatention of the interposer’s
 own OID byte string and the original mechanism’s OID byte string.</p>
+<p>Functions that do not accept a mechanism argument directly require no
+special handling, with the following exceptions:</p>
 <p>Since <strong>gss_accept_sec_context</strong> does not accept a mechanism argument,
 an interposer mechanism must, in order to invoke the original
 mechanism’s function, acquire a credential for the concatenated OID
@@ -151,20 +155,24 @@ the token.  These functions have the following signatures:</p>
 </div>
 <p>To re-enter the original mechanism when importing tokens for the above
 functions, the interposer module must wrap the mechanism token in the
-mechglue’s format, using the concatenated OID.  The mechglue token
-formats are:</p>
+mechglue’s format, using the concatenated OID (except in
+<strong>gss_import_name</strong>).  The mechglue token formats are:</p>
 <ul class="simple">
 <li>For <strong>gss_import_sec_context</strong>, a four-byte OID length in big-endian
-order, followed by the mechanism OID, followed by the mechanism
+order, followed by the concatenated OID, followed by the mechanism
 token.</li>
 <li>For <strong>gss_import_name</strong>, the bytes 04 01, followed by a two-byte OID
 length in big-endian order, followed by the mechanism OID, followed
-by the bytes 06, followed by the OID length as a single byte,
-followed by the mechanism OID, followed by the mechanism token.</li>
+by a four-byte token length in big-endian order, followed by the
+mechanism token.  Unlike most uses of OIDs in the API, the mechanism
+OID encoding must include the DER tag and length for an object
+identifier (06 followed by the DER length of the OID byte string),
+and this prefix must be included in the two-byte OID length.
+input_name_type must also be set to GSS_C_NT_EXPORT_NAME.</li>
 <li>For <strong>gss_import_cred</strong>, a four-byte OID length in big-endian order,
-followed by the mechanism OID, followed by a four-byte token length
-in big-endian order, followed by the mechanism token.  This sequence
-may be repeated multiple times.</li>
+followed by the concatenated OID, followed by a four-byte token
+length in big-endian order, followed by the mechanism token.  This
+sequence may be repeated multiple times.</li>
 </ul>
 </div>
 </div>
@@ -233,8 +241,8 @@ may be repeated multiple times.</li>
 
     <div class="footer-wrapper">
         <div class="footer" >
-            <div class="right" ><i>Release: 1.18.3</i><br />
-                &copy; <a href="../copyright.html">Copyright</a> 1985-2020, MIT.
+            <div class="right" ><i>Release: 1.20</i><br />
+                &copy; <a href="../copyright.html">Copyright</a> 1985-2022, MIT.
             </div>
             <div class="left">
                 
