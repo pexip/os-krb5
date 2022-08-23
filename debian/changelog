@@ -1,3 +1,10 @@
+krb5 (1.18.3-6+deb11u2) bullseye; urgency=medium
+
+  * Use SHA256 as Pkinit CMS Digest, Closes: #1017995
+
+
+ -- Sam Hartman <hartmans@debian.org>  Tue, 23 Aug 2022 14:49:09 -0600
+
 krb5 (1.18.3-6+deb11u1) bullseye; urgency=medium
 
   * Fix KDC null dereference crash on FAST request with no server field,
