@@ -1,3 +1,10 @@
+krb5 (1.18.3-6+deb11u2) bullseye; urgency=medium
+
+  * Use SHA256 as Pkinit CMS Digest, Closes: #1017995
+
+
+ -- Sam Hartman <hartmans@debian.org>  Tue, 23 Aug 2022 14:49:09 -0600
+
 krb5 (1.18.3-6+deb11u1pexip3) pexip-bullseye; urgency=medium
 
   * Bullseye rebuild for ARM64 inclusion
