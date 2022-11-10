@@ -1,0 +1,84 @@
+diff --git a/src/plugins/preauth/pkinit/pkinit_crypto_openssl.c b/src/plugins/preauth/pkinit/pkinit_crypto_openssl.c
+index d500455..730aa8f 100644
+--- a/src/plugins/preauth/pkinit/pkinit_crypto_openssl.c
++++ b/src/plugins/preauth/pkinit/pkinit_crypto_openssl.c
+@@ -1611,7 +1611,11 @@ cms_signeddata_create(krb5_context context,
+                 goto cleanup;
+             X509_STORE_CTX_init(certctx, certstore, cert,
+                                 id_cryptoctx->intermediateCAs);
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
+             X509_STORE_CTX_trusted_stack(certctx, id_cryptoctx->trustedCAs);
++#else
++            X509_STORE_CTX_set0_trusted_stack(certctx, id_cryptoctx->trustedCAs);
++#endif
+             if (!X509_verify_cert(certctx)) {
+                 retval = oerr_cert(context, 0, certctx,
+                                    _("Failed to verify own certificate"));
+@@ -2018,7 +2022,12 @@ cms_signeddata_verify(krb5_context context,
+ 
+         /* add trusted CAs certificates for cert verification */
+         if (idctx->trustedCAs != NULL)
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
+             X509_STORE_CTX_trusted_stack(cert_ctx, idctx->trustedCAs);
++#else
++            X509_STORE_CTX_set0_trusted_stack(cert_ctx, idctx->trustedCAs);
++#endif
++
+         else {
+             pkiDebug("unable to find any trusted CAs\n");
+             goto cleanup;
+@@ -3122,9 +3131,11 @@ cleanup:
+ int
+ pkinit_openssl_init()
+ {
++#if OPENSSL_VERSION_NUMBER < 0x30000000L
+     /* Initialize OpenSSL. */
+     ERR_load_crypto_strings();
+     OpenSSL_add_all_algorithms();
++#endif
+     return 0;
+ }
+ 
+diff --git a/src/plugins/tls/k5tls/openssl.c b/src/plugins/tls/k5tls/openssl.c
+index 99fda7f..dc432d3 100644
+--- a/src/plugins/tls/k5tls/openssl.c
++++ b/src/plugins/tls/k5tls/openssl.c
+@@ -51,9 +51,11 @@ MAKE_INIT_FUNCTION(init_openssl);
+ int
+ init_openssl()
+ {
++#if OPENSSL_VERSION_NUMBER < 0x30000000L
+     SSL_library_init();
+     SSL_load_error_strings();
+     OpenSSL_add_all_algorithms();
++#endif
+     ex_context_id = SSL_get_ex_new_index(0, NULL, NULL, NULL, NULL);
+     ex_handle_id = SSL_get_ex_new_index(0, NULL, NULL, NULL, NULL);
+     return 0;
+diff --git a/src/tests/softpkcs11/main.c b/src/tests/softpkcs11/main.c
+index 82b05ff..540fa40 100644
+--- a/src/tests/softpkcs11/main.c
++++ b/src/tests/softpkcs11/main.c
+@@ -897,8 +897,10 @@ C_Initialize(CK_VOID_PTR a)
+ 
+     st_logf("Initialize\n");
+ 
++#if OPENSSL_VERSION_NUMBER < 0x30000000L
+     OpenSSL_add_all_algorithms();
+     ERR_load_crypto_strings();
++#endif
+ 
+     for (i = 0; i < MAX_NUM_SESSION; i++) {
+         soft_token.state[i].session_handle = CK_INVALID_HANDLE;
+diff --git a/src/tests/softpkcs11/main.c b/src/tests/softpkcs11/main.c
+index 82b05ff..f94061d 100644
+--- a/src/tests/softpkcs11/main.c
++++ b/src/tests/softpkcs11/main.c
+@@ -38,6 +38,7 @@
+ #include <openssl/evp.h>
+ #include <openssl/pem.h>
+ #include <openssl/rand.h>
++#include <openssl/rsa.h>
+ #include <openssl/x509.h>
+ 
+ #include <ctype.h>
