@@ -9,9 +9,13 @@ SYNOPSIS
 **kvno**
 [**-c** *ccache*]
 [**-e** *etype*]
+[**-k** *keytab*]
 [**-q**]
 [**-u** | **-S** *sname*]
 [**-P**]
+[**--cached-only**]
+[**--no-store**]
+[**--out-cache** *cache*]
 [[{**-F** *cert_file* | {**-I** | **-U**} *for_user*} [**-P**]] | **--u2u** *ccache*]
 *service1 service2* ...
 
@@ -74,6 +78,20 @@ OPTIONS
     Specifies that protocol transition is to be used, identifying the
     client principal with the X.509 certificate in *cert_file*.  The
     certificate file must be in PEM format.
+
+**--cached-only**
+    Only retrieve credentials already present in the cache, not from
+    the KDC.  (Added in release 1.19.)
+
+**--no-store**
+    Do not store retrieved credentials in the cache.  If
+    **--out-cache** is also specified, credentials will still be
+    stored into the output credential cache.  (Added in release 1.19.)
+
+**--out-cache** *ccache*
+    Initialize *ccache* and store all retrieved credentials into it.
+    Do not store acquired credentials in the input cache.  (Added in
+    release 1.19.)
 
 **--u2u** *ccache*
     Requests a user-to-user ticket.  *ccache* must contain a local

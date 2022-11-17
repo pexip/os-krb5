@@ -33,6 +33,9 @@
 
 
 #include "crypto_int.h"
+
+#ifdef K5_OPENSSL_RC4
+
 #include <openssl/evp.h>
 
 /*
@@ -52,7 +55,7 @@ struct arcfour_state {
 /* Interface layer to krb5 crypto layer */
 
 /* The workhorse of the arcfour system,
- * this impliments the cipher
+ * this implements the cipher
  */
 
 /* In-place IOV crypto */
@@ -163,3 +166,5 @@ const struct krb5_enc_provider krb5int_enc_arcfour = {
     k5_arcfour_init_state,
     k5_arcfour_free_state
 };
+
+#endif /* K5_OPENSSL_RC4 */

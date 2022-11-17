@@ -362,7 +362,7 @@ loop_add_address(const char *address, int port, enum bind_type type,
  *
  * - addresses
  *      A string for the addresses.  Pass NULL to use the wildcard address.
- *      Supported delimeters can be found in ADDRESSES_DELIM.  Addresses are
+ *      Supported delimiters can be found in ADDRESSES_DELIM.  Addresses are
  *      parsed with k5_parse_host_name().
  * - default_port
  *      What port the socket should be set to if not specified in addresses.
@@ -828,7 +828,10 @@ setup_addresses(verto_ctx *ctx, void *handle, const char *prog,
      * resolution. */
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_UNSPEC;
-    hints.ai_flags = AI_PASSIVE | AI_NUMERICSERV;
+    hints.ai_flags = AI_PASSIVE;
+#ifdef AI_NUMERICSERV
+    hints.ai_flags |= AI_NUMERICSERV;
+#endif
 
     /* Add all the requested addresses. */
     for (i = 0; i < bind_addresses.n; i++) {
