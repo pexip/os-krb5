@@ -692,15 +692,6 @@ dcc_ptcursor_free(krb5_context context, krb5_cc_ptcursor *cursor)
 }
 
 static krb5_error_code KRB5_CALLCONV
-dcc_replace(krb5_context context, krb5_ccache cache, krb5_principal princ,
-            krb5_creds **creds)
-{
-    dcc_data *data = cache->data;
-
-    return krb5_fcc_ops.replace(context, data->fcc, princ, creds);
-}
-
-static krb5_error_code KRB5_CALLCONV
 dcc_lock(krb5_context context, krb5_ccache cache)
 {
     dcc_data *data = cache->data;
@@ -761,7 +752,7 @@ const krb5_cc_ops krb5_dcc_ops = {
     dcc_ptcursor_new,
     dcc_ptcursor_next,
     dcc_ptcursor_free,
-    dcc_replace,
+    NULL, /* move */
     NULL, /* wasdefault */
     dcc_lock,
     dcc_unlock,

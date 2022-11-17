@@ -163,13 +163,11 @@ testprincs = {'krbtgt/SREALM': {'keys': 'aes128-cts'},
 kdcconf1 = {'realms': {'$realm': {'database_module': 'test'}},
             'dbmodules': {'test': {'db_library': 'test',
                                    'princs': testprincs,
-                                   'alias': {'enterprise@abc': '@UREALM',
-                                             'user@UREALM': '@UREALM'}}}}
+                                   'alias': {'enterprise@abc': '@UREALM'}}}}
 kdcconf2 = {'realms': {'$realm': {'database_module': 'test'}},
             'dbmodules': {'test': {'db_library': 'test',
                                    'princs': testprincs,
                                    'alias': {'user@SREALM': '@SREALM',
-                                             'user@UREALM': 'user',
                                              'enterprise@abc': 'user'}}}}
 r1, r2 = cross_realms(2, xtgts=(),
                       args=({'realm': 'SREALM', 'kdc_conf': kdcconf1},
@@ -209,7 +207,7 @@ msgs = ('Getting initial credentials for enterprise\\@abc@SREALM',
         '/Additional pre-authentication required',
         'Identified realm of client principal as UREALM',
         'Getting credentials enterprise\\@abc@UREALM -> user@SREALM',
-        'TGS reply is for enterprise\\@abc@UREALM -> user@SREALM')
+        'TGS reply is for enterprise\@abc@UREALM -> user@SREALM')
 r1.run(['./t_s4u', 'e:enterprise@abc@NOREALM', '-', r1.keytab],
        expected_trace=msgs)
 
@@ -277,16 +275,6 @@ msgs = ('Getting initial credentials for enterprise\\@abc@SREALM',
 r1.run([kvno, '-U', 'enterprise@abc', '-F', cert_path, r1.user_princ],
        expected_trace=msgs)
 
-shutil.copyfile(savefile, r1.ccache)
-
-mark('S4U2Self using X509 certificate (GSSAPI)')
-
-r1.run(['./t_s4u', 'c:other', '-', r1.keytab])
-r1.run(['./t_s4u', 'c:user@UREALM', '-', r1.keytab])
-
-r1.run(['./t_s4u', '--spnego', 'c:other', '-', r1.keytab])
-r1.run(['./t_s4u', '--spnego', 'c:user@UREALM', '-', r1.keytab])
-
 r1.stop()
 r2.stop()
 
@@ -298,7 +286,8 @@ a_princs = {'krbtgt/A': {'keys': 'aes128-cts'},
             'sensitive': {'keys': 'aes128-cts',
                           'flags': '+disallow_forwardable'},
             'impersonator': {'keys': 'aes128-cts'},
-            'service1': {'keys': 'aes128-cts'},
+            'service1': {'keys': 'aes128-cts',
+                         'flags': '+ok_to_auth_as_delegate'},
             'rb2': {'keys': 'aes128-cts'},
             'rb': {'keys': 'aes128-cts'}}
 a_kconf = {'realms': {'$realm': {'database_module': 'test'}},
@@ -310,6 +299,7 @@ a_kconf = {'realms': {'$realm': {'database_module': 'test'}},
                                   'alias': {'rb@A': 'rb',
                                             'rb@B': '@B',
                                             'rb@C': '@B',
+                                            'rb2_alias': 'rb2',
                                             'service/rb.a': 'rb',
                                             'service/rb.b': '@B',
                                             'service/rb.c': '@B' }}}}
@@ -336,8 +326,7 @@ c_kconf = {'realms': {'$realm': {'database_module': 'test'}},
            'capaths': { 'A' : { 'C' : 'B' }},
            'dbmodules': {'test': {'db_library': 'test',
                                   'princs': c_princs,
-                                  'rbcd': {'rb@C': ['impersonator@A',
-                                                    'service1@A']},
+                                  'rbcd': {'rb@C': 'impersonator@A'},
                                   'alias': {'rb@C': 'rb',
                                             'service/rb.c': 'rb' }}}}
 
@@ -355,7 +344,7 @@ domain_realm = {'domain_realm': {'.a':'A', '.b':'B', '.c':'C'}}
 domain_conf = ra.special_env('domain_conf', False, krb5_conf=domain_realm)
 
 ra.extract_keytab('impersonator@A', ra.keytab)
-ra.kinit('impersonator@A', None, ['-f', '-k', '-t', ra.keytab])
+ra.kinit('impersonator@A', None, ['-F', '-k', '-t', ra.keytab])
 
 mark('Local-realm RBCD')
 ra.run(['./t_s4u', 'p:' + ra.user_princ, 'p:rb'])
@@ -387,14 +376,13 @@ ra.run(['./t_s4u', 'p:' + ra.user_princ, 'h:service@rb.c'], env=domain_conf)
 ra.run(['./t_s4u', 'p:' + 'sensitive@A', 'h:service@rb.c'], expected_code=1)
 ra.run(['./t_s4u', 'p:' + rb.user_princ, 'h:service@rb.c'])
 
-# Although service1 has RBCD delegation privileges to rb2@A, it does
-# not have ok-to-auth-as-delegate and does have traditional delegation
-# privileges, so it cannot get a forwardable S4U2Self ticket.
-mark('RBCD forwardable blocked by forward delegation privileges')
+mark('With both delegation types, 2nd ticket must be forwardable')
 ra.extract_keytab('service1@A', ra.keytab)
+ra.kinit('service1@A', None, ['-F', '-k', '-t', ra.keytab])
+ra.run(['./t_s4u', 'p:' + ra.user_princ, 'p:rb2'], expected_code=1)
+ra.run(['./t_s4u', 'p:' + ra.user_princ, 'p:rb2_alias'])
 ra.kinit('service1@A', None, ['-f', '-k', '-t', ra.keytab])
-ra.run(['./t_s4u', 'p:' + ra.user_princ, 'e:rb2@A'], expected_code=1,
-       expected_msg='KDC can\'t fulfill requested option')
+ra.run(['./t_s4u', 'p:' + ra.user_princ, 'p:rb2'])
 
 ra.stop()
 rb.stop()

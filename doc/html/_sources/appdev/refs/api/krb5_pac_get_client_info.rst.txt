@@ -1,5 +1,5 @@
-krb5_pac_get_client_info -  Read client information from a PAC. 
-================================================================
+krb5_pac_get_client_info
+========================
 
 ..
 
@@ -10,31 +10,21 @@ krb5_pac_get_client_info -  Read client information from a PAC.
 
 :param:
 
-	          **[in]** **context** - Library context
+	          **context**
 
-	          **[in]** **pac** - PAC handle
+	          **pac**
 
-	          **[out]** **authtime_out** - Authentication timestamp (NULL if not needed)
+	          **authtime_out**
 
-	          **[out]** **princname_out** - Client account name
-
-
-..
-
-
-:retval:
-         -   0   on success, ENOENT if no PAC_CLIENT_INFO buffer is present in pac , ERANGE if the buffer contains invalid lengths.
+	          **princname_out**
 
 
 ..
 
 
 
+..
 
-
-
-
-Read the PAC_CLIENT_INFO buffer in *pac* . Place the client account name as a string in *princname_out* . If *authtime_out* is not NULL, place the initial authentication timestamp in *authtime_out* .
 
 
 
@@ -50,8 +40,4 @@ Read the PAC_CLIENT_INFO buffer in *pac* . Place the client account name as a st
 
 
 
-.. note::
-
-	 New in 1.18
- 
 

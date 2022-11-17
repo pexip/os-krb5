@@ -35,11 +35,13 @@ krb5_c_random_seed(krb5_context context, krb5_data *data)
 /* Routines to get entropy from the OS. */
 #if defined(_WIN32)
 
-static krb5_boolean
-get_os_entropy(unsigned char *buf, size_t len)
+krb5_boolean
+k5_get_os_entropy(unsigned char *buf, size_t len, int strong)
 {
     krb5_boolean result;
     HCRYPTPROV provider;
+
+    /* CryptGenRandom is always considered strong. */
 
     if (!CryptAcquireContext(&provider, NULL, NULL, PROV_RSA_FULL,
                              CRYPT_VERIFYCONTEXT))
@@ -93,9 +95,10 @@ cleanup:
     return result;
 }
 
-static krb5_boolean
-get_os_entropy(unsigned char *buf, size_t len)
+krb5_boolean
+k5_get_os_entropy(unsigned char *buf, size_t len, int strong)
 {
+    const char *device;
 #if defined(__linux__) && defined(SYS_getrandom)
     int r;
 
@@ -124,30 +127,8 @@ get_os_entropy(unsigned char *buf, size_t len)
         return TRUE;
 #endif /* defined(__linux__) && defined(SYS_getrandom) */
 
-    return read_entropy_from_device("/dev/urandom", buf, len);
+    device = strong ? "/dev/random" : "/dev/urandom";
+    return read_entropy_from_device(device, buf, len);
 }
 
 #endif /* not Windows */
-
-krb5_error_code KRB5_CALLCONV
-krb5_c_random_make_octets(krb5_context context, krb5_data *outdata)
-{
-    krb5_boolean res;
-
-    res = get_os_entropy((uint8_t *)outdata->data, outdata->length);
-    return res ? 0 : KRB5_CRYPTO_INTERNAL;
-}
-
-krb5_error_code KRB5_CALLCONV
-krb5_c_random_add_entropy(krb5_context context, unsigned int randsource,
-                          const krb5_data *indata)
-{
-    return 0;
-}
-
-krb5_error_code KRB5_CALLCONV
-krb5_c_random_os_entropy(krb5_context context, int strong, int *success)
-{
-    *success = 0;
-    return 0;
-}

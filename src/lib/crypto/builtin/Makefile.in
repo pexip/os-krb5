@@ -1,28 +1,25 @@
 mydir=lib$(S)crypto$(S)builtin
 BUILDTOP=$(REL)..$(S)..$(S)..
 SUBDIRS=camellia des aes md4 md5 sha1 sha2 enc_provider hash_provider
-LOCALINCLUDES=-I$(srcdir)/../krb $(CRYPTO_IMPL_CFLAGS)
+LOCALINCLUDES = -I$(srcdir)/../krb -I$(srcdir)
 
 ##DOS##BUILDTOP = ..\..\..
 ##DOS##PREFIXDIR = builtin
 ##DOS##OBJFILE = ..\$(OUTPRE)builtin.lst
 
 STLIBOBJS=\
-	cmac.o	\
 	hmac.o	\
-	kdf.o \
+	init.o	\
 	pbkdf2.o
 
 OBJS=\
-	$(OUTPRE)cmac.$(OBJEXT)	\
 	$(OUTPRE)hmac.$(OBJEXT)	\
-	$(OUTPRE)kdf.$(OBJEXT) \
+	$(OUTPRE)init.$(OBJEXT)	\
 	$(OUTPRE)pbkdf2.$(OBJEXT)
 
 SRCS=\
-	$(srcdir)/cmac.c	\
 	$(srcdir)/hmac.c	\
-	$(srcdir)/kdf.c		\
+	$(srcdir)/init.c	\
 	$(srcdir)/pbkdf2.c	
 
 STOBJLISTS= des/OBJS.ST md4/OBJS.ST 	\

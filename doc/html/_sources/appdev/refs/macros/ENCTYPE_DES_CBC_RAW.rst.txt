@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _ENCTYPE-DES-CBC-RAW-data:
 

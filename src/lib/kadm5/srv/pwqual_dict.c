@@ -87,7 +87,7 @@ word_compare(const void *s1, const void *s2)
  * success.
  *
  * Modifies:
- *      word_list to point to a chunk of allocated memory containing
+ *      word_list to point to a chunck of allocated memory containing
  *      pointers to words
  *      word_block to contain the dictionary.
  *
@@ -121,16 +121,11 @@ init_dict(dict_moddata dict, const char *dict_file)
         close(fd);
         return errno;
     }
-    dict->word_block = malloc(sb.st_size + 1);
-    if (dict->word_block == NULL) {
-        (void)close(fd);
+    if ((dict->word_block = malloc(sb.st_size + 1)) == NULL)
         return ENOMEM;
-    }
-    if (read(fd, dict->word_block, sb.st_size) != sb.st_size) {
-        (void)close(fd);
+    if (read(fd, dict->word_block, sb.st_size) != sb.st_size)
         return errno;
-    }
-    (void)close(fd);
+    (void) close(fd);
     dict->word_block[sb.st_size] = '\0';
 
     p = dict->word_block;

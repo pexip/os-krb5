@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _KRB5-AUTHDATA-SIGNTICKET-data:
 
@@ -9,6 +9,7 @@ KRB5_AUTHDATA_SIGNTICKET
 .. data:: KRB5_AUTHDATA_SIGNTICKET
 ..
 
+formerly 142 in krb5 1.8
 
 
 

@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _KRB5-VERIFY-INIT-CREDS-OPT-AP-REQ-NOFAIL-data:
 

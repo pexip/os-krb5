@@ -352,7 +352,6 @@ static void
 load_if_needed(krb5_context context, struct plugin_mapping *map,
                const char *iname)
 {
-    krb5_error_code ret;
     char *symname = NULL;
     struct plugin_file_handle *handle = NULL;
     void (*initvt_fn)();
@@ -361,19 +360,10 @@ load_if_needed(krb5_context context, struct plugin_mapping *map,
         return;
     if (asprintf(&symname, "%s_%s_initvt", iname, map->modname) < 0)
         return;
-
-    ret = krb5int_open_plugin(map->dyn_path, &handle, &context->err);
-    if (ret) {
-        TRACE_PLUGIN_LOAD_FAIL(context, map->modname, ret);
+    if (krb5int_open_plugin(map->dyn_path, &handle, &context->err))
         goto err;
-    }
-
-    ret = krb5int_get_plugin_func(handle, symname, &initvt_fn, &context->err);
-    if (ret) {
-        TRACE_PLUGIN_LOOKUP_FAIL(context, map->modname, ret);
+    if (krb5int_get_plugin_func(handle, symname, &initvt_fn, &context->err))
         goto err;
-    }
-
     free(symname);
     map->dyn_handle = handle;
     map->module = (krb5_plugin_initvt_fn)initvt_fn;

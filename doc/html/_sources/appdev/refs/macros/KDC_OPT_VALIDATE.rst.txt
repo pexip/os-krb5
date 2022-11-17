@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _KDC-OPT-VALIDATE-data:
 

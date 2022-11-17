@@ -63,7 +63,7 @@ main(int argc, char **argv)
     krb5_init_creds_context *iccs;
     krb5_data req, *reps, realm;
     krb5_boolean any_left;
-    int i, nclients, primary;
+    int i, nclients, master;
     unsigned int flags;
 
     if (argc < 3) {
@@ -111,9 +111,9 @@ main(int argc, char **argv)
                 continue;
             }
 
-            primary = 0;
+            master = 0;
             krb5_free_data_contents(ctx, &reps[i]);
-            check(krb5_sendto_kdc(ctx, &req, &realm, &reps[i], &primary, 0));
+            check(krb5_sendto_kdc(ctx, &req, &realm, &reps[i], &master, 0));
             krb5_free_data_contents(ctx, &req);
             krb5_free_data_contents(ctx, &realm);
         }

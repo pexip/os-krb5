@@ -256,8 +256,7 @@ krb5_error_code ktutil_add(context, list, princ_str, fetch, kvno,
     *last = lp;
 
 cleanup:
-    krb5_free_keytab_entry_contents(context, entry);
-    free(entry);
+    krb5_kt_free_entry(context, entry);
     zapfree(password.data, password.length);
     krb5_free_data_contents(context, &salt);
     krb5_free_data_contents(context, &params);

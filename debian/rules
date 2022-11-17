@@ -43,6 +43,7 @@ override_dh_auto_configure:
 	dh_auto_configure $(DH_BUILD_OPTS) -- --with-system-et --with-system-ss --disable-rpath  \
 		--enable-shared $(CONFIGURE_LDAP) --without-tcl \
 	--with-system-verto \
+		--libdir=\$${prefix}/lib/$(DEB_HOST_MULTIARCH) \
 		--sysconfdir=/etc  \
 		--localstatedir=/etc
 

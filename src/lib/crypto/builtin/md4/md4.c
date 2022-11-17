@@ -32,10 +32,8 @@
 **********************************************************************
 */
 
-#include "crypto_int.h"
+#include "k5-int.h"
 #include "rsa-md4.h"
-
-#ifdef K5_BUILTIN_MD4
 
 /* forward declaration */
 static void Transform (krb5_ui_4 *, krb5_ui_4 *);
@@ -243,5 +241,3 @@ static void Transform (krb5_ui_4 *buf, krb5_ui_4 *in)
 ** End of md4.c                                                     **
 ******************************* (cut) ********************************
 */
-
-#endif /* K5_BUILTIN_MD4 */

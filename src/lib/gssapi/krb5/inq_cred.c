@@ -127,7 +127,7 @@ krb5_gss_inquire_cred(minor_status, cred_handle, name, lifetime_ret,
     if ((code = krb5_timeofday(context, &now))) {
         *minor_status = code;
         ret = GSS_S_FAILURE;
-        goto cleanup;
+        goto fail;
     }
 
     if (cred->expire != 0) {
@@ -158,7 +158,7 @@ krb5_gss_inquire_cred(minor_status, cred_handle, name, lifetime_ret,
             *minor_status = code;
             save_error_info(*minor_status, context);
             ret = GSS_S_FAILURE;
-            goto cleanup;
+            goto fail;
         }
     }
 
@@ -174,7 +174,7 @@ krb5_gss_inquire_cred(minor_status, cred_handle, name, lifetime_ret,
             if (ret_name)
                 kg_release_name(context, &ret_name);
             /* *minor_status set above */
-            goto cleanup;
+            goto fail;
         }
     }
 
@@ -190,16 +190,20 @@ krb5_gss_inquire_cred(minor_status, cred_handle, name, lifetime_ret,
 
     if (cred_usage)
         *cred_usage = cred->usage;
+    k5_mutex_unlock(&cred->lock);
 
     if (mechanisms) {
         *mechanisms = mechs;
         mechs = GSS_C_NO_OID_SET;
     }
 
-    *minor_status = 0;
-    ret = (lifetime == 0) ? GSS_S_CREDENTIALS_EXPIRED : GSS_S_COMPLETE;
+    if (cred_handle == GSS_C_NO_CREDENTIAL)
+        krb5_gss_release_cred(minor_status, (gss_cred_id_t *)&cred);
 
-cleanup:
+    krb5_free_context(context);
+    *minor_status = 0;
+    return((lifetime == 0)?GSS_S_CREDENTIALS_EXPIRED:GSS_S_COMPLETE);
+fail:
     k5_mutex_unlock(&cred->lock);
     krb5_gss_release_cred(&tmpmin, &defcred);
     krb5_free_context(context);

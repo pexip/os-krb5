@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _KRB5-AUTHDATA-SESAME-data:
 

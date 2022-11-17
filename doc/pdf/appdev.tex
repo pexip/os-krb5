@@ -55,7 +55,7 @@
 
 \title{Kerberos Application Developer Guide}
 \date{ }
-\release{1.20}
+\release{1.18.3}
 \author{MIT}
 \newcommand{\sphinxlogo}{\vbox{}}
 \renewcommand{\releasename}{Release}
@@ -137,13 +137,6 @@ enterprise name string (see \index{RFC!RFC 6806}\sphinxhref{https://tools.ietf.o
 \sphinxcode{user@suffix}.  This name type is used to convey alias names, and
 is defined in the \sphinxcode{\textless{}gssapi/gssapi\_krb5.h\textgreater{}} header.  (New in
 release 1.17.)
-
-\item {} 
-\sphinxstylestrong{GSS\_KRB5\_NT\_X509\_CERT}: The value should be an X.509 certificate
-encoded according to \index{RFC!RFC 5280}\sphinxhref{https://tools.ietf.org/html/rfc5280.html}{\sphinxstylestrong{RFC 5280}}.  This name form can be used for
-the desired\_name parameter of gss\_acquire\_cred\_impersonate\_name(),
-to identify the S4U2Self user by certificate.  (New in release
-1.19.)
 
 \end{itemize}
 
@@ -283,103 +276,6 @@ ticket contains \DUrole{xref,std,std-ref}{authentication indicators}.
 One indicator is returned per invocation of \sphinxhref{https://tools.ietf.org/html/6680.html\#section-7.5}{gss\_get\_name\_attribute},
 so multiple invocations may be necessary to retrieve all of the
 indicators from the ticket.  (New in release 1.15.)
-
-
-\section{Credential store extensions}
-\label{\detokenize{appdev/gssapi:credential-store-extensions}}
-Beginning with release 1.11, the following GSSAPI extensions declared
-in \sphinxcode{\textless{}gssapi/gssapi\_ext.h\textgreater{}} can be used to specify how credentials
-are acquired or stored:
-
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{n}{struct} \PYG{n}{gss\PYGZus{}key\PYGZus{}value\PYGZus{}element\PYGZus{}struct} \PYG{p}{\PYGZob{}}
-    \PYG{n}{const} \PYG{n}{char} \PYG{o}{*}\PYG{n}{key}\PYG{p}{;}
-    \PYG{n}{const} \PYG{n}{char} \PYG{o}{*}\PYG{n}{value}\PYG{p}{;}
-\PYG{p}{\PYGZcb{}}\PYG{p}{;}
-\PYG{n}{typedef} \PYG{n}{struct} \PYG{n}{gss\PYGZus{}key\PYGZus{}value\PYGZus{}element\PYGZus{}struct} \PYG{n}{gss\PYGZus{}key\PYGZus{}value\PYGZus{}element\PYGZus{}desc}\PYG{p}{;}
-
-\PYG{n}{struct} \PYG{n}{gss\PYGZus{}key\PYGZus{}value\PYGZus{}set\PYGZus{}struct} \PYG{p}{\PYGZob{}}
-    \PYG{n}{OM\PYGZus{}uint32} \PYG{n}{count}\PYG{p}{;}
-    \PYG{n}{gss\PYGZus{}key\PYGZus{}value\PYGZus{}element\PYGZus{}desc} \PYG{o}{*}\PYG{n}{elements}\PYG{p}{;}
-\PYG{p}{\PYGZcb{}}\PYG{p}{;}
-\PYG{n}{typedef} \PYG{n}{const} \PYG{n}{struct} \PYG{n}{gss\PYGZus{}key\PYGZus{}value\PYGZus{}set\PYGZus{}struct} \PYG{n}{gss\PYGZus{}key\PYGZus{}value\PYGZus{}set\PYGZus{}desc}\PYG{p}{;}
-\PYG{n}{typedef} \PYG{n}{const} \PYG{n}{gss\PYGZus{}key\PYGZus{}value\PYGZus{}set\PYGZus{}desc} \PYG{o}{*}\PYG{n}{gss\PYGZus{}const\PYGZus{}key\PYGZus{}value\PYGZus{}set\PYGZus{}t}\PYG{p}{;}
-
-\PYG{n}{OM\PYGZus{}uint32} \PYG{n}{gss\PYGZus{}acquire\PYGZus{}cred\PYGZus{}from}\PYG{p}{(}\PYG{n}{OM\PYGZus{}uint32} \PYG{o}{*}\PYG{n}{minor\PYGZus{}status}\PYG{p}{,}
-                                \PYG{n}{const} \PYG{n}{gss\PYGZus{}name\PYGZus{}t} \PYG{n}{desired\PYGZus{}name}\PYG{p}{,}
-                                \PYG{n}{OM\PYGZus{}uint32} \PYG{n}{time\PYGZus{}req}\PYG{p}{,}
-                                \PYG{n}{const} \PYG{n}{gss\PYGZus{}OID\PYGZus{}set} \PYG{n}{desired\PYGZus{}mechs}\PYG{p}{,}
-                                \PYG{n}{gss\PYGZus{}cred\PYGZus{}usage\PYGZus{}t} \PYG{n}{cred\PYGZus{}usage}\PYG{p}{,}
-                                \PYG{n}{gss\PYGZus{}const\PYGZus{}key\PYGZus{}value\PYGZus{}set\PYGZus{}t} \PYG{n}{cred\PYGZus{}store}\PYG{p}{,}
-                                \PYG{n}{gss\PYGZus{}cred\PYGZus{}id\PYGZus{}t} \PYG{o}{*}\PYG{n}{output\PYGZus{}cred\PYGZus{}handle}\PYG{p}{,}
-                                \PYG{n}{gss\PYGZus{}OID\PYGZus{}set} \PYG{o}{*}\PYG{n}{actual\PYGZus{}mechs}\PYG{p}{,}
-                                \PYG{n}{OM\PYGZus{}uint32} \PYG{o}{*}\PYG{n}{time\PYGZus{}rec}\PYG{p}{)}\PYG{p}{;}
-
-\PYG{n}{OM\PYGZus{}uint32} \PYG{n}{gss\PYGZus{}store\PYGZus{}cred\PYGZus{}into}\PYG{p}{(}\PYG{n}{OM\PYGZus{}uint32} \PYG{o}{*}\PYG{n}{minor\PYGZus{}status}\PYG{p}{,}
-                              \PYG{n}{gss\PYGZus{}cred\PYGZus{}id\PYGZus{}t} \PYG{n}{input\PYGZus{}cred\PYGZus{}handle}\PYG{p}{,}
-                              \PYG{n}{gss\PYGZus{}cred\PYGZus{}usage\PYGZus{}t} \PYG{n}{cred\PYGZus{}usage}\PYG{p}{,}
-                              \PYG{n}{const} \PYG{n}{gss\PYGZus{}OID} \PYG{n}{desired\PYGZus{}mech}\PYG{p}{,}
-                              \PYG{n}{OM\PYGZus{}uint32} \PYG{n}{overwrite\PYGZus{}cred}\PYG{p}{,}
-                              \PYG{n}{OM\PYGZus{}uint32} \PYG{n}{default\PYGZus{}cred}\PYG{p}{,}
-                              \PYG{n}{gss\PYGZus{}const\PYGZus{}key\PYGZus{}value\PYGZus{}set\PYGZus{}t} \PYG{n}{cred\PYGZus{}store}\PYG{p}{,}
-                              \PYG{n}{gss\PYGZus{}OID\PYGZus{}set} \PYG{o}{*}\PYG{n}{elements\PYGZus{}stored}\PYG{p}{,}
-                              \PYG{n}{gss\PYGZus{}cred\PYGZus{}usage\PYGZus{}t} \PYG{o}{*}\PYG{n}{cred\PYGZus{}usage\PYGZus{}stored}\PYG{p}{)}\PYG{p}{;}
-\end{sphinxVerbatim}
-
-The additional \sphinxstyleemphasis{cred\_store} parameter allows the caller to specify
-information about how the credentials should be obtained and stored.
-The following options are supported by the krb5 mechanism:
-\begin{itemize}
-\item {} 
-\sphinxstylestrong{ccache}: For acquiring initiator credentials, the name of the
-\DUrole{xref,std,std-ref}{credential cache} to which the handle will
-refer.  For storing credentials, the name of the cache or collection
-where the credentials will be stored (see below).
-
-\item {} 
-\sphinxstylestrong{client\_keytab}: For acquiring initiator credentials, the name of
-the \DUrole{xref,std,std-ref}{keytab} which will be used, if
-necessary, to refresh the credentials in the cache.
-
-\item {} 
-\sphinxstylestrong{keytab}: For acquiring acceptor credentials, the name of the
-\DUrole{xref,std,std-ref}{keytab} to which the handle will refer.
-In release 1.19 and later, this option also determines the keytab to
-be used for verification when initiator credentials are acquired
-using a password and verified.
-
-\item {} 
-\sphinxstylestrong{password}: For acquiring initiator credentials, this option
-instructs the mechanism to acquire fresh credentials into a unique
-memory credential cache.  This option may not be used with the
-\sphinxstylestrong{ccache} or \sphinxstylestrong{client\_keytab} options, and a \sphinxstyleemphasis{desired\_name} must
-be specified.  (New in release 1.19.)
-
-\item {} 
-\sphinxstylestrong{rcache}: For acquiring acceptor credentials, the name of the
-\DUrole{xref,std,std-ref}{replay cache} to be used when processing
-the initiator tokens.  (New in release 1.13.)
-
-\item {} 
-\sphinxstylestrong{verify}: For acquiring initiator credentials, this option
-instructs the mechanism to verify the credentials by obtaining a
-ticket to a service with a known key.  The service key is obtained
-from the keytab specified with the \sphinxstylestrong{keytab} option or the default
-keytab.  The value may be the name of a principal in the keytab, or
-the empty string.  If the empty string is given, any \sphinxcode{host}
-service principal in the keytab may be used.  (New in release 1.19.)
-
-\end{itemize}
-
-In release 1.20 or later, if a collection name is specified for
-\sphinxstylestrong{cache} in a call to gss\_store\_cred\_into(), an existing cache for
-the client principal within the collection will be selected, or a new
-cache will be created within the collection.  If \sphinxstyleemphasis{overwrite\_cred} is
-false and the selected credential cache already exists, a
-\sphinxstylestrong{GSS\_S\_DUPLICATE\_ELEMENT} error will be returned.  If \sphinxstyleemphasis{default\_cred}
-is true, the primary cache of the collection will be switched to the
-selected cache.
 
 
 \section{Importing and exporting credentials}
@@ -1366,8 +1262,6 @@ Kerberos error codes
 
 Call {\hyperref[\detokenize{appdev/refs/api/krb5_free_principal:c.krb5_free_principal}]{\sphinxcrossref{\sphinxcode{krb5\_free\_principal()}}}} to free \sphinxstyleemphasis{princ} when it is no longer needed.
 
-Beginning with release 1.20, the name type of the principal will be inferred as \sphinxstylestrong{KRB5\_NT\_SRV\_INST} or \sphinxstylestrong{KRB5\_NT\_WELLKNOWN} based on the principal name. The type will be \sphinxstylestrong{KRB5\_NT\_PRINCIPAL} if a type cannot be inferred.
-
 \begin{sphinxadmonition}{note}{Note:}
 {\hyperref[\detokenize{appdev/refs/api/krb5_build_principal:c.krb5_build_principal}]{\sphinxcrossref{\sphinxcode{krb5\_build\_principal()}}}} and {\hyperref[\detokenize{appdev/refs/api/krb5_build_principal_alloc_va:c.krb5_build_principal_alloc_va}]{\sphinxcrossref{\sphinxcode{krb5\_build\_principal\_alloc\_va()}}}} perform the same task. {\hyperref[\detokenize{appdev/refs/api/krb5_build_principal:c.krb5_build_principal}]{\sphinxcrossref{\sphinxcode{krb5\_build\_principal()}}}} takes variadic arguments. {\hyperref[\detokenize{appdev/refs/api/krb5_build_principal_alloc_va:c.krb5_build_principal_alloc_va}]{\sphinxcrossref{\sphinxcode{krb5\_build\_principal\_alloc\_va()}}}} takes a pre-computed \sphinxstyleemphasis{varargs} pointer.
 \end{sphinxadmonition}
@@ -1447,8 +1341,6 @@ Kerberos error codes
 \end{description}\end{quote}
 
 This function creates a principal from a length-counted string and a variable-length list of length-counted components. The list of components ends with the first 0 length argument (so it is not possible to specify an empty component with this function). Call {\hyperref[\detokenize{appdev/refs/api/krb5_free_principal:c.krb5_free_principal}]{\sphinxcrossref{\sphinxcode{krb5\_free\_principal()}}}} to free allocated memory for principal when it is no longer needed.
-
-Beginning with release 1.20, the name type of the principal will be inferred as \sphinxstylestrong{KRB5\_NT\_SRV\_INST} or \sphinxstylestrong{KRB5\_NT\_WELLKNOWN} based on the principal name. The type will be \sphinxstylestrong{KRB5\_NT\_PRINCIPAL} if a type cannot be inferred.
 
 
 \subsubsection{krb5\_cc\_close -  Close a credential cache handle.}
@@ -2417,10 +2309,8 @@ This flag is on by default. It controls whether {\hyperref[\detokenize{appdev/re
 \end{description}\end{quote}
 
 Set a callback to receive password and account expiration times.
-\begin{quote}
 
-\sphinxstyleemphasis{cb} will be invoked if and only if credentials are successfully acquired. The callback will receive the \sphinxstyleemphasis{context} from the calling function and the \sphinxstyleemphasis{data} argument supplied with this API. The remaining arguments should be interpreted as follows:
-\end{quote}
+This option only applies to {\hyperref[\detokenize{appdev/refs/api/krb5_get_init_creds_password:c.krb5_get_init_creds_password}]{\sphinxcrossref{\sphinxcode{krb5\_get\_init\_creds\_password()}}}} . \sphinxstyleemphasis{cb} will be invoked if and only if credentials are successfully acquired. The callback will receive the \sphinxstyleemphasis{context} from the {\hyperref[\detokenize{appdev/refs/api/krb5_get_init_creds_password:c.krb5_get_init_creds_password}]{\sphinxcrossref{\sphinxcode{krb5\_get\_init\_creds\_password()}}}} call and the \sphinxstyleemphasis{data} argument supplied with this API. The remaining arguments should be interpreted as follows:
 
 If \sphinxstyleemphasis{is\_last\_req} is true, then the KDC reply contained last-req entries which unambiguously indicated the password expiration, account expiration, or both. (If either value was not present, the corresponding argument will be 0.) Furthermore, a non-zero \sphinxstyleemphasis{password\_expiration} should be taken as a suggestion from the KDC that a warning be displayed.
 
@@ -3388,8 +3278,6 @@ Convert a string representation of a principal name to a krb5\_principal structu
 A string representation of a Kerberos name consists of one or more principal name components, separated by slashes, optionally followed by the @ character and a realm name. If the realm name is not specified, the local realm is used.
 
 To use the slash and @ symbols as part of a component (quoted) instead of using them as a component separator or as a realm prefix), put a backslash () character in front of the symbol. Similarly, newline, tab, backspace, and NULL characters can be included in a component by using \sphinxstylestrong{n} , \sphinxstylestrong{t} , \sphinxstylestrong{b} or \sphinxstylestrong{0} , respectively.
-
-Beginning with release 1.20, the name type of the principal will be inferred as \sphinxstylestrong{KRB5\_NT\_SRV\_INST} or \sphinxstylestrong{KRB5\_NT\_WELLKNOWN} based on the principal name. The type will be \sphinxstylestrong{KRB5\_NT\_PRINCIPAL} if a type cannot be inferred.
 
 Use {\hyperref[\detokenize{appdev/refs/api/krb5_free_principal:c.krb5_free_principal}]{\sphinxcrossref{\sphinxcode{krb5\_free\_principal()}}}} to free \sphinxstyleemphasis{principal\_out} when it is no longer needed.
 
@@ -4519,14 +4407,9 @@ TRUE if the addresses are the same, FALSE otherwise
 \begin{quote}\begin{description}
 \item[{retval}] \leavevmode\begin{itemize}
 \item {} 
-0   if The two addresses are the same
+0   The two addresses are the same
 
 \item {} 
-\textless{}   0 First address is less than second
-
-\item {} 
-\textgreater{}   0 First address is greater than second
-
 \end{itemize}
 
 \end{description}\end{quote}
@@ -6336,8 +6219,8 @@ When all caches are iterated over and the end of the list is reached, \sphinxsty
 \end{sphinxadmonition}
 
 
-\subsubsection{krb5\_cccol\_have\_content -  Check if the credential cache collection contains any initialized caches.}
-\label{\detokenize{appdev/refs/api/krb5_cccol_have_content:krb5-cccol-have-content-check-if-the-credential-cache-collection-contains-any-initialized-caches}}\label{\detokenize{appdev/refs/api/krb5_cccol_have_content::doc}}\index{krb5\_cccol\_have\_content (C function)}
+\subsubsection{krb5\_cccol\_have\_content -  Check if the credential cache collection contains any credentials.}
+\label{\detokenize{appdev/refs/api/krb5_cccol_have_content:krb5-cccol-have-content-check-if-the-credential-cache-collection-contains-any-credentials}}\label{\detokenize{appdev/refs/api/krb5_cccol_have_content::doc}}\index{krb5\_cccol\_have\_content (C function)}
 
 \begin{fulllineitems}
 \phantomsection\label{\detokenize{appdev/refs/api/krb5_cccol_have_content:c.krb5_cccol_have_content}}\pysiglinewithargsret{{\hyperref[\detokenize{appdev/refs/types/krb5_error_code:c.krb5_error_code}]{\sphinxcrossref{krb5\_error\_code}}} \sphinxbfcode{krb5\_cccol\_have\_content}}{{\hyperref[\detokenize{appdev/refs/types/krb5_context:c.krb5_context}]{\sphinxcrossref{krb5\_context}}}\sphinxstyleemphasis{ context}}{}
@@ -6351,10 +6234,10 @@ When all caches are iterated over and the end of the list is reached, \sphinxsty
 \begin{quote}\begin{description}
 \item[{retval}] \leavevmode\begin{itemize}
 \item {} 
-0   At least one initialized cache is present in the collection
+0   Credentials are available in the collection
 
 \item {} 
-KRB5\_CC\_NOTFOUND   The collection contains no caches
+KRB5\_CC\_NOTFOUND   The collection contains no credentials
 
 \end{itemize}
 
@@ -6923,7 +6806,7 @@ This function frees the contents of \sphinxstyleemphasis{val} and the structure 
 
 \end{description}\end{quote}
 
-This function frees the contents of \sphinxstyleemphasis{val} , but not the structure itself. It sets the structure’s data pointer to null and (beginning in release 1.19) sets its length to zero.
+This function frees the contents of \sphinxstyleemphasis{val} , but not the structure itself.
 
 
 \subsubsection{krb5\_free\_default\_realm -  Free a default realm string returned by krb5\_get\_default\_realm() .}
@@ -7646,92 +7529,6 @@ TRUE if r is zero-length, FALSE otherwise
 \end{description}\end{quote}
 
 
-\subsubsection{krb5\_kdc\_sign\_ticket -  Sign a PAC, possibly including a ticket signature.}
-\label{\detokenize{appdev/refs/api/krb5_kdc_sign_ticket:krb5-kdc-sign-ticket-sign-a-pac-possibly-including-a-ticket-signature}}\label{\detokenize{appdev/refs/api/krb5_kdc_sign_ticket::doc}}\index{krb5\_kdc\_sign\_ticket (C function)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/api/krb5_kdc_sign_ticket:c.krb5_kdc_sign_ticket}}\pysiglinewithargsret{{\hyperref[\detokenize{appdev/refs/types/krb5_error_code:c.krb5_error_code}]{\sphinxcrossref{krb5\_error\_code}}} \sphinxbfcode{krb5\_kdc\_sign\_ticket}}{{\hyperref[\detokenize{appdev/refs/types/krb5_context:c.krb5_context}]{\sphinxcrossref{krb5\_context}}}\sphinxstyleemphasis{ context}, {\hyperref[\detokenize{appdev/refs/types/krb5_enc_tkt_part:c.krb5_enc_tkt_part}]{\sphinxcrossref{krb5\_enc\_tkt\_part}}} *\sphinxstyleemphasis{ enc\_tkt}, const {\hyperref[\detokenize{appdev/refs/types/krb5_pac:c.krb5_pac}]{\sphinxcrossref{krb5\_pac}}}\sphinxstyleemphasis{ pac}, {\hyperref[\detokenize{appdev/refs/types/krb5_const_principal:c.krb5_const_principal}]{\sphinxcrossref{krb5\_const\_principal}}}\sphinxstyleemphasis{ server\_princ}, {\hyperref[\detokenize{appdev/refs/types/krb5_const_principal:c.krb5_const_principal}]{\sphinxcrossref{krb5\_const\_principal}}}\sphinxstyleemphasis{ client\_princ}, const {\hyperref[\detokenize{appdev/refs/types/krb5_keyblock:c.krb5_keyblock}]{\sphinxcrossref{krb5\_keyblock}}} *\sphinxstyleemphasis{ server}, const {\hyperref[\detokenize{appdev/refs/types/krb5_keyblock:c.krb5_keyblock}]{\sphinxcrossref{krb5\_keyblock}}} *\sphinxstyleemphasis{ privsvr}, {\hyperref[\detokenize{appdev/refs/types/krb5_boolean:c.krb5_boolean}]{\sphinxcrossref{krb5\_boolean}}}\sphinxstyleemphasis{ with\_realm}}{}
-\end{fulllineitems}
-
-\begin{quote}\begin{description}
-\item[{param}] \leavevmode
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{context} - Library context
-
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{enc\_tkt} - The ticket for the signature
-
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{pac} - PAC handle
-
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{server\_princ} - Canonical ticket server name
-
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{client\_princ} - PAC\_CLIENT\_INFO principal (or NULL)
-
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{server} - Key for server checksum
-
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{privsvr} - Key for KDC and ticket checksum
-
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{with\_realm} - If true, include the realm of \sphinxstyleemphasis{principal}
-
-\end{description}\end{quote}
-\begin{quote}\begin{description}
-\item[{retval}] \leavevmode\begin{itemize}
-\item {} 
-0   on success, otherwise - Kerberos error codes
-
-\end{itemize}
-
-\end{description}\end{quote}
-
-Sign \sphinxstyleemphasis{pac} using the keys \sphinxstyleemphasis{server} and \sphinxstyleemphasis{privsvr} . Include a ticket signature over \sphinxstyleemphasis{enc\_tkt} if \sphinxstyleemphasis{server\_princ} is not a TGS or kadmin/changepw principal name. Add the signed PAC’s encoding to the authorization data of \sphinxstyleemphasis{enc\_tkt} in the first slot, wrapped in an AD-IF-RELEVANT container. If \sphinxstyleemphasis{client\_princ} is non-null, add a PAC\_CLIENT\_INFO buffer, including the realm if \sphinxstyleemphasis{with\_realm} is true.
-
-\begin{sphinxadmonition}{note}{Note:}
-New in 1.20
-\end{sphinxadmonition}
-
-
-\subsubsection{krb5\_kdc\_verify\_ticket -  Verify a PAC, possibly including ticket signature.}
-\label{\detokenize{appdev/refs/api/krb5_kdc_verify_ticket:krb5-kdc-verify-ticket-verify-a-pac-possibly-including-ticket-signature}}\label{\detokenize{appdev/refs/api/krb5_kdc_verify_ticket::doc}}\index{krb5\_kdc\_verify\_ticket (C function)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/api/krb5_kdc_verify_ticket:c.krb5_kdc_verify_ticket}}\pysiglinewithargsret{{\hyperref[\detokenize{appdev/refs/types/krb5_error_code:c.krb5_error_code}]{\sphinxcrossref{krb5\_error\_code}}} \sphinxbfcode{krb5\_kdc\_verify\_ticket}}{{\hyperref[\detokenize{appdev/refs/types/krb5_context:c.krb5_context}]{\sphinxcrossref{krb5\_context}}}\sphinxstyleemphasis{ context}, const {\hyperref[\detokenize{appdev/refs/types/krb5_enc_tkt_part:c.krb5_enc_tkt_part}]{\sphinxcrossref{krb5\_enc\_tkt\_part}}} *\sphinxstyleemphasis{ enc\_tkt}, {\hyperref[\detokenize{appdev/refs/types/krb5_const_principal:c.krb5_const_principal}]{\sphinxcrossref{krb5\_const\_principal}}}\sphinxstyleemphasis{ server\_princ}, const {\hyperref[\detokenize{appdev/refs/types/krb5_keyblock:c.krb5_keyblock}]{\sphinxcrossref{krb5\_keyblock}}} *\sphinxstyleemphasis{ server}, const {\hyperref[\detokenize{appdev/refs/types/krb5_keyblock:c.krb5_keyblock}]{\sphinxcrossref{krb5\_keyblock}}} *\sphinxstyleemphasis{ privsvr}, {\hyperref[\detokenize{appdev/refs/types/krb5_pac:c.krb5_pac}]{\sphinxcrossref{krb5\_pac}}} *\sphinxstyleemphasis{ pac\_out}}{}
-\end{fulllineitems}
-
-\begin{quote}\begin{description}
-\item[{param}] \leavevmode
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{context} - Library context
-
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{enc\_tkt} - Ticket enc-part, possibly containing a PAC
-
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{server\_princ} - Canonicalized name of ticket server
-
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{server} - Key to validate server checksum (or NULL)
-
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{privsvr} - Key to validate KDC checksum (or NULL)
-
-\sphinxstylestrong{{[}out{]}} \sphinxstylestrong{pac\_out} - Verified PAC (NULL if no PAC included)
-
-\end{description}\end{quote}
-\begin{quote}\begin{description}
-\item[{retval}] \leavevmode\begin{itemize}
-\item {} 
-0   Success; otherwise - Kerberos error codes
-
-\end{itemize}
-
-\end{description}\end{quote}
-
-If a PAC is present in \sphinxstyleemphasis{enc\_tkt} , verify its signatures. If \sphinxstyleemphasis{privsvr} is not NULL and \sphinxstyleemphasis{server\_princ} is not a krbtgt or kadmin/changepw service, require a ticket signature over \sphinxstyleemphasis{enc\_tkt} in addition to the KDC signature. Place the verified PAC in \sphinxstyleemphasis{pac\_out} . If an invalid PAC signature is found, return an error matching the Windows KDC protocol code for that condition as closely as possible.
-
-If no PAC is present in \sphinxstyleemphasis{enc\_tkt} , set \sphinxstyleemphasis{pac\_out} to NULL and return successfully.
-
-\begin{sphinxadmonition}{note}{Note:}
-This function does not validate the PAC\_CLIENT\_INFO buffer. If a specific value is expected, the caller can make a separate call to {\hyperref[\detokenize{appdev/refs/api/krb5_pac_verify_ext:c.krb5_pac_verify_ext}]{\sphinxcrossref{\sphinxcode{krb5\_pac\_verify\_ext()}}}} with a principal but no keys.
-\end{sphinxadmonition}
-
-\begin{sphinxadmonition}{note}{Note:}
-New in 1.20
-\end{sphinxadmonition}
-
-
 \subsubsection{krb5\_kt\_add\_entry -  Add a new entry to a key table.}
 \label{\detokenize{appdev/refs/api/krb5_kt_add_entry:krb5-kt-add-entry-add-a-new-entry-to-a-key-table}}\label{\detokenize{appdev/refs/api/krb5_kt_add_entry::doc}}\index{krb5\_kt\_add\_entry (C function)}
 
@@ -8052,36 +7849,6 @@ Prepare to read sequentially every key in the specified key table. Use {\hyperre
 \end{description}\end{quote}
 
 This function wraps a list of authorization data entries \sphinxstyleemphasis{authdata} in an AD-KDCIssued container (see RFC 4120 section 5.2.6.2) signed with \sphinxstyleemphasis{key} . The result is returned in \sphinxstyleemphasis{ad\_kdcissued} as a single-element list.
-
-
-\subsubsection{krb5\_marshal\_credentials -  Serialize a krb5\_creds object.}
-\label{\detokenize{appdev/refs/api/krb5_marshal_credentials:krb5-marshal-credentials-serialize-a-krb5-creds-object}}\label{\detokenize{appdev/refs/api/krb5_marshal_credentials::doc}}\index{krb5\_marshal\_credentials (C function)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/api/krb5_marshal_credentials:c.krb5_marshal_credentials}}\pysiglinewithargsret{{\hyperref[\detokenize{appdev/refs/types/krb5_error_code:c.krb5_error_code}]{\sphinxcrossref{krb5\_error\_code}}} \sphinxbfcode{krb5\_marshal\_credentials}}{{\hyperref[\detokenize{appdev/refs/types/krb5_context:c.krb5_context}]{\sphinxcrossref{krb5\_context}}}\sphinxstyleemphasis{ context}, {\hyperref[\detokenize{appdev/refs/types/krb5_creds:c.krb5_creds}]{\sphinxcrossref{krb5\_creds}}} *\sphinxstyleemphasis{ in\_creds}, {\hyperref[\detokenize{appdev/refs/types/krb5_data:c.krb5_data}]{\sphinxcrossref{krb5\_data}}} **\sphinxstyleemphasis{ data\_out}}{}
-\end{fulllineitems}
-
-\begin{quote}\begin{description}
-\item[{param}] \leavevmode
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{context} - Library context
-
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{in\_creds} - The credentials object to serialize
-
-\sphinxstylestrong{{[}out{]}} \sphinxstylestrong{data\_out} - The serialized credentials
-
-\end{description}\end{quote}
-\begin{quote}\begin{description}
-\item[{retval}] \leavevmode\begin{itemize}
-\item {} 
-0   Success; otherwise - Kerberos error codes
-
-\end{itemize}
-
-\end{description}\end{quote}
-
-Serialize \sphinxstyleemphasis{creds} in the format used by the FILE ccache format (vesion 4) and KCM ccache protocol.
-
-Use {\hyperref[\detokenize{appdev/refs/api/krb5_free_data:c.krb5_free_data}]{\sphinxcrossref{\sphinxcode{krb5\_free\_data()}}}} to free \sphinxstyleemphasis{data\_out} when it is no longer needed.
 
 
 \subsubsection{krb5\_merge\_authdata -  Merge two authorization data lists into a new list.}
@@ -8710,8 +8477,8 @@ Use {\hyperref[\detokenize{appdev/refs/api/krb5_pac_free:c.krb5_pac_free}]{\sphi
 Use {\hyperref[\detokenize{appdev/refs/api/krb5_pac_free:c.krb5_pac_free}]{\sphinxcrossref{\sphinxcode{krb5\_pac\_free()}}}} to free \sphinxstyleemphasis{pac} when it is no longer needed.
 
 
-\subsubsection{krb5\_pac\_sign}
-\label{\detokenize{appdev/refs/api/krb5_pac_sign:krb5-pac-sign}}\label{\detokenize{appdev/refs/api/krb5_pac_sign::doc}}\index{krb5\_pac\_sign (C function)}
+\subsubsection{krb5\_pac\_sign -  Sign a PAC.}
+\label{\detokenize{appdev/refs/api/krb5_pac_sign:krb5-pac-sign-sign-a-pac}}\label{\detokenize{appdev/refs/api/krb5_pac_sign::doc}}\index{krb5\_pac\_sign (C function)}
 
 \begin{fulllineitems}
 \phantomsection\label{\detokenize{appdev/refs/api/krb5_pac_sign:c.krb5_pac_sign}}\pysiglinewithargsret{{\hyperref[\detokenize{appdev/refs/types/krb5_error_code:c.krb5_error_code}]{\sphinxcrossref{krb5\_error\_code}}} \sphinxbfcode{krb5\_pac\_sign}}{{\hyperref[\detokenize{appdev/refs/types/krb5_context:c.krb5_context}]{\sphinxcrossref{krb5\_context}}}\sphinxstyleemphasis{ context}, {\hyperref[\detokenize{appdev/refs/types/krb5_pac:c.krb5_pac}]{\sphinxcrossref{krb5\_pac}}}\sphinxstyleemphasis{ pac}, {\hyperref[\detokenize{appdev/refs/types/krb5_timestamp:c.krb5_timestamp}]{\sphinxcrossref{krb5\_timestamp}}}\sphinxstyleemphasis{ authtime}, {\hyperref[\detokenize{appdev/refs/types/krb5_const_principal:c.krb5_const_principal}]{\sphinxcrossref{krb5\_const\_principal}}}\sphinxstyleemphasis{ principal}, const {\hyperref[\detokenize{appdev/refs/types/krb5_keyblock:c.krb5_keyblock}]{\sphinxcrossref{krb5\_keyblock}}} *\sphinxstyleemphasis{ server\_key}, const {\hyperref[\detokenize{appdev/refs/types/krb5_keyblock:c.krb5_keyblock}]{\sphinxcrossref{krb5\_keyblock}}} *\sphinxstyleemphasis{ privsvr\_key}, {\hyperref[\detokenize{appdev/refs/types/krb5_data:c.krb5_data}]{\sphinxcrossref{krb5\_data}}} *\sphinxstyleemphasis{ data}}{}
@@ -8719,27 +8486,31 @@ Use {\hyperref[\detokenize{appdev/refs/api/krb5_pac_free:c.krb5_pac_free}]{\sphi
 
 \begin{quote}\begin{description}
 \item[{param}] \leavevmode
-\sphinxstylestrong{context}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{context} - Library context
 
-\sphinxstylestrong{pac}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{pac} - PAC handle
 
-\sphinxstylestrong{authtime}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{authtime} - Expected timestamp
 
-\sphinxstylestrong{principal}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{principal} - Expected principal name (or NULL)
 
-\sphinxstylestrong{server\_key}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{server\_key} - Key for server checksum
 
-\sphinxstylestrong{privsvr\_key}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{privsvr\_key} - Key for KDC checksum
 
-\sphinxstylestrong{data}
+\sphinxstylestrong{{[}out{]}} \sphinxstylestrong{data} - Signed PAC encoding
 
 \end{description}\end{quote}
 
-DEPRECATED Use krb5\_kdc\_sign\_ticket() instead.
+This function signs \sphinxstyleemphasis{pac} using the keys \sphinxstyleemphasis{server\_key} and \sphinxstyleemphasis{privsvr\_key} and returns the signed encoding in \sphinxstyleemphasis{data} . \sphinxstyleemphasis{pac} is modified to include the server and KDC checksum buffers. Use {\hyperref[\detokenize{appdev/refs/api/krb5_free_data_contents:c.krb5_free_data_contents}]{\sphinxcrossref{\sphinxcode{krb5\_free\_data\_contents()}}}} to free \sphinxstyleemphasis{data} when it is no longer needed.
+
+\begin{sphinxadmonition}{note}{Note:}
+New in 1.10
+\end{sphinxadmonition}
 
 
-\subsubsection{krb5\_pac\_sign\_ext}
-\label{\detokenize{appdev/refs/api/krb5_pac_sign_ext:krb5-pac-sign-ext}}\label{\detokenize{appdev/refs/api/krb5_pac_sign_ext::doc}}\index{krb5\_pac\_sign\_ext (C function)}
+\subsubsection{krb5\_pac\_sign\_ext -  Sign a PAC, possibly with a specified realm.}
+\label{\detokenize{appdev/refs/api/krb5_pac_sign_ext:krb5-pac-sign-ext-sign-a-pac-possibly-with-a-specified-realm}}\label{\detokenize{appdev/refs/api/krb5_pac_sign_ext::doc}}\index{krb5\_pac\_sign\_ext (C function)}
 
 \begin{fulllineitems}
 \phantomsection\label{\detokenize{appdev/refs/api/krb5_pac_sign_ext:c.krb5_pac_sign_ext}}\pysiglinewithargsret{{\hyperref[\detokenize{appdev/refs/types/krb5_error_code:c.krb5_error_code}]{\sphinxcrossref{krb5\_error\_code}}} \sphinxbfcode{krb5\_pac\_sign\_ext}}{{\hyperref[\detokenize{appdev/refs/types/krb5_context:c.krb5_context}]{\sphinxcrossref{krb5\_context}}}\sphinxstyleemphasis{ context}, {\hyperref[\detokenize{appdev/refs/types/krb5_pac:c.krb5_pac}]{\sphinxcrossref{krb5\_pac}}}\sphinxstyleemphasis{ pac}, {\hyperref[\detokenize{appdev/refs/types/krb5_timestamp:c.krb5_timestamp}]{\sphinxcrossref{krb5\_timestamp}}}\sphinxstyleemphasis{ authtime}, {\hyperref[\detokenize{appdev/refs/types/krb5_const_principal:c.krb5_const_principal}]{\sphinxcrossref{krb5\_const\_principal}}}\sphinxstyleemphasis{ principal}, const {\hyperref[\detokenize{appdev/refs/types/krb5_keyblock:c.krb5_keyblock}]{\sphinxcrossref{krb5\_keyblock}}} *\sphinxstyleemphasis{ server\_key}, const {\hyperref[\detokenize{appdev/refs/types/krb5_keyblock:c.krb5_keyblock}]{\sphinxcrossref{krb5\_keyblock}}} *\sphinxstyleemphasis{ privsvr\_key}, {\hyperref[\detokenize{appdev/refs/types/krb5_boolean:c.krb5_boolean}]{\sphinxcrossref{krb5\_boolean}}}\sphinxstyleemphasis{ with\_realm}, {\hyperref[\detokenize{appdev/refs/types/krb5_data:c.krb5_data}]{\sphinxcrossref{krb5\_data}}} *\sphinxstyleemphasis{ data}}{}
@@ -8747,25 +8518,29 @@ DEPRECATED Use krb5\_kdc\_sign\_ticket() instead.
 
 \begin{quote}\begin{description}
 \item[{param}] \leavevmode
-\sphinxstylestrong{context}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{context} - Library context
 
-\sphinxstylestrong{pac}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{pac} - PAC handle
 
-\sphinxstylestrong{authtime}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{authtime} - Expected timestamp
 
-\sphinxstylestrong{principal}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{principal} - Principal name (or NULL)
 
-\sphinxstylestrong{server\_key}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{server\_key} - Key for server checksum
 
-\sphinxstylestrong{privsvr\_key}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{privsvr\_key} - Key for KDC checksum
 
-\sphinxstylestrong{with\_realm}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{with\_realm} - If true, include the realm of \sphinxstyleemphasis{principal}
 
-\sphinxstylestrong{data}
+\sphinxstylestrong{{[}out{]}} \sphinxstylestrong{data} - Signed PAC encoding
 
 \end{description}\end{quote}
 
-DEPRECATED Use krb5\_kdc\_sign\_ticket() instead.
+This function is similar to {\hyperref[\detokenize{appdev/refs/api/krb5_pac_sign:c.krb5_pac_sign}]{\sphinxcrossref{\sphinxcode{krb5\_pac\_sign()}}}} , but adds a parameter \sphinxstyleemphasis{with\_realm} . If \sphinxstyleemphasis{with\_realm} is true, the PAC\_CLIENT\_INFO field of the signed PAC will include the realm of \sphinxstyleemphasis{principal} as well as the name. This flag is necessary to generate PACs for cross-realm S4U2Self referrals.
+
+\begin{sphinxadmonition}{note}{Note:}
+New in 1.17
+\end{sphinxadmonition}
 
 
 \subsubsection{krb5\_pac\_verify -  Verify a PAC.}
@@ -8840,8 +8615,8 @@ New in 1.17
 \end{sphinxadmonition}
 
 
-\subsubsection{krb5\_pac\_get\_client\_info -  Read client information from a PAC.}
-\label{\detokenize{appdev/refs/api/krb5_pac_get_client_info::doc}}\label{\detokenize{appdev/refs/api/krb5_pac_get_client_info:krb5-pac-get-client-info-read-client-information-from-a-pac}}\index{krb5\_pac\_get\_client\_info (C function)}
+\subsubsection{krb5\_pac\_get\_client\_info}
+\label{\detokenize{appdev/refs/api/krb5_pac_get_client_info:krb5-pac-get-client-info}}\label{\detokenize{appdev/refs/api/krb5_pac_get_client_info::doc}}\index{krb5\_pac\_get\_client\_info (C function)}
 
 \begin{fulllineitems}
 \phantomsection\label{\detokenize{appdev/refs/api/krb5_pac_get_client_info:c.krb5_pac_get_client_info}}\pysiglinewithargsret{{\hyperref[\detokenize{appdev/refs/types/krb5_error_code:c.krb5_error_code}]{\sphinxcrossref{krb5\_error\_code}}} \sphinxbfcode{krb5\_pac\_get\_client\_info}}{{\hyperref[\detokenize{appdev/refs/types/krb5_context:c.krb5_context}]{\sphinxcrossref{krb5\_context}}}\sphinxstyleemphasis{ context}, const {\hyperref[\detokenize{appdev/refs/types/krb5_pac:c.krb5_pac}]{\sphinxcrossref{krb5\_pac}}}\sphinxstyleemphasis{ pac}, {\hyperref[\detokenize{appdev/refs/types/krb5_timestamp:c.krb5_timestamp}]{\sphinxcrossref{krb5\_timestamp}}} *\sphinxstyleemphasis{ authtime\_out}, char **\sphinxstyleemphasis{ princname\_out}}{}
@@ -8849,29 +8624,15 @@ New in 1.17
 
 \begin{quote}\begin{description}
 \item[{param}] \leavevmode
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{context} - Library context
+\sphinxstylestrong{context}
 
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{pac} - PAC handle
+\sphinxstylestrong{pac}
 
-\sphinxstylestrong{{[}out{]}} \sphinxstylestrong{authtime\_out} - Authentication timestamp (NULL if not needed)
+\sphinxstylestrong{authtime\_out}
 
-\sphinxstylestrong{{[}out{]}} \sphinxstylestrong{princname\_out} - Client account name
-
-\end{description}\end{quote}
-\begin{quote}\begin{description}
-\item[{retval}] \leavevmode\begin{itemize}
-\item {} 
-0   on success, ENOENT if no PAC\_CLIENT\_INFO buffer is present in pac , ERANGE if the buffer contains invalid lengths.
-
-\end{itemize}
+\sphinxstylestrong{princname\_out}
 
 \end{description}\end{quote}
-
-Read the PAC\_CLIENT\_INFO buffer in \sphinxstyleemphasis{pac} . Place the client account name as a string in \sphinxstyleemphasis{princname\_out} . If \sphinxstyleemphasis{authtime\_out} is not NULL, place the initial authentication timestamp in \sphinxstyleemphasis{authtime\_out} .
-
-\begin{sphinxadmonition}{note}{Note:}
-New in 1.18
-\end{sphinxadmonition}
 
 
 \subsubsection{krb5\_prepend\_error\_message -  Add a prefix to the message for an error code.}
@@ -9847,36 +9608,6 @@ New in 1.9
 \end{sphinxadmonition}
 
 
-\subsubsection{krb5\_unmarshal\_credentials -  Deserialize a krb5\_creds object.}
-\label{\detokenize{appdev/refs/api/krb5_unmarshal_credentials::doc}}\label{\detokenize{appdev/refs/api/krb5_unmarshal_credentials:krb5-unmarshal-credentials-deserialize-a-krb5-creds-object}}\index{krb5\_unmarshal\_credentials (C function)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/api/krb5_unmarshal_credentials:c.krb5_unmarshal_credentials}}\pysiglinewithargsret{{\hyperref[\detokenize{appdev/refs/types/krb5_error_code:c.krb5_error_code}]{\sphinxcrossref{krb5\_error\_code}}} \sphinxbfcode{krb5\_unmarshal\_credentials}}{{\hyperref[\detokenize{appdev/refs/types/krb5_context:c.krb5_context}]{\sphinxcrossref{krb5\_context}}}\sphinxstyleemphasis{ context}, const {\hyperref[\detokenize{appdev/refs/types/krb5_data:c.krb5_data}]{\sphinxcrossref{krb5\_data}}} *\sphinxstyleemphasis{ data}, {\hyperref[\detokenize{appdev/refs/types/krb5_creds:c.krb5_creds}]{\sphinxcrossref{krb5\_creds}}} **\sphinxstyleemphasis{ creds\_out}}{}
-\end{fulllineitems}
-
-\begin{quote}\begin{description}
-\item[{param}] \leavevmode
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{context} - Library context
-
-\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{data} - The serialized credentials
-
-\sphinxstylestrong{{[}out{]}} \sphinxstylestrong{creds\_out} - The resulting creds object
-
-\end{description}\end{quote}
-\begin{quote}\begin{description}
-\item[{retval}] \leavevmode\begin{itemize}
-\item {} 
-0   Success; otherwise - Kerberos error codes
-
-\end{itemize}
-
-\end{description}\end{quote}
-
-Deserialize \sphinxstyleemphasis{data} to credentials in the format used by the FILE ccache format (vesion 4) and KCM ccache protocol.
-
-Use {\hyperref[\detokenize{appdev/refs/api/krb5_free_creds:c.krb5_free_creds}]{\sphinxcrossref{\sphinxcode{krb5\_free\_creds()}}}} to free \sphinxstyleemphasis{creds\_out} when it is no longer needed.
-
-
 \subsubsection{krb5\_verify\_init\_creds -  Verify initial credentials against a keytab.}
 \label{\detokenize{appdev/refs/api/krb5_verify_init_creds:krb5-verify-init-creds-verify-initial-credentials-against-a-keytab}}\label{\detokenize{appdev/refs/api/krb5_verify_init_creds::doc}}\index{krb5\_verify\_init\_creds (C function)}
 
@@ -10832,8 +10563,8 @@ RFC 4402 defines a different PRF+ operation. This function does not implement th
 \end{description}\end{quote}
 
 
-\subsubsection{krb5\_c\_random\_add\_entropy}
-\label{\detokenize{appdev/refs/api/krb5_c_random_add_entropy::doc}}\label{\detokenize{appdev/refs/api/krb5_c_random_add_entropy:krb5-c-random-add-entropy}}\index{krb5\_c\_random\_add\_entropy (C function)}
+\subsubsection{krb5\_c\_random\_add\_entropy -  Add entropy to the pseudo-random number generator.}
+\label{\detokenize{appdev/refs/api/krb5_c_random_add_entropy::doc}}\label{\detokenize{appdev/refs/api/krb5_c_random_add_entropy:krb5-c-random-add-entropy-add-entropy-to-the-pseudo-random-number-generator}}\index{krb5\_c\_random\_add\_entropy (C function)}
 
 \begin{fulllineitems}
 \phantomsection\label{\detokenize{appdev/refs/api/krb5_c_random_add_entropy:c.krb5_c_random_add_entropy}}\pysiglinewithargsret{{\hyperref[\detokenize{appdev/refs/types/krb5_error_code:c.krb5_error_code}]{\sphinxcrossref{krb5\_error\_code}}} \sphinxbfcode{krb5\_c\_random\_add\_entropy}}{{\hyperref[\detokenize{appdev/refs/types/krb5_context:c.krb5_context}]{\sphinxcrossref{krb5\_context}}}\sphinxstyleemphasis{ context}, unsigned int\sphinxstyleemphasis{ randsource}, const {\hyperref[\detokenize{appdev/refs/types/krb5_data:c.krb5_data}]{\sphinxcrossref{krb5\_data}}} *\sphinxstyleemphasis{ data}}{}
@@ -10841,15 +10572,23 @@ RFC 4402 defines a different PRF+ operation. This function does not implement th
 
 \begin{quote}\begin{description}
 \item[{param}] \leavevmode
-\sphinxstylestrong{context}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{context} - Library context
 
-\sphinxstylestrong{randsource}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{randsource} - Entropy source (see KRB5\_RANDSOURCE types)
 
-\sphinxstylestrong{data}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{data} - Data
+
+\end{description}\end{quote}
+\begin{quote}\begin{description}
+\item[{retval}] \leavevmode\begin{itemize}
+\item {} 
+0   Success; otherwise - Kerberos error codes
+
+\end{itemize}
 
 \end{description}\end{quote}
 
-DEPRECATED This call is no longer necessary.
+Contribute entropy to the PRNG used by krb5 crypto operations. This may or may not affect the output of the next crypto operation requiring random data.
 
 
 \subsubsection{krb5\_c\_random\_make\_octets -  Generate pseudo-random bytes.}
@@ -10878,8 +10617,8 @@ DEPRECATED This call is no longer necessary.
 Fills in \sphinxstyleemphasis{data} with bytes from the PRNG used by krb5 crypto operations. The caller must preinitialize \sphinxstyleemphasis{data} and allocate the desired amount of space.
 
 
-\subsubsection{krb5\_c\_random\_os\_entropy}
-\label{\detokenize{appdev/refs/api/krb5_c_random_os_entropy::doc}}\label{\detokenize{appdev/refs/api/krb5_c_random_os_entropy:krb5-c-random-os-entropy}}\index{krb5\_c\_random\_os\_entropy (C function)}
+\subsubsection{krb5\_c\_random\_os\_entropy -  Collect entropy from the OS if possible.}
+\label{\detokenize{appdev/refs/api/krb5_c_random_os_entropy:krb5-c-random-os-entropy-collect-entropy-from-the-os-if-possible}}\label{\detokenize{appdev/refs/api/krb5_c_random_os_entropy::doc}}\index{krb5\_c\_random\_os\_entropy (C function)}
 
 \begin{fulllineitems}
 \phantomsection\label{\detokenize{appdev/refs/api/krb5_c_random_os_entropy:c.krb5_c_random_os_entropy}}\pysiglinewithargsret{{\hyperref[\detokenize{appdev/refs/types/krb5_error_code:c.krb5_error_code}]{\sphinxcrossref{krb5\_error\_code}}} \sphinxbfcode{krb5\_c\_random\_os\_entropy}}{{\hyperref[\detokenize{appdev/refs/types/krb5_context:c.krb5_context}]{\sphinxcrossref{krb5\_context}}}\sphinxstyleemphasis{ context}, int\sphinxstyleemphasis{ strong}, int *\sphinxstyleemphasis{ success}}{}
@@ -10887,15 +10626,23 @@ Fills in \sphinxstyleemphasis{data} with bytes from the PRNG used by krb5 crypto
 
 \begin{quote}\begin{description}
 \item[{param}] \leavevmode
-\sphinxstylestrong{context}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{context} - Library context
 
-\sphinxstylestrong{strong}
+\sphinxstylestrong{{[}in{]}} \sphinxstylestrong{strong} - Strongest available source of entropy
 
-\sphinxstylestrong{success}
+\sphinxstylestrong{{[}out{]}} \sphinxstylestrong{success} - 1 if OS provides entropy, 0 otherwise
+
+\end{description}\end{quote}
+\begin{quote}\begin{description}
+\item[{retval}] \leavevmode\begin{itemize}
+\item {} 
+0   Success; otherwise - Kerberos error codes
+
+\end{itemize}
 
 \end{description}\end{quote}
 
-DEPRECATED This call is no longer necessary.
+If \sphinxstyleemphasis{strong} is non-zero, this function attempts to use the strongest available source of entropy. Setting this flag may cause the function to block on some operating systems. Good uses include seeding the PRNG for kadmind and realm setup.
 
 
 \subsubsection{krb5\_c\_random\_to\_key -  Generate an enctype-specific key from random data.}
@@ -11081,7 +10828,7 @@ TRUE if ktype is valid, FALSE if not
 
 \end{description}\end{quote}
 
-This function verifies that \sphinxstyleemphasis{cksum} is a valid checksum for \sphinxstyleemphasis{data} . If the checksum type of \sphinxstyleemphasis{cksum} is a keyed checksum, \sphinxstyleemphasis{key} is used to verify the checksum. If the checksum type in \sphinxstyleemphasis{cksum} is 0 and \sphinxstyleemphasis{key} is not NULL, the mandatory checksum type for \sphinxstyleemphasis{key} will be used. The actual checksum key will bederived from \sphinxstyleemphasis{key} and \sphinxstyleemphasis{usage} if key derivation is specified for the checksum type.
+This function verifies that \sphinxstyleemphasis{cksum} is a valid checksum for \sphinxstyleemphasis{data} . If the checksum type of \sphinxstyleemphasis{cksum} is a keyed checksum, \sphinxstyleemphasis{key} is used to verify the checksum. If the checksum type in \sphinxstyleemphasis{cksum} is 0 and \sphinxstyleemphasis{key} is not NULL, the mandatory checksum type for \sphinxstyleemphasis{key} will be used. The actual checksum key will be derived from \sphinxstyleemphasis{key} and \sphinxstyleemphasis{usage} if key derivation is specified for the checksum type.
 
 \begin{sphinxadmonition}{note}{Note:}
 This function is similar to {\hyperref[\detokenize{appdev/refs/api/krb5_k_verify_checksum:c.krb5_k_verify_checksum}]{\sphinxcrossref{\sphinxcode{krb5\_k\_verify\_checksum()}}}} , but operates on keyblock \sphinxstyleemphasis{key} .
@@ -11379,7 +11126,7 @@ This function frees the contents of \sphinxstyleemphasis{val} and the structure 
 
 \end{description}\end{quote}
 
-This function frees the contents of \sphinxstyleemphasis{val} , but not the structure itself. It sets the checksum’s data pointer to null and (beginning in release 1.19) sets its length to zero.
+This function frees the contents of \sphinxstyleemphasis{val} , but not the structure itself.
 
 
 \subsubsection{krb5\_free\_cksumtypes -  Free an array of checksum types.}
@@ -12194,7 +11941,7 @@ DEPRECATED Replaced by krb5\_build\_principal\_alloc\_va() .
 
 \end{description}\end{quote}
 
-DEPRECATED This call is no longer necessary.
+DEPRECATED Replaced by krb5\_c\_* API family.
 
 
 \subsubsection{krb5\_calculate\_checksum}
@@ -14778,7 +14525,7 @@ typedef krb5\_error\_code( * krb5\_post\_recv\_fn) (krb5\_context context, void 
 
 Hook function for inspecting or modifying messages sent to KDCs.
 
-If the hook function sets \sphinxstyleemphasis{new\_reply\_out} , \sphinxstyleemphasis{message} will not be sent to the KDC, and the given reply will used instead.
+If the hook function sets \sphinxstyleemphasis{reply\_out} , \sphinxstyleemphasis{message} will not be sent to the KDC, and the given reply will used instead.
 If the hook function sets \sphinxstyleemphasis{new\_message\_out} , the given message will be sent to the KDC in place of \sphinxstyleemphasis{message} .
 If the hook function returns successfully without setting either output, \sphinxstyleemphasis{message} will be sent to the KDC normally.
 The hook function should use {\hyperref[\detokenize{appdev/refs/api/krb5_copy_data:c.krb5_copy_data}]{\sphinxcrossref{\sphinxcode{krb5\_copy\_data()}}}} to construct the value for \sphinxstyleemphasis{new\_message\_out} or \sphinxstyleemphasis{reply\_out} , to ensure that it can be freed correctly by the library.
@@ -16733,32 +16480,6 @@ RFC 8009.
 \sphinxattableend\end{savenotes}
 
 
-\subsubsection{CKSUMTYPE\_SHA1}
-\label{\detokenize{appdev/refs/macros/CKSUMTYPE_SHA1::doc}}\label{\detokenize{appdev/refs/macros/CKSUMTYPE_SHA1:cksumtype-sha1}}\label{\detokenize{appdev/refs/macros/CKSUMTYPE_SHA1:cksumtype-sha1-data}}\index{CKSUMTYPE\_SHA1 (built-in variable)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/macros/CKSUMTYPE_SHA1:CKSUMTYPE_SHA1}}\pysigline{\sphinxbfcode{CKSUMTYPE\_SHA1}}
-\end{fulllineitems}
-
-
-RFC 3961.
-
-
-\begin{savenotes}\sphinxattablestart
-\centering
-\begin{tabulary}{\linewidth}[t]{|T|T|}
-\hline
-
-\sphinxcode{CKSUMTYPE\_SHA1}
-&
-\sphinxcode{0x000e}
-\\
-\hline
-\end{tabulary}
-\par
-\sphinxattableend\end{savenotes}
-
-
 \subsubsection{ENCTYPE\_AES128\_CTS\_HMAC\_SHA1\_96}
 \label{\detokenize{appdev/refs/macros/ENCTYPE_AES128_CTS_HMAC_SHA1_96:enctype-aes128-cts-hmac-sha1-96-data}}\label{\detokenize{appdev/refs/macros/ENCTYPE_AES128_CTS_HMAC_SHA1_96::doc}}\label{\detokenize{appdev/refs/macros/ENCTYPE_AES128_CTS_HMAC_SHA1_96:enctype-aes128-cts-hmac-sha1-96}}\index{ENCTYPE\_AES128\_CTS\_HMAC\_SHA1\_96 (built-in variable)}
 
@@ -17979,30 +17700,6 @@ Initial authentication request.
 \sphinxattableend\end{savenotes}
 
 
-\subsubsection{KRB5\_AUTHDATA\_AP\_OPTIONS}
-\label{\detokenize{appdev/refs/macros/KRB5_AUTHDATA_AP_OPTIONS:krb5-authdata-ap-options-data}}\label{\detokenize{appdev/refs/macros/KRB5_AUTHDATA_AP_OPTIONS::doc}}\label{\detokenize{appdev/refs/macros/KRB5_AUTHDATA_AP_OPTIONS:krb5-authdata-ap-options}}\index{KRB5\_AUTHDATA\_AP\_OPTIONS (built-in variable)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/macros/KRB5_AUTHDATA_AP_OPTIONS:KRB5_AUTHDATA_AP_OPTIONS}}\pysigline{\sphinxbfcode{KRB5\_AUTHDATA\_AP\_OPTIONS}}
-\end{fulllineitems}
-
-
-
-\begin{savenotes}\sphinxattablestart
-\centering
-\begin{tabulary}{\linewidth}[t]{|T|T|}
-\hline
-
-\sphinxcode{KRB5\_AUTHDATA\_AP\_OPTIONS}
-&
-\sphinxcode{143}
-\\
-\hline
-\end{tabulary}
-\par
-\sphinxattableend\end{savenotes}
-
-
 \subsubsection{KRB5\_AUTHDATA\_AUTH\_INDICATOR}
 \label{\detokenize{appdev/refs/macros/KRB5_AUTHDATA_AUTH_INDICATOR:krb5-authdata-auth-indicator}}\label{\detokenize{appdev/refs/macros/KRB5_AUTHDATA_AUTH_INDICATOR::doc}}\label{\detokenize{appdev/refs/macros/KRB5_AUTHDATA_AUTH_INDICATOR:krb5-authdata-auth-indicator-data}}\index{KRB5\_AUTHDATA\_AUTH\_INDICATOR (built-in variable)}
 
@@ -18252,6 +17949,8 @@ RFC 4537.
 \phantomsection\label{\detokenize{appdev/refs/macros/KRB5_AUTHDATA_SIGNTICKET:KRB5_AUTHDATA_SIGNTICKET}}\pysigline{\sphinxbfcode{KRB5\_AUTHDATA\_SIGNTICKET}}
 \end{fulllineitems}
 
+
+formerly 142 in krb5 1.8
 
 
 \begin{savenotes}\sphinxattablestart
@@ -21511,32 +21210,6 @@ PKINIT.
 \sphinxattableend\end{savenotes}
 
 
-\subsubsection{KRB5\_PAC\_ATTRIBUTES\_INFO}
-\label{\detokenize{appdev/refs/macros/KRB5_PAC_ATTRIBUTES_INFO:krb5-pac-attributes-info-data}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_ATTRIBUTES_INFO::doc}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_ATTRIBUTES_INFO:krb5-pac-attributes-info}}\index{KRB5\_PAC\_ATTRIBUTES\_INFO (built-in variable)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/macros/KRB5_PAC_ATTRIBUTES_INFO:KRB5_PAC_ATTRIBUTES_INFO}}\pysigline{\sphinxbfcode{KRB5\_PAC\_ATTRIBUTES\_INFO}}
-\end{fulllineitems}
-
-
-PAC attributes.
-
-
-\begin{savenotes}\sphinxattablestart
-\centering
-\begin{tabulary}{\linewidth}[t]{|T|T|}
-\hline
-
-\sphinxcode{KRB5\_PAC\_ATTRIBUTES\_INFO}
-&
-\sphinxcode{17}
-\\
-\hline
-\end{tabulary}
-\par
-\sphinxattableend\end{savenotes}
-
-
 \subsubsection{KRB5\_PAC\_CLIENT\_INFO}
 \label{\detokenize{appdev/refs/macros/KRB5_PAC_CLIENT_INFO:krb5-pac-client-info}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_CLIENT_INFO::doc}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_CLIENT_INFO:krb5-pac-client-info-data}}\index{KRB5\_PAC\_CLIENT\_INFO (built-in variable)}
 
@@ -21556,32 +21229,6 @@ Client name and ticket info.
 \sphinxcode{KRB5\_PAC\_CLIENT\_INFO}
 &
 \sphinxcode{10}
-\\
-\hline
-\end{tabulary}
-\par
-\sphinxattableend\end{savenotes}
-
-
-\subsubsection{KRB5\_PAC\_CLIENT\_CLAIMS}
-\label{\detokenize{appdev/refs/macros/KRB5_PAC_CLIENT_CLAIMS:krb5-pac-client-claims-data}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_CLIENT_CLAIMS:krb5-pac-client-claims}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_CLIENT_CLAIMS::doc}}\index{KRB5\_PAC\_CLIENT\_CLAIMS (built-in variable)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/macros/KRB5_PAC_CLIENT_CLAIMS:KRB5_PAC_CLIENT_CLAIMS}}\pysigline{\sphinxbfcode{KRB5\_PAC\_CLIENT\_CLAIMS}}
-\end{fulllineitems}
-
-
-Client claims information.
-
-
-\begin{savenotes}\sphinxattablestart
-\centering
-\begin{tabulary}{\linewidth}[t]{|T|T|}
-\hline
-
-\sphinxcode{KRB5\_PAC\_CLIENT\_CLAIMS}
-&
-\sphinxcode{13}
 \\
 \hline
 \end{tabulary}
@@ -21641,58 +21288,6 @@ Constrained delegation info.
 \sphinxattableend\end{savenotes}
 
 
-\subsubsection{KRB5\_PAC\_DEVICE\_CLAIMS}
-\label{\detokenize{appdev/refs/macros/KRB5_PAC_DEVICE_CLAIMS::doc}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_DEVICE_CLAIMS:krb5-pac-device-claims}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_DEVICE_CLAIMS:krb5-pac-device-claims-data}}\index{KRB5\_PAC\_DEVICE\_CLAIMS (built-in variable)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/macros/KRB5_PAC_DEVICE_CLAIMS:KRB5_PAC_DEVICE_CLAIMS}}\pysigline{\sphinxbfcode{KRB5\_PAC\_DEVICE\_CLAIMS}}
-\end{fulllineitems}
-
-
-Device claims information.
-
-
-\begin{savenotes}\sphinxattablestart
-\centering
-\begin{tabulary}{\linewidth}[t]{|T|T|}
-\hline
-
-\sphinxcode{KRB5\_PAC\_DEVICE\_CLAIMS}
-&
-\sphinxcode{15}
-\\
-\hline
-\end{tabulary}
-\par
-\sphinxattableend\end{savenotes}
-
-
-\subsubsection{KRB5\_PAC\_DEVICE\_INFO}
-\label{\detokenize{appdev/refs/macros/KRB5_PAC_DEVICE_INFO::doc}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_DEVICE_INFO:krb5-pac-device-info-data}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_DEVICE_INFO:krb5-pac-device-info}}\index{KRB5\_PAC\_DEVICE\_INFO (built-in variable)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/macros/KRB5_PAC_DEVICE_INFO:KRB5_PAC_DEVICE_INFO}}\pysigline{\sphinxbfcode{KRB5\_PAC\_DEVICE\_INFO}}
-\end{fulllineitems}
-
-
-Device information.
-
-
-\begin{savenotes}\sphinxattablestart
-\centering
-\begin{tabulary}{\linewidth}[t]{|T|T|}
-\hline
-
-\sphinxcode{KRB5\_PAC\_DEVICE\_INFO}
-&
-\sphinxcode{14}
-\\
-\hline
-\end{tabulary}
-\par
-\sphinxattableend\end{savenotes}
-
-
 \subsubsection{KRB5\_PAC\_LOGON\_INFO}
 \label{\detokenize{appdev/refs/macros/KRB5_PAC_LOGON_INFO:krb5-pac-logon-info}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_LOGON_INFO:krb5-pac-logon-info-data}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_LOGON_INFO::doc}}\index{KRB5\_PAC\_LOGON\_INFO (built-in variable)}
 
@@ -21745,32 +21340,6 @@ KDC checksum.
 \sphinxattableend\end{savenotes}
 
 
-\subsubsection{KRB5\_PAC\_REQUESTOR}
-\label{\detokenize{appdev/refs/macros/KRB5_PAC_REQUESTOR::doc}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_REQUESTOR:krb5-pac-requestor}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_REQUESTOR:krb5-pac-requestor-data}}\index{KRB5\_PAC\_REQUESTOR (built-in variable)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/macros/KRB5_PAC_REQUESTOR:KRB5_PAC_REQUESTOR}}\pysigline{\sphinxbfcode{KRB5\_PAC\_REQUESTOR}}
-\end{fulllineitems}
-
-
-PAC requestor SID.
-
-
-\begin{savenotes}\sphinxattablestart
-\centering
-\begin{tabulary}{\linewidth}[t]{|T|T|}
-\hline
-
-\sphinxcode{KRB5\_PAC\_REQUESTOR}
-&
-\sphinxcode{18}
-\\
-\hline
-\end{tabulary}
-\par
-\sphinxattableend\end{savenotes}
-
-
 \subsubsection{KRB5\_PAC\_SERVER\_CHECKSUM}
 \label{\detokenize{appdev/refs/macros/KRB5_PAC_SERVER_CHECKSUM:krb5-pac-server-checksum-data}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_SERVER_CHECKSUM:krb5-pac-server-checksum}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_SERVER_CHECKSUM::doc}}\index{KRB5\_PAC\_SERVER\_CHECKSUM (built-in variable)}
 
@@ -21790,32 +21359,6 @@ Server checksum.
 \sphinxcode{KRB5\_PAC\_SERVER\_CHECKSUM}
 &
 \sphinxcode{6}
-\\
-\hline
-\end{tabulary}
-\par
-\sphinxattableend\end{savenotes}
-
-
-\subsubsection{KRB5\_PAC\_TICKET\_CHECKSUM}
-\label{\detokenize{appdev/refs/macros/KRB5_PAC_TICKET_CHECKSUM:krb5-pac-ticket-checksum-data}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_TICKET_CHECKSUM::doc}}\label{\detokenize{appdev/refs/macros/KRB5_PAC_TICKET_CHECKSUM:krb5-pac-ticket-checksum}}\index{KRB5\_PAC\_TICKET\_CHECKSUM (built-in variable)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/macros/KRB5_PAC_TICKET_CHECKSUM:KRB5_PAC_TICKET_CHECKSUM}}\pysigline{\sphinxbfcode{KRB5\_PAC\_TICKET\_CHECKSUM}}
-\end{fulllineitems}
-
-
-Ticket checksum.
-
-
-\begin{savenotes}\sphinxattablestart
-\centering
-\begin{tabulary}{\linewidth}[t]{|T|T|}
-\hline
-
-\sphinxcode{KRB5\_PAC\_TICKET\_CHECKSUM}
-&
-\sphinxcode{16}
 \\
 \hline
 \end{tabulary}
@@ -22825,32 +22368,6 @@ RFC 4120
 \sphinxattableend\end{savenotes}
 
 
-\subsubsection{KRB5\_PADATA\_REDHAT\_IDP\_OAUTH2}
-\label{\detokenize{appdev/refs/macros/KRB5_PADATA_REDHAT_IDP_OAUTH2:krb5-padata-redhat-idp-oauth2-data}}\label{\detokenize{appdev/refs/macros/KRB5_PADATA_REDHAT_IDP_OAUTH2::doc}}\label{\detokenize{appdev/refs/macros/KRB5_PADATA_REDHAT_IDP_OAUTH2:krb5-padata-redhat-idp-oauth2}}\index{KRB5\_PADATA\_REDHAT\_IDP\_OAUTH2 (built-in variable)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/macros/KRB5_PADATA_REDHAT_IDP_OAUTH2:KRB5_PADATA_REDHAT_IDP_OAUTH2}}\pysigline{\sphinxbfcode{KRB5\_PADATA\_REDHAT\_IDP\_OAUTH2}}
-\end{fulllineitems}
-
-
-Red Hat IdP mechanism.
-
-
-\begin{savenotes}\sphinxattablestart
-\centering
-\begin{tabulary}{\linewidth}[t]{|T|T|}
-\hline
-
-\sphinxcode{KRB5\_PADATA\_REDHAT\_IDP\_OAUTH2}
-&
-\sphinxcode{152}
-\\
-\hline
-\end{tabulary}
-\par
-\sphinxattableend\end{savenotes}
-
-
 \subsubsection{KRB5\_PADATA\_SVR\_REFERRAL\_INFO}
 \label{\detokenize{appdev/refs/macros/KRB5_PADATA_SVR_REFERRAL_INFO::doc}}\label{\detokenize{appdev/refs/macros/KRB5_PADATA_SVR_REFERRAL_INFO:krb5-padata-svr-referral-info}}\label{\detokenize{appdev/refs/macros/KRB5_PADATA_SVR_REFERRAL_INFO:krb5-padata-svr-referral-info-data}}\index{KRB5\_PADATA\_SVR\_REFERRAL\_INFO (built-in variable)}
 
@@ -23078,32 +22595,6 @@ Ignore realm if present.
 \sphinxcode{KRB5\_PRINCIPAL\_PARSE\_IGNORE\_REALM}
 &
 \sphinxcode{0x8}
-\\
-\hline
-\end{tabulary}
-\par
-\sphinxattableend\end{savenotes}
-
-
-\subsubsection{KRB5\_PRINCIPAL\_PARSE\_NO\_DEF\_REALM}
-\label{\detokenize{appdev/refs/macros/KRB5_PRINCIPAL_PARSE_NO_DEF_REALM:krb5-principal-parse-no-def-realm-data}}\label{\detokenize{appdev/refs/macros/KRB5_PRINCIPAL_PARSE_NO_DEF_REALM::doc}}\label{\detokenize{appdev/refs/macros/KRB5_PRINCIPAL_PARSE_NO_DEF_REALM:krb5-principal-parse-no-def-realm}}\index{KRB5\_PRINCIPAL\_PARSE\_NO\_DEF\_REALM (built-in variable)}
-
-\begin{fulllineitems}
-\phantomsection\label{\detokenize{appdev/refs/macros/KRB5_PRINCIPAL_PARSE_NO_DEF_REALM:KRB5_PRINCIPAL_PARSE_NO_DEF_REALM}}\pysigline{\sphinxbfcode{KRB5\_PRINCIPAL\_PARSE\_NO\_DEF\_REALM}}
-\end{fulllineitems}
-
-
-Don’t add default realm.
-
-
-\begin{savenotes}\sphinxattablestart
-\centering
-\begin{tabulary}{\linewidth}[t]{|T|T|}
-\hline
-
-\sphinxcode{KRB5\_PRINCIPAL\_PARSE\_NO\_DEF\_REALM}
-&
-\sphinxcode{0x10}
 \\
 \hline
 \end{tabulary}
@@ -23585,23 +23076,23 @@ PKINIT responder question.
 
 The PKINIT responder question is asked when the client needs a password that’s being used to protect key information, and is formatted as a JSON object. A specific identity’s flags value, if not zero, is the bitwise-OR of one or more of the KRB5\_RESPONDER\_PKINIT\_FLAGS\_TOKEN\_* flags defined below, and possibly other flags to be added later. Any resemblance to similarly-named CKF\_* values in the PKCS\#11 API should not be depended on.
 
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{p}{\PYGZob{}}
-    \PYG{n}{identity} \PYG{o}{\PYGZlt{}}\PYG{n}{string}\PYG{o}{\PYGZgt{}} \PYG{o}{:} \PYG{n}{flags} \PYG{o}{\PYGZlt{}}\PYG{n}{number}\PYG{o}{\PYGZgt{}}\PYG{p}{,}
-    \PYG{p}{.}\PYG{p}{.}\PYG{p}{.}
-\PYG{p}{\PYGZcb{}}
-\end{sphinxVerbatim}
+\sphinxstyleemphasis{\{}
+
+\sphinxstyleemphasis{identity \textless{}string\textgreater{} : flags \textless{}number\textgreater{},}
+
+\sphinxstyleemphasis{…}
+
+\sphinxstyleemphasis{\}}
 
 The answer to the question MUST be JSON formatted:
 
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{p}{\PYGZob{}}
-    \PYG{n}{identity} \PYG{o}{\PYGZlt{}}\PYG{n}{string}\PYG{o}{\PYGZgt{}} \PYG{o}{:} \PYG{n}{password} \PYG{o}{\PYGZlt{}}\PYG{n}{string}\PYG{o}{\PYGZgt{}}\PYG{p}{,}
-    \PYG{p}{.}\PYG{p}{.}\PYG{p}{.}
-\PYG{p}{\PYGZcb{}}
-\end{sphinxVerbatim}
+\sphinxstyleemphasis{\{}
+
+\sphinxstyleemphasis{identity \textless{}string\textgreater{} : password \textless{}string\textgreater{},}
+
+\sphinxstyleemphasis{…}
+
+\sphinxstyleemphasis{\}}
 
 
 \begin{savenotes}\sphinxattablestart
@@ -23813,35 +23304,47 @@ OTP responder question.
 
 The OTP responder question is asked when the KDC indicates that an OTP value is required in order to complete the authentication. The JSON format of the challenge is:
 
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{p}{\PYGZob{}}
-  \PYG{l+s}{\PYGZdq{}}\PYG{l+s}{service}\PYG{l+s}{\PYGZdq{}}\PYG{o}{:} \PYG{o}{\PYGZlt{}}\PYG{n}{string} \PYG{p}{(}\PYG{n}{optional}\PYG{p}{)}\PYG{o}{\PYGZgt{}}\PYG{p}{,}
-  \PYG{l+s}{\PYGZdq{}}\PYG{l+s}{tokenInfo}\PYG{l+s}{\PYGZdq{}}\PYG{o}{:} \PYG{p}{[}
-    \PYG{p}{\PYGZob{}}
-      \PYG{l+s}{\PYGZdq{}}\PYG{l+s}{flags}\PYG{l+s}{\PYGZdq{}}\PYG{o}{:}     \PYG{o}{\PYGZlt{}}\PYG{n}{number}\PYG{o}{\PYGZgt{}}\PYG{p}{,}
-      \PYG{l+s}{\PYGZdq{}}\PYG{l+s}{vendor}\PYG{l+s}{\PYGZdq{}}\PYG{o}{:}    \PYG{o}{\PYGZlt{}}\PYG{n}{string} \PYG{p}{(}\PYG{n}{optional}\PYG{p}{)}\PYG{o}{\PYGZgt{}}\PYG{p}{,}
-      \PYG{l+s}{\PYGZdq{}}\PYG{l+s}{challenge}\PYG{l+s}{\PYGZdq{}}\PYG{o}{:} \PYG{o}{\PYGZlt{}}\PYG{n}{string} \PYG{p}{(}\PYG{n}{optional}\PYG{p}{)}\PYG{o}{\PYGZgt{}}\PYG{p}{,}
-      \PYG{l+s}{\PYGZdq{}}\PYG{l+s}{length}\PYG{l+s}{\PYGZdq{}}\PYG{o}{:}    \PYG{o}{\PYGZlt{}}\PYG{n}{number} \PYG{p}{(}\PYG{n}{optional}\PYG{p}{)}\PYG{o}{\PYGZgt{}}\PYG{p}{,}
-      \PYG{l+s}{\PYGZdq{}}\PYG{l+s}{format}\PYG{l+s}{\PYGZdq{}}\PYG{o}{:}    \PYG{o}{\PYGZlt{}}\PYG{n}{number} \PYG{p}{(}\PYG{n}{optional}\PYG{p}{)}\PYG{o}{\PYGZgt{}}\PYG{p}{,}
-      \PYG{l+s}{\PYGZdq{}}\PYG{l+s}{tokenID}\PYG{l+s}{\PYGZdq{}}\PYG{o}{:}   \PYG{o}{\PYGZlt{}}\PYG{n}{string} \PYG{p}{(}\PYG{n}{optional}\PYG{p}{)}\PYG{o}{\PYGZgt{}}\PYG{p}{,}
-      \PYG{l+s}{\PYGZdq{}}\PYG{l+s}{algID}\PYG{l+s}{\PYGZdq{}}\PYG{o}{:}     \PYG{o}{\PYGZlt{}}\PYG{n}{string} \PYG{p}{(}\PYG{n}{optional}\PYG{p}{)}\PYG{o}{\PYGZgt{}}\PYG{p}{,}
-    \PYG{p}{\PYGZcb{}}\PYG{p}{,}
-    \PYG{p}{.}\PYG{p}{.}\PYG{p}{.}
-  \PYG{p}{]}
-\PYG{p}{\PYGZcb{}}
-\end{sphinxVerbatim}
+\sphinxstyleemphasis{\{}
+
+\sphinxstyleemphasis{“service”: \textless{}string (optional)\textgreater{},}
+
+\sphinxstyleemphasis{“tokenInfo”: {[}}
+
+\sphinxstyleemphasis{\{}
+
+\sphinxstyleemphasis{“flags”: \textless{}number\textgreater{},}
+
+\sphinxstyleemphasis{“vendor”: \textless{}string (optional)\textgreater{},}
+
+\sphinxstyleemphasis{“challenge”: \textless{}string (optional)\textgreater{},}
+
+\sphinxstyleemphasis{“length”: \textless{}number (optional)\textgreater{},}
+
+\sphinxstyleemphasis{“format”: \textless{}number (optional)\textgreater{},}
+
+\sphinxstyleemphasis{“tokenID”: \textless{}string (optional)\textgreater{},}
+
+\sphinxstyleemphasis{“algID”: \textless{}string (optional)\textgreater{},}
+
+\sphinxstyleemphasis{\},}
+
+\sphinxstyleemphasis{…}
+
+\sphinxstyleemphasis{{]}}
+
+\sphinxstyleemphasis{\}}
 
 The answer to the question MUST be JSON formatted:
 
-\fvset{hllines={, ,}}%
-\begin{sphinxVerbatim}[commandchars=\\\{\}]
-\PYG{p}{\PYGZob{}}
-  \PYG{l+s}{\PYGZdq{}}\PYG{l+s}{tokeninfo}\PYG{l+s}{\PYGZdq{}}\PYG{o}{:} \PYG{o}{\PYGZlt{}}\PYG{n}{number}\PYG{o}{\PYGZgt{}}\PYG{p}{,}
-  \PYG{l+s}{\PYGZdq{}}\PYG{l+s}{value}\PYG{l+s}{\PYGZdq{}}\PYG{o}{:}     \PYG{o}{\PYGZlt{}}\PYG{n}{string} \PYG{p}{(}\PYG{n}{optional}\PYG{p}{)}\PYG{o}{\PYGZgt{}}\PYG{p}{,}
-  \PYG{l+s}{\PYGZdq{}}\PYG{l+s}{pin}\PYG{l+s}{\PYGZdq{}}\PYG{o}{:}       \PYG{o}{\PYGZlt{}}\PYG{n}{string} \PYG{p}{(}\PYG{n}{optional}\PYG{p}{)}\PYG{o}{\PYGZgt{}}\PYG{p}{,}
-\PYG{p}{\PYGZcb{}}
-\end{sphinxVerbatim}
+\sphinxstyleemphasis{\{}
+
+\sphinxstyleemphasis{“tokeninfo”: \textless{}number\textgreater{},}
+
+\sphinxstyleemphasis{“value”: \textless{}string (optional)\textgreater{},}
+
+\sphinxstyleemphasis{“pin”: \textless{}string (optional)\textgreater{},}
+
+\sphinxstyleemphasis{\}}
 
 For more detail, please see RFC 6560.
 

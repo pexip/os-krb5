@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _CKSUMTYPE-HMAC-SHA1-96-AES128-data:
 

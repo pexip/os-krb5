@@ -60,7 +60,7 @@ print_addrs (void)
         if (entry->hostname != NULL) {
             printf("%d: h:%s t:%s p:%d m:%d P:%s\n", (int)i,
                    entry->hostname, ttypename(entry->transport),
-                   entry->port, entry->primary,
+                   entry->port, entry->master,
                    entry->uri_path ? entry->uri_path : "");
             continue;
         }
@@ -84,7 +84,7 @@ main (int argc, char *argv[])
     krb5_data realm;
     krb5_context ctx;
     krb5_error_code err;
-    int primary = 0;
+    int master = 0;
 
     p = strrchr (argv[0], '/');
     if (p)
@@ -103,7 +103,7 @@ main (int argc, char *argv[])
         else if (!strcmp (argv[1], "-d"))
             how = LOOKUP_DNS;
         else if (!strcmp (argv[1], "-m"))
-            primary = 1;
+            master = 1;
         else
             goto usage;
         realmname = argv[2];
@@ -131,7 +131,7 @@ main (int argc, char *argv[])
         break;
 
     case LOOKUP_WHATEVER:
-        err = k5_locate_kdc(ctx, &realm, &sl, primary, FALSE);
+        err = k5_locate_kdc(ctx, &realm, &sl, master, FALSE);
         break;
     }
     if (err) kfatal (err);

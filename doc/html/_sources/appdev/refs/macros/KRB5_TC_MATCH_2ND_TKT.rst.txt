@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _KRB5-TC-MATCH-2ND-TKT-data:
 

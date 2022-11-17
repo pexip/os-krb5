@@ -10,7 +10,6 @@ SYNOPSIS
 [**-A**]
 [**-q**]
 [**-c** *cache_name*]
-[**-p** *princ_name*]
 
 
 DESCRIPTION

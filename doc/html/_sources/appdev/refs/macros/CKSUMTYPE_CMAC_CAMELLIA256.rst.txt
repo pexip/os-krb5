@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _CKSUMTYPE-CMAC-CAMELLIA256-data:
 

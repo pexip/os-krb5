@@ -174,9 +174,3 @@ refresh_time
     decimal representation of a timestamp at which the GSS mechanism
     should attempt to refresh the credential cache from the client
     keytab.
-
-start_realm
-    This key indicates the realm of the ticket-granting ticket to be
-    used for TGS requests, when making a referrals request or
-    beginning a cross-realm request.  If it is not present, the client
-    realm is used.

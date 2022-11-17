@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _LR-TYPE-INTERPRETATION-MASK-data:
 

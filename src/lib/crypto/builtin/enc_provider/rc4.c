@@ -9,8 +9,6 @@
 
 #include "crypto_int.h"
 
-#ifdef K5_BUILTIN_RC4
-
 typedef struct
 {
     unsigned int x;
@@ -190,5 +188,3 @@ const struct krb5_enc_provider krb5int_enc_arcfour = {
     k5_arcfour_init_state, /*xxx not implemented yet*/
     krb5int_default_free_state
 };
-
-#endif /* K5_BUILTIN_RC4 */

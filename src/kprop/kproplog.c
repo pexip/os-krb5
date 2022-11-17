@@ -5,7 +5,7 @@
  */
 
 /*
- * This module will parse the update logs on the primary or replica servers.
+ * This module will parse the update logs on the master or replica servers.
  */
 
 #include "k5-int.h"
@@ -398,36 +398,28 @@ print_update(kdb_hlog_t *ulog, uint32_t entry, uint32_t ulogentries,
     }
 }
 
-/* Return a read-only mmap of the ulog, or NULL on failure. */
+/* Return a read-only mmap of the ulog, or NULL on failure.  Assumes fd is
+ * released on process exit. */
 static kdb_hlog_t *
-map_ulog(const char *filename, int *fd_out)
+map_ulog(const char *filename)
 {
     int fd;
     struct stat st;
-    kdb_hlog_t *ulog = MAP_FAILED;
-
-    *fd_out = -1;
+    kdb_hlog_t *ulog;
 
     fd = open(filename, O_RDONLY);
     if (fd == -1)
         return NULL;
-    if (fstat(fd, &st) < 0) {
-        close(fd);
+    if (fstat(fd, &st) < 0)
         return NULL;
-    }
     ulog = mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (ulog == MAP_FAILED) {
-        close(fd);
-        return NULL;
-    }
-    *fd_out = fd;
-    return ulog;
+    return (ulog == MAP_FAILED) ? NULL : ulog;
 }
 
 int
 main(int argc, char **argv)
 {
-    int c, ulog_fd = -1;
+    int c;
     unsigned int verbose = 0;
     bool_t headeronly = FALSE, reset = FALSE;
     uint32_t entry = 0;
@@ -488,7 +480,7 @@ main(int argc, char **argv)
         goto done;
     }
 
-    ulog = map_ulog(params.iprop_logfile, &ulog_fd);
+    ulog = map_ulog(params.iprop_logfile);
     if (ulog == NULL) {
         fprintf(stderr, _("Unable to map log file %s\n\n"),
                 params.iprop_logfile);
@@ -554,7 +546,6 @@ main(int argc, char **argv)
     printf("\n");
 
 done:
-    close(ulog_fd);
     kadm5_free_config_params(context, &params);
     krb5_free_context(context);
     return 0;

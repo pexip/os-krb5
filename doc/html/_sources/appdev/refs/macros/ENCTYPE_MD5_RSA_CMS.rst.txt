@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _ENCTYPE-MD5-RSA-CMS-data:
 

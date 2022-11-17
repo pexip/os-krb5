@@ -35,7 +35,7 @@ typedef struct _stdccCacheData {
 } stdccCacheData, *stdccCacheDataPtr;
 
 
-/* function prototypes  */
+/* function protoypes  */
 
 void krb5_stdcc_shutdown(void);
 

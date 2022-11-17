@@ -157,7 +157,7 @@ profile_get_values(profile_t profile, const char *const *names,
                    char ***ret_values)
 {
     errcode_t               retval;
-    void                    *state = NULL;
+    void                    *state;
     char                    *value;
     struct profile_string_list values;
 
@@ -172,9 +172,8 @@ profile_get_values(profile_t profile, const char *const *names,
                                                &state)))
         return retval;
 
-    retval = init_list(&values);
-    if (retval)
-        goto cleanup;
+    if ((retval = init_list(&values)))
+        return retval;
 
     do {
         if ((retval = profile_node_iterator(&state, 0, 0, &value)))
@@ -188,9 +187,11 @@ profile_get_values(profile_t profile, const char *const *names,
         goto cleanup;
     }
 
+    end_list(&values, ret_values);
+    return 0;
+
 cleanup:
-    end_list(&values, retval ? NULL : ret_values);
-    profile_node_iterator_free(&state);
+    end_list(&values, 0);
     return retval;
 }
 

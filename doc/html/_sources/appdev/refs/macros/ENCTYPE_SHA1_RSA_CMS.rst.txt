@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _ENCTYPE-SHA1-RSA-CMS-data:
 

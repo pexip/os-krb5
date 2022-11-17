@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _KRB5-KEYUSAGE-PA-S4U-X509-USER-REQUEST-data:
 

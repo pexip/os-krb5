@@ -39,7 +39,7 @@ static char sccsid[] = "@(#)svc_raw.c 1.15 87/08/11 Copyr 1984 Sun Micro";
  * svc_raw.c,   This a toy for simple testing and timing.
  * Interface to create an rpc client and server in the same UNIX process.
  * This lets us similate rpc and get rpc (round trip) overhead, without
- * any interference from the kernel.
+ * any interference from the kernal.
  */
 
 #include <gssrpc/rpc.h>

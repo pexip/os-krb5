@@ -261,10 +261,8 @@ k5_make_tgs_req(krb5_context context,
         pa->length = in_padata[i]->length;
         pa->contents = k5memdup(in_padata[i]->contents, in_padata[i]->length,
                                 &ret);
-        if (pa->contents == NULL) {
-            free(pa);
+        if (pa->contents == NULL)
             goto cleanup;
-        }
         padata[i + 1] = pa;
     }
     req.padata = padata;
@@ -291,7 +289,7 @@ cleanup:
     krb5_free_data(context, authdata_asn1);
     krb5_free_data(context, req_body_asn1);
     krb5_free_data(context, ap_req_asn1);
-    krb5_free_pa_data(context, padata);
+    krb5_free_pa_data(context, req.padata);
     krb5_free_ticket(context, sec_ticket);
     krb5_free_data_contents(context, &authdata_enc.ciphertext);
     krb5_free_keyblock(context, subkey);

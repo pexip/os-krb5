@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _ENCTYPE-AES256-CTS-HMAC-SHA384-192-data:
 

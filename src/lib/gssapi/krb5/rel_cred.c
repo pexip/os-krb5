@@ -72,7 +72,6 @@ krb5_gss_release_cred(minor_status, cred_handle)
     if (cred->name)
         kg_release_name(context, &cred->name);
 
-    krb5_free_principal(context, cred->acceptor_mprinc);
     krb5_free_principal(context, cred->impersonator);
 
     if (cred->req_enctypes)

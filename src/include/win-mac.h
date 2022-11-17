@@ -101,10 +101,7 @@ typedef _W64 int         ssize_t;
 #endif
 #endif /* KRB5_SYSTYPES__ */
 
-#ifndef MAXHOSTNAMELEN
 #define MAXHOSTNAMELEN  512
-#endif
-
 #ifndef MAXPATHLEN
 #define MAXPATHLEN      256            /* Also for Windows temp files */
 #endif

@@ -104,9 +104,9 @@ usage()
             "[clnt|local args]\n"
             "              [command args...]\n"
             "\tclnt args: [-s admin_server[:port]] "
-            "[[-c ccache]|[-k [-t keytab]]]|[-n] [-O | -N]\n"
+            "[[-c ccache]|[-k [-t keytab]]]|[-n]\n"
             "\tlocal args: [-x db_args]* [-d dbname] "
-            "[-e \"enc:salt ...\"] [-m] [-w password] "
+            "[-e \"enc:salt ...\"] [-m]"
             "where,\n\t[-x db_args]* - any number of database specific "
             "arguments.\n"
             "\t\t\tLook at each database documentation for supported "
@@ -442,7 +442,7 @@ kadmin_startup(int argc, char *argv[], char **request_out, char ***args_out)
 
     /*
      * If no principal name is specified: If authenticating anonymously, use
-     * the anonymous principal for the local realm, else if a ccache was
+     * the anonymouse principal for the local realm, else if a ccache was
      * specified and its primary principal name can be read, it is used, else
      * if a keytab was specified, the principal name is host/hostname,
      * otherwise append "/admin" to the primary name of the default ccache,

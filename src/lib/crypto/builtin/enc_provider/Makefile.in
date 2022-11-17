@@ -1,7 +1,10 @@
 mydir=lib$(S)crypto$(S)builtin$(S)enc_provider
 BUILDTOP=$(REL)..$(S)..$(S)..$(S)..
-LOCALINCLUDES = -I$(srcdir)/../des -I$(srcdir)/../aes -I$(srcdir)/../camellia \
-		-I$(srcdir)/../../krb $(CRYPTO_IMPL_CFLAGS)
+LOCALINCLUDES = -I$(srcdir)/../des 	\
+		-I$(srcdir)/../aes 	\
+		-I$(srcdir)/../camellia \
+		-I$(srcdir)/../../krb 	\
+		-I$(srcdir)/..
 
 ##DOS##BUILDTOP = ..\..\..\..
 ##DOS##PREFIXDIR = builtin\enc_provider

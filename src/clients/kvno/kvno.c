@@ -38,24 +38,24 @@
 static char *prog;
 static int quiet = 0;
 
+#define XUSAGE_BREAK "\n\t"
+
 static void
 xusage()
 {
     fprintf(stderr, _("usage: %s [-c ccache] [-e etype] [-k keytab] [-q] "
-                      "[-u | -S sname]\n"
-                      "\t[[{-F cert_file | {-I | -U} for_user} [-P]] | "
-                      "--u2u ccache]\n"
-                      "\t[--cached-only] [--no-store] [--out-cache] "
+                      "[-u | -S sname]" XUSAGE_BREAK
+                      "[[{-F cert_file | {-I | -U} for_user} [-P]] | "
+                      "--u2u ccache]" XUSAGE_BREAK
                       "service1 service2 ...\n"),
             prog);
     exit(1);
 }
 
 static void do_v5_kvno(int argc, char *argv[], char *ccachestr, char *etypestr,
-                       char *keytab_name, char *sname, int cached_only,
-                       int canon, int no_store, int unknown, char *for_user,
-                       int for_user_enterprise, char *for_user_cert_file,
-                       int proxy, const char *out_ccname,
+                       char *keytab_name, char *sname, int canon, int unknown,
+                       char *for_user, int for_user_enterprise,
+                       char *for_user_cert_file, int proxy,
                        const char *u2u_ccname);
 
 #include <com_err.h>
@@ -65,21 +65,18 @@ static void extended_com_err_fn(const char *myprog, errcode_t code,
 int
 main(int argc, char *argv[])
 {
-    enum { OPTION_U2U = 256, OPTION_OUT_CACHE = 257 };
+    enum { OPTION_U2U = 256 };
+    struct option lopts[] = {
+        { "u2u", 1, NULL, OPTION_U2U },
+        { NULL, 0, NULL, 0 }
+    };
     const char *shopts = "uCc:e:hk:qPS:I:U:F:";
     int option;
     char *etypestr = NULL, *ccachestr = NULL, *keytab_name = NULL;
     char *sname = NULL, *for_user = NULL, *u2u_ccname = NULL;
-    char *for_user_cert_file = NULL, *out_ccname = NULL;
+    char *for_user_cert_file = NULL;
     int canon = 0, unknown = 0, proxy = 0, for_user_enterprise = 0;
-    int impersonate = 0, cached_only = 0, no_store = 0;
-    struct option lopts[] = {
-        { "cached-only", 0, &cached_only, 1 },
-        { "no-store", 0, &no_store, 1 },
-        { "out-cache", 1, NULL, OPTION_OUT_CACHE },
-        { "u2u", 1, NULL, OPTION_U2U },
-        { NULL, 0, NULL, 0 }
-    };
+    int impersonate = 0;
 
     setlocale(LC_ALL, "");
     set_com_err_hook(extended_com_err_fn);
@@ -142,12 +139,6 @@ main(int argc, char *argv[])
         case OPTION_U2U:
             u2u_ccname = optarg;
             break;
-        case OPTION_OUT_CACHE:
-            out_ccname = optarg;
-            break;
-        case 0:
-            /* If this option set a flag, do nothing else now. */
-            break;
         default:
             xusage();
             break;
@@ -172,9 +163,8 @@ main(int argc, char *argv[])
         xusage();
 
     do_v5_kvno(argc - optind, argv + optind, ccachestr, etypestr, keytab_name,
-               sname, cached_only, canon, no_store, unknown, for_user,
-               for_user_enterprise, for_user_cert_file, proxy, out_ccname,
-               u2u_ccname);
+               sname, canon, unknown, for_user, for_user_enterprise,
+               for_user_cert_file, proxy, u2u_ccname);
     return 0;
 }
 
@@ -288,16 +278,14 @@ static krb5_error_code
 kvno(const char *name, krb5_ccache ccache, krb5_principal me,
      krb5_enctype etype, krb5_keytab keytab, const char *sname,
      krb5_flags options, int unknown, krb5_principal for_user_princ,
-     krb5_data *for_user_cert, int proxy, krb5_data *u2u_ticket,
-     krb5_creds **creds_out)
+     krb5_data *for_user_cert, int proxy, krb5_data *u2u_ticket)
 {
     krb5_error_code ret;
     krb5_principal server = NULL;
     krb5_ticket *ticket = NULL;
-    krb5_creds in_creds, *creds = NULL;
+    krb5_creds in_creds, *out_creds = NULL;
     char *princ = NULL;
 
-    *creds_out = NULL;
     memset(&in_creds, 0, sizeof(in_creds));
 
     if (sname != NULL) {
@@ -337,12 +325,13 @@ kvno(const char *name, krb5_ccache ccache, krb5_principal me,
         in_creds.client = for_user_princ;
         in_creds.server = me;
         ret = krb5_get_credentials_for_user(context, options, ccache,
-                                            &in_creds, for_user_cert, &creds);
+                                            &in_creds, for_user_cert,
+                                            &out_creds);
     } else {
         in_creds.client = me;
         in_creds.server = server;
         ret = krb5_get_credentials(context, options, ccache, &in_creds,
-                                   &creds);
+                                   &out_creds);
     }
 
     if (ret) {
@@ -351,7 +340,7 @@ kvno(const char *name, krb5_ccache ccache, krb5_principal me,
     }
 
     /* We need a native ticket. */
-    ret = krb5_decode_ticket(&creds->ticket, &ticket);
+    ret = krb5_decode_ticket(&out_creds->ticket, &ticket);
     if (ret) {
         com_err(prog, ret, _("while decoding ticket for %s"), princ);
         goto cleanup;
@@ -377,15 +366,15 @@ kvno(const char *name, krb5_ccache ccache, krb5_principal me,
     }
 
     if (proxy) {
-        in_creds.client = creds->client;
-        creds->client = NULL;
-        krb5_free_creds(context, creds);
-        creds = NULL;
+        in_creds.client = out_creds->client;
+        out_creds->client = NULL;
+        krb5_free_creds(context, out_creds);
+        out_creds = NULL;
         in_creds.server = server;
 
         ret = krb5_get_credentials_for_proxy(context, KRB5_GC_CANONICALIZE,
                                              ccache, &in_creds, ticket,
-                                             &creds);
+                                             &out_creds);
         krb5_free_principal(context, in_creds.client);
         if (ret) {
             com_err(prog, ret, _("%s: constrained delegation failed"),
@@ -394,13 +383,10 @@ kvno(const char *name, krb5_ccache ccache, krb5_principal me,
         }
     }
 
-    *creds_out = creds;
-    creds = NULL;
-
 cleanup:
     krb5_free_principal(context, server);
     krb5_free_ticket(context, ticket);
-    krb5_free_creds(context, creds);
+    krb5_free_creds(context, out_creds);
     krb5_free_unparsed_name(context, princ);
     return ret;
 }
@@ -446,28 +432,19 @@ cleanup:
 
 static void
 do_v5_kvno(int count, char *names[], char * ccachestr, char *etypestr,
-           char *keytab_name, char *sname, int cached_only, int canon,
-           int no_store, int unknown, char *for_user, int for_user_enterprise,
-           char *for_user_cert_file, int proxy, const char *out_ccname,
-           const char *u2u_ccname)
+           char *keytab_name, char *sname, int canon, int unknown,
+           char *for_user, int for_user_enterprise,
+           char *for_user_cert_file, int proxy, const char *u2u_ccname)
 {
     krb5_error_code ret;
-    int i, errors, flags, initialized = 0;
+    int i, errors, flags;
     krb5_enctype etype;
-    krb5_ccache ccache, mcc, out_ccache = NULL;
+    krb5_ccache ccache;
     krb5_principal me;
     krb5_keytab keytab = NULL;
     krb5_principal for_user_princ = NULL;
-    krb5_flags options = 0;
+    krb5_flags options = canon ? KRB5_GC_CANONICALIZE : 0;
     krb5_data cert_data = empty_data(), *user_cert = NULL, *u2u_ticket = NULL;
-    krb5_creds *creds;
-
-    if (canon)
-        options |= KRB5_GC_CANONICALIZE;
-    if (cached_only)
-        options |= KRB5_GC_CACHED;
-    if (no_store || out_ccname != NULL)
-        options |= KRB5_GC_NO_STORE;
 
     ret = krb5_init_context(&context);
     if (ret) {
@@ -492,14 +469,6 @@ do_v5_kvno(int count, char *names[], char * ccachestr, char *etypestr,
     if (ret) {
         com_err(prog, ret, _("while opening ccache"));
         exit(1);
-    }
-
-    if (out_ccname != NULL) {
-        ret = krb5_cc_resolve(context, out_ccname, &out_ccache);
-        if (ret) {
-            com_err(prog, ret, _("while resolving output ccache"));
-            exit(1);
-        }
     }
 
     if (keytab_name != NULL) {
@@ -545,47 +514,11 @@ do_v5_kvno(int count, char *names[], char * ccachestr, char *etypestr,
         exit(1);
     }
 
-    if (out_ccache != NULL) {
-        ret = krb5_cc_new_unique(context, "MEMORY", NULL, &mcc);
-        if (ret) {
-            com_err(prog, ret, _("while creating temporary output ccache"));
-            exit(1);
-        }
-    }
-
     errors = 0;
     for (i = 0; i < count; i++) {
         if (kvno(names[i], ccache, me, etype, keytab, sname, options, unknown,
-                 for_user_princ, user_cert, proxy, u2u_ticket, &creds) != 0) {
+                 for_user_princ, user_cert, proxy, u2u_ticket) != 0)
             errors++;
-        } else if (out_ccache != NULL) {
-            if (!initialized) {
-                ret = krb5_cc_initialize(context, mcc, creds->client);
-                if (ret) {
-                    com_err(prog, ret, _("while initializing output ccache"));
-                    exit(1);
-                }
-                initialized = 1;
-            }
-            if (count == 1)
-                ret = k5_cc_store_primary_cred(context, mcc, creds);
-            else
-                ret = krb5_cc_store_cred(context, mcc, creds);
-            if (ret) {
-                com_err(prog, ret, _("while storing creds in output ccache"));
-                exit(1);
-            }
-        }
-
-        krb5_free_creds(context, creds);
-    }
-
-    if (!errors && out_ccache != NULL) {
-        ret = krb5_cc_move(context, mcc, out_ccache);
-        if (ret) {
-            com_err(prog, ret, _("while writing output ccache"));
-            exit(1);
-        }
     }
 
     if (keytab != NULL)

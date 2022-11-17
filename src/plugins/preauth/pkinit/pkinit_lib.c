@@ -123,7 +123,12 @@ void
 free_krb5_auth_pack(krb5_auth_pack **in)
 {
     if ((*in) == NULL) return;
-    krb5_free_data_contents(NULL, &(*in)->clientPublicValue);
+    if ((*in)->clientPublicValue != NULL) {
+        free((*in)->clientPublicValue->algorithm.algorithm.data);
+        free((*in)->clientPublicValue->algorithm.parameters.data);
+        free((*in)->clientPublicValue->subjectPublicKey.data);
+        free((*in)->clientPublicValue);
+    }
     free((*in)->pkAuthenticator.paChecksum.contents);
     krb5_free_data(NULL, (*in)->pkAuthenticator.freshnessToken);
     if ((*in)->supportedCMSTypes != NULL)
@@ -194,6 +199,15 @@ free_krb5_algorithm_identifiers(krb5_algorithm_identifier ***in)
 }
 
 void
+free_krb5_subject_pk_info(krb5_subject_pk_info **in)
+{
+    if ((*in) == NULL) return;
+    free((*in)->algorithm.parameters.data);
+    free((*in)->subjectPublicKey.data);
+    free(*in);
+}
+
+void
 free_krb5_kdc_dh_key_info(krb5_kdc_dh_key_info **in)
 {
     if (*in == NULL) return;
@@ -236,6 +250,17 @@ init_krb5_pa_pk_as_rep(krb5_pa_pk_as_rep **in)
     (*in)->u.encKeyPack.length = 0;
     (*in)->u.encKeyPack.data = NULL;
     (*in)->u.dh_Info.kdfID = NULL;
+}
+
+void
+init_krb5_subject_pk_info(krb5_subject_pk_info **in)
+{
+    (*in) = malloc(sizeof(krb5_subject_pk_info));
+    if ((*in) == NULL) return;
+    (*in)->algorithm.parameters.data = NULL;
+    (*in)->algorithm.parameters.length = 0;
+    (*in)->subjectPublicKey.data = NULL;
+    (*in)->subjectPublicKey.length = 0;
 }
 
 krb5_error_code

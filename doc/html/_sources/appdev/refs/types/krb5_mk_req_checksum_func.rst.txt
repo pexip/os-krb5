@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _krb5-mk-req-checksum-func-struct:
 

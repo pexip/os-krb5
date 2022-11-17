@@ -34,10 +34,8 @@
  * Modified by John Carr, MIT, to use Kerberos 5 typedefs.
  */
 
-#include "crypto_int.h"
+#include "k5-int.h"
 #include "rsa-md5.h"
-
-#ifdef K5_BUILTIN_MD5
 
 /*
 ***********************************************************************
@@ -342,5 +340,3 @@ static void Transform (krb5_ui_4 *buf, krb5_ui_4 *in)
     buf[2] += c;
     buf[3] += d;
 }
-
-#endif /* K5_BUILTIN_MD5 */

@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _TKT-FLG-ENC-PA-REP-data:
 

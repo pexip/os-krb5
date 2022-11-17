@@ -10,9 +10,8 @@ SYNOPSIS
 [**-e**]
 [[**-c**] [**-l**] [**-A**] [**-f**] [**-s**] [**-a** [**-n**]]]
 [**-C**]
-[**-k** [**-i**] [**-t**] [**-K**]]
+[**-k** [**-t**] [**-K**]]
 [**-V**]
-[**-d**]
 [*cache_name*\|\ *keytab_name*]
 
 
@@ -93,9 +92,6 @@ OPTIONS
 **-K**
     Display the value of the encryption key in each keytab entry in
     the keytab file.
-
-**-d**
-    Display the authdata types (if any) for each entry.
 
 **-V**
     Display the Kerberos version number and exit.

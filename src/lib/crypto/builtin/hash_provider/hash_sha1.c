@@ -28,8 +28,6 @@
 #include "crypto_int.h"
 #include "shs.h"
 
-#ifdef K5_BUILTIN_SHA1
-
 static krb5_error_code
 k5_sha1_hash(const krb5_crypto_iov *data, size_t num_data, krb5_data *output)
 {
@@ -62,5 +60,3 @@ const struct krb5_hash_provider krb5int_hash_sha1 = {
     SHS_DATASIZE,
     k5_sha1_hash
 };
-
-#endif /* K5_BUILTIN_SHA1 */

@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _KRB5-KEYUSAGE-TGS-REP-ENCPART-SESSKEY-data:
 

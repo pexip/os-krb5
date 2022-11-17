@@ -1,27 +1,33 @@
 from k5test import *
 
 # Skip this test if pkinit wasn't built.
-if not pkinit_enabled:
+if not os.path.exists(os.path.join(plugins, 'preauth', 'pkinit.so')):
     skip_rest('PKINIT tests', 'PKINIT module not built')
 
 soft_pkcs11 = os.path.join(buildtop, 'tests', 'softpkcs11', 'softpkcs11.so')
 
 # Construct a krb5.conf fragment configuring pkinit.
-user_pem = os.path.join(pkinit_certs, 'user.pem')
-privkey_pem = os.path.join(pkinit_certs, 'privkey.pem')
-privkey_enc_pem = os.path.join(pkinit_certs, 'privkey-enc.pem')
-user_p12 = os.path.join(pkinit_certs, 'user.p12')
-user_enc_p12 = os.path.join(pkinit_certs, 'user-enc.p12')
-user_upn_p12 = os.path.join(pkinit_certs, 'user-upn.p12')
-user_upn2_p12 = os.path.join(pkinit_certs, 'user-upn2.p12')
-user_upn3_p12 = os.path.join(pkinit_certs, 'user-upn3.p12')
-generic_p12 = os.path.join(pkinit_certs, 'generic.p12')
+certs = os.path.join(srctop, 'tests', 'dejagnu', 'pkinit-certs')
+ca_pem = os.path.join(certs, 'ca.pem')
+kdc_pem = os.path.join(certs, 'kdc.pem')
+user_pem = os.path.join(certs, 'user.pem')
+privkey_pem = os.path.join(certs, 'privkey.pem')
+privkey_enc_pem = os.path.join(certs, 'privkey-enc.pem')
+user_p12 = os.path.join(certs, 'user.p12')
+user_enc_p12 = os.path.join(certs, 'user-enc.p12')
+user_upn_p12 = os.path.join(certs, 'user-upn.p12')
+user_upn2_p12 = os.path.join(certs, 'user-upn2.p12')
+user_upn3_p12 = os.path.join(certs, 'user-upn3.p12')
+generic_p12 = os.path.join(certs, 'generic.p12')
 path = os.path.join(os.getcwd(), 'testdir', 'tmp-pkinit-certs')
 path_enc = os.path.join(os.getcwd(), 'testdir', 'tmp-pkinit-certs-enc')
 
+pkinit_krb5_conf = {'realms': {'$realm': {
+            'pkinit_anchors': 'FILE:%s' % ca_pem}}}
 pkinit_kdc_conf = {'realms': {'$realm': {
             'default_principal_flags': '+preauth',
             'pkinit_eku_checking': 'none',
+            'pkinit_identity': 'FILE:%s,%s' % (kdc_pem, privkey_pem),
             'pkinit_indicator': ['indpkinit1', 'indpkinit2']}}}
 restrictive_kdc_conf = {'realms': {'$realm': {
             'restrict_anonymous_to_tgt': 'true' }}}
@@ -35,6 +41,7 @@ alias_kdc_conf = {'realms': {'$realm': {
             'default_principal_flags': '+preauth',
             'pkinit_eku_checking': 'none',
             'pkinit_allow_upn': 'true',
+            'pkinit_identity': 'FILE:%s,%s' % (kdc_pem, privkey_pem),
             'database_module': 'test'}},
                   'dbmodules': {'test': {
                       'db_library': 'test',
@@ -60,7 +67,8 @@ p11_token_identity = ('PKCS11:module_name=' + soft_pkcs11 +
                       ':slotid=1:token=SoftToken (token)')
 
 # Start a realm with the test kdb module for the following UPN SAN tests.
-realm = K5Realm(kdc_conf=alias_kdc_conf, create_kdb=False, pkinit=True)
+realm = K5Realm(krb5_conf=pkinit_krb5_conf, kdc_conf=alias_kdc_conf,
+                create_kdb=False)
 realm.start_kdc()
 
 mark('UPN SANs')
@@ -96,7 +104,8 @@ realm.run([kinit, '-X', 'X509_user_identity=%s' % p12_upn2_identity, 'user2'],
           expected_code=1, expected_msg=msg)
 realm.stop()
 
-realm = K5Realm(kdc_conf=pkinit_kdc_conf, get_creds=False, pkinit=True)
+realm = K5Realm(krb5_conf=pkinit_krb5_conf, kdc_conf=pkinit_kdc_conf,
+                get_creds=False)
 
 # Sanity check - password-based preauth should still work.
 mark('password preauth sanity check')
@@ -121,9 +130,6 @@ realm.run([kvno, realm.host_princ])
 out = realm.run(['./adata', realm.host_princ])
 if '97:' in out:
     fail('auth indicators seen in anonymous PKINIT ticket')
-# Verify start_realm setting and test referrals TGS request.
-realm.run([klist, '-C'], expected_msg='start_realm = KRBTEST.COM')
-realm.run([kvno, '-S', 'host', hostname])
 
 # Test anonymous kadmin.
 mark('anonymous kadmin')
@@ -168,22 +174,19 @@ msgs = ('Sending unauthenticated request',
         'PKINIT client verified DH reply',
         'PKINIT client found id-pkinit-san in KDC cert',
         'PKINIT client matched KDC principal krbtgt/')
-realm.pkinit(realm.user_princ, expected_trace=msgs)
+realm.kinit(realm.user_princ,
+            flags=['-X', 'X509_user_identity=%s' % file_identity],
+            expected_trace=msgs)
 realm.klist(realm.user_princ)
 realm.run([kvno, realm.host_princ])
 
-# Try using multiple configured pkinit_identities, to make sure we
-# fall back to the second one when the first one cannot be read.
-id_conf = {'realms': {'$realm': {'pkinit_identities': [file_identity + 'X',
-                                                       file_identity]}}}
-id_env = realm.special_env('idconf', False, krb5_conf=id_conf)
-realm.kinit(realm.user_princ, expected_trace=msgs, env=id_env)
-
 # Try again using RSA instead of DH.
 mark('FILE identity, no password, RSA')
-realm.pkinit(realm.user_princ, flags=['-X', 'flag_RSA_PROTOCOL=yes'],
-             expected_trace=('PKINIT client making RSA request',
-                             'PKINIT client verified RSA reply'))
+realm.kinit(realm.user_princ,
+            flags=['-X', 'X509_user_identity=%s' % file_identity,
+                   '-X', 'flag_RSA_PROTOCOL=yes'],
+            expected_trace=('PKINIT client making RSA request',
+                            'PKINIT client verified RSA reply'))
 realm.klist(realm.user_princ)
 
 # Test a DH parameter renegotiation by temporarily setting a 4096-bit
@@ -204,18 +207,25 @@ msgs = ('Sending unauthenticated request',
         'trying again with KDC-provided parameters',
         'Preauth module pkinit (16) tryagain returned: 0/Success',
         ' preauth for next request: PA-PK-AS-REQ (16), PA-FX-COOKIE (133)')
-realm.pkinit(realm.user_princ, expected_trace=msgs)
+realm.kinit(realm.user_princ,
+            flags=['-X', 'X509_user_identity=%s' % file_identity],
+            expected_trace=msgs)
 
 # Test enforcement of required freshness tokens.  (We can leave
 # freshness tokens required after this test.)
 mark('freshness token enforcement')
-realm.pkinit(realm.user_princ, flags=['-X', 'disable_freshness=yes'])
+realm.kinit(realm.user_princ,
+            flags=['-X', 'X509_user_identity=%s' % file_identity,
+                   '-X', 'disable_freshness=yes'])
 f_env = realm.special_env('freshness', True, kdc_conf=freshness_kdc_conf)
 realm.stop_kdc()
 realm.start_kdc(env=f_env)
-realm.pkinit(realm.user_princ)
-realm.pkinit(realm.user_princ, flags=['-X', 'disable_freshness=yes'],
-             expected_code=1, expected_msg='Preauthentication failed')
+realm.kinit(realm.user_princ,
+            flags=['-X', 'X509_user_identity=%s' % file_identity])
+realm.kinit(realm.user_princ,
+            flags=['-X', 'X509_user_identity=%s' % file_identity,
+                   '-X', 'disable_freshness=yes'],
+            expected_code=1, expected_msg='Preauthentication failed')
 # Anonymous should never require a freshness token.
 realm.kinit('@%s' % realm.realm, flags=['-n', '-X', 'disable_freshness=yes'])
 
@@ -238,13 +248,10 @@ realm.run(['./adata', realm.host_princ],
 # supplied by the responder.
 # Supply the response in raw form.
 mark('FILE identity, password on key (responder)')
-out = realm.run(['./responder', '-x', 'pkinit={"%s": 0}' % file_enc_identity,
-                 '-r', 'pkinit={"%s": "encrypted"}' % file_enc_identity,
-                 '-X', 'X509_user_identity=%s' % file_enc_identity,
-                 realm.user_princ])
-# Regression test for #8885 (password question asked twice).
-if out.count('OK: ') != 1:
-    fail('Wrong number of responder calls')
+realm.run(['./responder', '-x', 'pkinit={"%s": 0}' % file_enc_identity,
+           '-r', 'pkinit={"%s": "encrypted"}' % file_enc_identity,
+           '-X', 'X509_user_identity=%s' % file_enc_identity,
+           realm.user_princ])
 # Supply the response through the convenience API.
 realm.run(['./responder', '-X', 'X509_user_identity=%s' % file_enc_identity,
            '-p', '%s=%s' % (file_enc_identity, 'encrypted'), realm.user_princ])

@@ -61,9 +61,11 @@
 #include <string.h>
 
 /* need struct timeval */
-#include <time.h>
+#if HAVE_TIME_H && (!HAVE_SYS_TIME_H || TIME_WITH_SYS_TIME)
+# include <time.h>
+#endif
 #if HAVE_SYS_TIME_H
-#include <sys/time.h>
+# include <sys/time.h>
 #endif
 
 #include <gssapi/gssapi_generic.h>
@@ -328,7 +330,7 @@ display_status_1(char *m, OM_uint32 code, int type)
  * Effects:
  *
  * The GSS-API messages associated with maj_stat and min_stat are
- * displayed on stderr, each preceded by "GSS-API error <msg>: " and
+ * displayed on stderr, each preceeded by "GSS-API error <msg>: " and
  * followed by a newline.
  */
 void
@@ -341,7 +343,7 @@ display_status(char *msg, OM_uint32 maj_stat, OM_uint32 min_stat)
 /*
  * Function: display_ctx_flags
  *
- * Purpose: displays the flags returned by context initiation in
+ * Purpose: displays the flags returned by context initation in
  *          a human-readable form
  *
  * Arguments:

@@ -53,7 +53,7 @@ Init::Info(
     InitInfo& info
     )
 {
-    // This function will not do automatic initialization.
+    // This funciton will not do automatic initialization.
     CcAutoLock AL(s_lock);
     if (!s_init) {
         memset(&info, 0, sizeof(info));

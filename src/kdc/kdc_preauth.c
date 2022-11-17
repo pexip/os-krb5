@@ -449,8 +449,6 @@ have_client_keys(krb5_context context, krb5_kdcpreauth_rock rock)
 static const krb5_keyblock *
 client_keyblock(krb5_context context, krb5_kdcpreauth_rock rock)
 {
-    if (rock->client_keyblock->enctype == ENCTYPE_NULL)
-        return NULL;
     return rock->client_keyblock;
 }
 
@@ -491,7 +489,7 @@ match_client(krb5_context context, krb5_kdcpreauth_rock rock,
         krb5_principal_compare(context, princ, client))
         return TRUE;
 
-    if (krb5_db_get_principal(context, princ, KRB5_KDB_FLAG_CLIENT, &ent))
+    if (krb5_db_get_principal(context, princ, 0, &ent))
         return FALSE;
     match = krb5_principal_compare(context, ent->princ, client);
     krb5_db_free_principal(context, ent);
@@ -564,23 +562,8 @@ cleanup:
     return valid ? 0 : KRB5KDC_ERR_PREAUTH_EXPIRED;
 }
 
-static krb5_error_code
-replace_reply_key(krb5_context context, krb5_kdcpreauth_rock rock,
-                  const krb5_keyblock *key, krb5_boolean is_strengthen)
-{
-    krb5_keyblock copy;
-
-    if (krb5_copy_keyblock_contents(context, key, &copy) != 0)
-        return ENOMEM;
-    krb5_free_keyblock_contents(context, rock->client_keyblock);
-    *rock->client_keyblock = copy;
-    if (!is_strengthen)
-        rock->replaced_reply_key = TRUE;
-    return 0;
-}
-
 static struct krb5_kdcpreauth_callbacks_st callbacks = {
-    6,
+    5,
     max_time_skew,
     client_keys,
     free_keys,
@@ -598,8 +581,7 @@ static struct krb5_kdcpreauth_callbacks_st callbacks = {
     match_client,
     client_name,
     send_freshness_token,
-    check_freshness_token,
-    replace_reply_key
+    check_freshness_token
 };
 
 static krb5_error_code
@@ -829,6 +811,7 @@ add_freshness_token(krb5_context context, krb5_kdcpreauth_rock rock,
 {
     krb5_error_code ret;
     krb5_timestamp now;
+    krb5_key_data *kd;
     krb5_keyblock kb;
     krb5_checksum cksum;
     krb5_data d;
@@ -844,21 +827,29 @@ add_freshness_token(krb5_context context, krb5_kdcpreauth_rock rock,
                              KRB5_PADATA_AS_FRESHNESS) == NULL)
         return 0;
 
+    /* Fetch and decrypt the current local krbtgt key. */
+    ret = krb5_dbe_find_enctype(context, rock->local_tgt, -1, -1, 0, &kd);
+    if (ret)
+        goto cleanup;
+    ret = krb5_dbe_decrypt_key_data(context, NULL, kd, &kb, NULL);
+    if (ret)
+        goto cleanup;
+
     /* Compute a checksum over the current KDC time. */
     ret = krb5_timeofday(context, &now);
     if (ret)
         goto cleanup;
     store_32_be(now, ckbuf);
     d = make_data(ckbuf, sizeof(ckbuf));
-    ret = krb5_c_make_checksum(context, 0, rock->local_tgt_key,
-                               KRB5_KEYUSAGE_PA_AS_FRESHNESS, &d, &cksum);
+    ret = krb5_c_make_checksum(context, 0, &kb, KRB5_KEYUSAGE_PA_AS_FRESHNESS,
+                               &d, &cksum);
 
     /* Compose a freshness token from the time, krbtgt kvno, and checksum. */
     ret = k5_alloc_pa_data(KRB5_PADATA_AS_FRESHNESS, 8 + cksum.length, &pa);
     if (ret)
         goto cleanup;
     store_32_be(now, pa->contents);
-    store_32_be(current_kvno(rock->local_tgt), pa->contents + 4);
+    store_32_be(kd->key_data_kvno, pa->contents + 4);
     memcpy(pa->contents + 8, cksum.contents, cksum.length);
 
     ret = k5_add_pa_data_element(pa_list, &pa);
@@ -1477,7 +1468,7 @@ return_padata(krb5_context context, krb5_kdcpreauth_rock rock,
      * data doesn't correspond to the replaced reply key, and RFC 4120 section
      * 5.2.7.5 forbids us from sending etype-info describing the initial reply
      * key in an AS-REP if it doesn't have the same enctype as the replaced
-     * reply key.  For all current and foreseeable preauth mechs, we can assume
+     * reply key.  For all current and forseeable preauth mechs, we can assume
      * the client received etype-info2 in an earlier step and already computed
      * the initial reply key if it needed it.  The client can determine the
      * enctype of the replaced reply key from the etype field of the enc-part

@@ -30,7 +30,6 @@
  */
 
 #include "k5-int.h"
-#include "int-proto.h"
 
 #include <stdarg.h>
 
@@ -84,7 +83,7 @@ krb5_build_principal_ext(krb5_context context,  krb5_principal * princ,
     }
     va_end(ap);
     *princ = princ_ret;
-    princ_ret->type = k5_infer_principal_type(princ_ret);
+    princ_ret->type = KRB5_NT_UNKNOWN;
     return 0;
 
 free_out:

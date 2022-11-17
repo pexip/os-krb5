@@ -79,9 +79,9 @@ clpreauth_otp_initvt(krb5_context context, int maj_ver, int min_ver,
                      krb5_plugin_vtable vtable);
 
 krb5_error_code
-k5_get_cached_cred(krb5_context context, krb5_flags options,
-                   krb5_ccache ccache, krb5_creds *in_creds,
-                   krb5_creds **creds_out);
+krb5int_construct_matching_creds(krb5_context context, krb5_flags options,
+                                 krb5_creds *in_creds, krb5_creds *mcreds,
+                                 krb5_flags *fields);
 
 #define IS_TGS_PRINC(p) ((p)->length == 2 &&                            \
                          data_eq_string((p)->data[0], KRB5_TGS_NAME))
@@ -201,7 +201,7 @@ k5_ccselect_free_context(krb5_context context);
 
 krb5_error_code
 k5_init_creds_get(krb5_context context, krb5_init_creds_context ctx,
-                  int *use_primary);
+                  int *use_master);
 
 krb5_error_code
 k5_init_creds_current_time(krb5_context context, krb5_init_creds_context ctx,
@@ -291,7 +291,7 @@ k5_get_init_creds(krb5_context context, krb5_creds *creds,
                   krb5_principal client, krb5_prompter_fct prompter,
                   void *prompter_data, krb5_deltat start_time,
                   const char *in_tkt_service, krb5_get_init_creds_opt *options,
-                  get_as_key_fn gak, void *gak_data, int *primary,
+                  get_as_key_fn gak, void *gak_data, int *master,
                   krb5_kdc_rep **as_reply);
 
 /*
@@ -385,17 +385,5 @@ krb5_error_code
 k5_get_proxy_cred_from_kdc(krb5_context context, krb5_flags options,
                            krb5_ccache ccache, krb5_creds *in_creds,
                            krb5_creds **out_creds);
-
-/* Return true if mprinc will match any hostname in a host-based principal name
- * (possibly due to ignore_acceptor_hostname) with krb5_sname_match(). */
-krb5_boolean
-k5_sname_wildcard_host(krb5_context context, krb5_const_principal mprinc);
-
-/* Guess the appropriate name-type for a principal based on the name. */
-krb5_int32
-k5_infer_principal_type(krb5_principal princ);
-
-krb5_boolean
-k5_pac_should_have_ticket_signature(krb5_const_principal sprinc);
 
 #endif /* KRB5_INT_FUNC_PROTO__ */

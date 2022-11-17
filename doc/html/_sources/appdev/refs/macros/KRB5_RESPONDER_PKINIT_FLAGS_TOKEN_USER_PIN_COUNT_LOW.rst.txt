@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _KRB5-RESPONDER-PKINIT-FLAGS-TOKEN-USER-PIN-COUNT-LOW-data:
 

@@ -296,7 +296,7 @@ parse_rule_component(krb5_context context,
     rc->kwval_type = kwval_type;
 
     /*
-     * Before processing the value for this keyword,
+     * Before procesing the value for this keyword,
      * (compiling the regular expression or processing the list)
      * we need to find the end of it.  That means parsing for the
      * beginning of the next keyword (or the end of the rule).
@@ -448,26 +448,25 @@ cleanup:
 }
 
 static int
-regexp_match(krb5_context context, rule_component *rc, char *value, int idx)
+regexp_match(krb5_context context, rule_component *rc, char *value)
 {
     int code;
 
+    pkiDebug("%s: checking %s rule '%s' with value '%s'\n",
+             __FUNCTION__, keyword2string(rc->kw_type), rc->regsrc, value);
+
     code = regexec(&rc->regexp, value, 0, NULL, 0);
 
-    if (code == 0) {
-        TRACE_PKINIT_REGEXP_MATCH(context, keyword2string(rc->kw_type),
-                                  rc->regsrc, value, idx);
-    } else {
-        TRACE_PKINIT_REGEXP_NOMATCH(context, keyword2string(rc->kw_type),
-                                    rc->regsrc, value, idx);
-    }
+    pkiDebug("%s: the result is%s a match\n", __FUNCTION__,
+             code == REG_NOMATCH ? " NOT" : "");
 
     return (code == 0 ? 1: 0);
 }
 
 static int
-component_match(krb5_context context, rule_component *rc,
-                pkinit_cert_matching_data *md, int idx)
+component_match(krb5_context context,
+                rule_component *rc,
+                pkinit_cert_matching_data *md)
 {
     int match = 0;
     int i;
@@ -477,21 +476,21 @@ component_match(krb5_context context, rule_component *rc,
     case kwvaltype_regexp:
         switch (rc->kw_type) {
         case kw_subject:
-            match = regexp_match(context, rc, md->subject_dn, idx);
+            match = regexp_match(context, rc, md->subject_dn);
             break;
         case kw_issuer:
-            match = regexp_match(context, rc, md->issuer_dn, idx);
+            match = regexp_match(context, rc, md->issuer_dn);
             break;
         case kw_san:
             for (i = 0; md->sans != NULL && md->sans[i] != NULL; i++) {
                 krb5_unparse_name(context, md->sans[i], &princ_string);
-                match = regexp_match(context, rc, princ_string, idx);
+                match = regexp_match(context, rc, princ_string);
                 krb5_free_unparsed_name(context, princ_string);
                 if (match)
                     break;
             }
             for (i = 0; md->upns != NULL && md->upns[i] != NULL; i++) {
-                match = regexp_match(context, rc, md->upns[i], idx);
+                match = regexp_match(context, rc, md->upns[i]);
                 if (match)
                     break;
             }
@@ -575,7 +574,7 @@ check_all_certs(krb5_context context,
         pkiDebug("%s: subject: '%s'\n", __FUNCTION__, md->subject_dn);
         certs_checked++;
         for (rc = rs->crs; rc != NULL; rc = rc->next) {
-            comp_match = component_match(context, rc, md, i);
+            comp_match = component_match(context, rc, md);
             if (comp_match) {
                 pkiDebug("%s: match for keyword type %s\n",
                          __FUNCTION__, keyword2string(rc->kw_type));
@@ -601,7 +600,8 @@ check_all_certs(krb5_context context,
     nextcert:
         continue;
     }
-    TRACE_PKINIT_CERT_NUM_MATCHING(context, certs_checked, total_cert_matches);
+    pkiDebug("%s: After checking %d certs, we found %d matches\n",
+             __FUNCTION__, certs_checked, total_cert_matches);
     if (total_cert_matches == 1) {
         *match_found = 1;
         *match_index = save_index;
@@ -642,7 +642,7 @@ pkinit_cert_matching(krb5_context context,
 
     /* parse each rule line one at a time and check all the certs against it */
     for (x = 0; rules[x] != NULL; x++) {
-        TRACE_PKINIT_CERT_RULE(context, rules[x]);
+        pkiDebug("%s: Processing rule '%s'\n", __FUNCTION__, rules[x]);
 
         /* Free rules from previous time through... */
         if (rs != NULL) {
@@ -652,7 +652,8 @@ pkinit_cert_matching(krb5_context context,
         retval = parse_rule_set(context, rules[x], &rs);
         if (retval) {
             if (retval == EINVAL) {
-                TRACE_PKINIT_CERT_RULE_INVALID(context, rules[x]);
+                pkiDebug("%s: Ignoring invalid rule pkinit_cert_match = '%s'\n",
+                         __FUNCTION__, rules[x]);
                 continue;
             }
             goto cleanup;
@@ -736,7 +737,7 @@ pkinit_client_cert_match(krb5_context context,
         goto cleanup;
 
     for (rc = rs->crs; rc != NULL; rc = rc->next) {
-        comp_match = component_match(context, rc, md, 0);
+        comp_match = component_match(context, rc, md);
         if ((comp_match && rs->relation == relation_or) ||
             (!comp_match && rs->relation == relation_and)) {
             break;

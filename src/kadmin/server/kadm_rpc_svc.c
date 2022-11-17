@@ -22,7 +22,7 @@ static int check_rpcsec_auth(struct svc_req *);
 /*
  * Function: kadm_1
  *
- * Purpose: RPC processing procedure.
+ * Purpose: RPC proccessing procedure.
  *	    originally generated from rpcgen
  *
  * Arguments:

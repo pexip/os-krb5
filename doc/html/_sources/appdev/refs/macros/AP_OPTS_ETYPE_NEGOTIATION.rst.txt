@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _AP-OPTS-ETYPE-NEGOTIATION-data:
 

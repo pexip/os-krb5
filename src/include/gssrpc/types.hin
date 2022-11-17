@@ -95,8 +95,8 @@ typedef int32_t		rpc_inline_t;
 /* This is for rpc/netdb.h */
 @rpcent_define@
 
-typedef int bool_t;
-typedef int enum_t;
+#define	bool_t	int
+#define	enum_t	int
 #ifndef FALSE
 #	define	FALSE	(0)
 #endif

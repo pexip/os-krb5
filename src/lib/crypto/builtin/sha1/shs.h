@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 #ifndef _SHS_DEFINED
 
-#include "crypto_int.h"
+#include "k5-int.h"
 
 #define _SHS_DEFINED
 

@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _KRB5-GET-INIT-CREDS-OPT-RENEW-LIFE-data:
 

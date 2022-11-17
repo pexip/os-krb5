@@ -504,33 +504,38 @@ prompt_for_tokeninfo(krb5_context context, krb5_prompter_fct prompter,
                      void *prompter_data, krb5_otp_tokeninfo **tis,
                      krb5_otp_tokeninfo **out_ti)
 {
-    char response[1024];
+    char *banner = NULL, *tmp, response[1024];
     krb5_otp_tokeninfo *ti = NULL;
     krb5_error_code retval = 0;
-    struct k5buf buf;
     int i = 0, j = 0;
 
-    k5_buf_init_dynamic(&buf);
-    k5_buf_add(&buf, _("Please choose from the following:\n"));
     for (i = 0; tis[i] != NULL; i++) {
-        k5_buf_add_fmt(&buf, "\t%d. %s ", i + 1, _("Vendor:"));
-        k5_buf_add_len(&buf, tis[i]->vendor.data, tis[i]->vendor.length);
-        k5_buf_add(&buf, "\n");
+        if (asprintf(&tmp, "%s\t%d. %s %.*s\n",
+                     banner ? banner :
+                         _("Please choose from the following:\n"),
+                     i + 1, _("Vendor:"), tis[i]->vendor.length,
+                     tis[i]->vendor.data) < 0) {
+            free(banner);
+            return ENOMEM;
+        }
+
+        free(banner);
+        banner = tmp;
     }
-    if (k5_buf_status(&buf) != 0)
-        return ENOMEM;
 
     do {
-        retval = doprompt(context, prompter, prompter_data, buf.data,
-                          _("Enter #"), response, sizeof(response));
-        if (retval != 0)
-            goto cleanup;
+        retval = doprompt(context, prompter, prompter_data,
+                          banner, _("Enter #"), response, sizeof(response));
+        if (retval != 0) {
+            free(banner);
+            return retval;
+        }
 
         errno = 0;
         j = strtol(response, NULL, 0);
         if (errno != 0) {
-            retval = errno;
-            goto cleanup;
+            free(banner);
+            return errno;
         }
         if (j < 1 || j > i)
             continue;
@@ -538,11 +543,9 @@ prompt_for_tokeninfo(krb5_context context, krb5_prompter_fct prompter,
         ti = tis[--j];
     } while (ti == NULL);
 
+    free(banner);
     *out_ti = ti;
-
-cleanup:
-    k5_buf_free(&buf);
-    return retval;
+    return 0;
 }
 
 /* Builds a challenge string from the given tokeninfo. */

@@ -23,7 +23,7 @@ nprincs = len(realm.run([kadminl, 'listprincs']).splitlines())
 # have an activation time, and whether the key is expected to be
 # currently active.
 list_mkeys_re = re.compile(r'^KVNO: (\d+), Enctype: (\S+), '
-                           r'(Active on: [^\*]+|No activate time set)( \*)?$')
+                           '(Active on: [^\*]+|No activate time set)( \*)?$')
 def check_mkey_list(*expected):
     # Split the output of kdb5_util list_mkeys into lines and ignore the first.
     outlines = realm.run([kdb5_util, 'list_mkeys']).splitlines()[1:]
@@ -46,7 +46,7 @@ def check_mkey_list(*expected):
 
 
 # Get the K/M principal.  Verify that it has the expected mkvno.  Each
-# remaining argument must be a sequence of two elements: an expected
+# remaining argment must be a sequence of two elements: an expected
 # key version and an expected enctype.
 keyline_re = re.compile(r'^Key: vno (\d+), (\S+)$')
 def check_master_dbent(expected_mkvno, *expected_keys):
@@ -118,13 +118,13 @@ def add_mkey(options):
 # specified) and verify the output against the expected mkvno, number
 # of updated principals, and number of already-current principals.
 mkvno_re = {False: re.compile(r'^Principals whose keys are being re-encrypted '
-                              r'to master key vno (\d+) if necessary:$'),
+                              'to master key vno (\d+) if necessary:$'),
             True: re.compile(r'^Principals whose keys WOULD BE re-encrypted '
-                             r'to master key vno (\d+):$')}
+                             'to master key vno (\d+):$')}
 count_re = {False: re.compile(r'^(\d+) principals processed: (\d+) updated, '
-                              r'(\d+) already current$'),
+                              '(\d+) already current$'),
             True: re.compile(r'^(\d+) principals processed: (\d+) would be '
-                             r'updated, (\d+) already current$')}
+                             'updated, (\d+) already current$')}
 def update_princ_encryption(dry_run, expected_mkvno, expected_updated,
                             expected_current):
     opts = ['-f', '-v']

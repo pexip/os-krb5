@@ -1,6 +1,6 @@
 mydir=lib$(S)crypto$(S)builtin$(S)des
 BUILDTOP=$(REL)..$(S)..$(S)..$(S)..
-LOCALINCLUDES=-I$(srcdir)/../../krb $(CRYPTO_IMPL_CFLAGS)
+LOCALINCLUDES = -I$(srcdir)/.. -I$(srcdir)/../../krb
 
 ##DOS##BUILDTOP = ..\..\..\..
 ##DOS##PREFIXDIR = builtin\des
@@ -51,16 +51,14 @@ TOBJS = $(OUTPRE)key_sched.$(OBJEXT) $(OUTPRE)f_sched.$(OBJEXT) \
 verify$(EXEEXT): t_verify.$(OBJEXT) $(TOBJS) f_parity.$(OBJEXT) \
 	$(COM_ERR_DEPLIB) $(SUPPORT_DEPLIB)
 	$(CC_LINK) -o $@ t_verify.$(OBJEXT) $(TOBJS) f_parity.$(OBJEXT) \
-		$(COM_ERR_LIB) $(SUPPORT_LIB)
+		-lcom_err $(SUPPORT_LIB)
 
 destest$(EXEEXT): destest.$(OBJEXT) $(TOBJS) $(SUPPORT_DEPLIB)
 	$(CC_LINK) -o $@ destest.$(OBJEXT) $(TOBJS) $(SUPPORT_LIB)
 
 all-unix: all-libobjs
 
-check-unix: check-unix-@CRYPTO_BUILTIN_TESTS@
-check-unix-no:
-check-unix-yes: verify destest
+check-unix: verify destest
 	$(RUN_TEST) ./verify -z
 	$(RUN_TEST) ./verify -m
 	$(RUN_TEST) ./verify

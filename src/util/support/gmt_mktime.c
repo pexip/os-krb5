@@ -9,8 +9,12 @@
 #endif
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
-#endif
+#ifdef TIME_WITH_SYS_TIME
 #include <time.h>
+#endif
+#else
+#include <time.h>
+#endif
 
 #include "k5-gmt_mktime.h"
 

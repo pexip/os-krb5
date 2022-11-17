@@ -340,10 +340,9 @@ krb5_string_to_keysalts(const char *string, const char *tupleseps,
     while ((ksp = strtok_r(p, tseps, &tlasts)) != NULL) {
         /* Pass a null pointer to subsequent calls to strtok_r(). */
         p = NULL;
-
-        /* Discard unrecognized keysalts. */
-        if (string_to_keysalt(ksp, ksaltseps, &etype, &stype) != 0)
-            continue;
+        ret = string_to_keysalt(ksp, ksaltseps, &etype, &stype);
+        if (ret)
+            goto cleanup;
 
         /* Ignore duplicate keysalts if caller asks. */
         if (!dups && krb5_keysalt_is_present(ksalts, nksalts, etype, stype))

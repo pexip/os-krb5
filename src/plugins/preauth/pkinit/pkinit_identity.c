@@ -30,6 +30,7 @@
  */
 
 #include "pkinit.h"
+#include <dlfcn.h>
 #include <dirent.h>
 
 static void
@@ -310,17 +311,17 @@ parse_fs_options(krb5_context context,
                  const char *residual)
 {
     char *certname, *keyname, *save;
-    char *copy = NULL, *cert_filename = NULL, *key_filename = NULL;
+    char *cert_filename = NULL, *key_filename = NULL;
     krb5_error_code retval = ENOMEM;
 
     if (residual == NULL || residual[0] == '\0' || residual[0] == ',')
         return EINVAL;
 
-    copy = strdup(residual);
-    if (copy == NULL)
+    certname = strdup(residual);
+    if (certname == NULL)
         goto cleanup;
 
-    certname = strtok_r(copy, ",", &save);
+    certname = strtok_r(certname, ",", &save);
     if (certname == NULL)
         goto cleanup;
     keyname = strtok_r(NULL, ",", &save);
@@ -333,15 +334,13 @@ parse_fs_options(krb5_context context,
     if (key_filename == NULL)
         goto cleanup;
 
-    free(idopts->cert_filename);
-    free(idopts->key_filename);
     idopts->cert_filename = cert_filename;
     idopts->key_filename = key_filename;
     cert_filename = key_filename = NULL;
     retval = 0;
 
 cleanup:
-    free(copy);
+    free(certname);
     free(cert_filename);
     free(key_filename);
     return retval;
@@ -357,12 +356,10 @@ parse_pkcs12_options(krb5_context context,
     if (residual == NULL || residual[0] == '\0')
         return 0;
 
-    free(idopts->cert_filename);
     idopts->cert_filename = strdup(residual);
     if (idopts->cert_filename == NULL)
         goto cleanup;
 
-    free(idopts->key_filename);
     idopts->key_filename = strdup(residual);
     if (idopts->key_filename == NULL)
         goto cleanup;
@@ -381,13 +378,14 @@ process_option_identity(krb5_context context,
                         pkinit_req_crypto_context req_cryptoctx,
                         pkinit_identity_opts *idopts,
                         pkinit_identity_crypto_context id_cryptoctx,
-                        krb5_principal princ, const char *value)
+                        const char *value)
 {
     const char *residual;
     int idtype;
     krb5_error_code retval = 0;
 
-    TRACE_PKINIT_IDENTITY_OPTION(context, value);
+    pkiDebug("%s: processing value '%s'\n",
+             __FUNCTION__, value ? value : "NULL");
     if (value == NULL)
         return EINVAL;
 
@@ -426,7 +424,7 @@ process_option_identity(krb5_context context,
     switch (idtype) {
     case IDTYPE_ENVVAR:
         return process_option_identity(context, plg_cryptoctx, req_cryptoctx,
-                                       idopts, id_cryptoctx, princ,
+                                       idopts, id_cryptoctx,
                                        secure_getenv(residual));
         break;
     case IDTYPE_FILE:
@@ -441,7 +439,6 @@ process_option_identity(krb5_context context,
         break;
 #endif
     case IDTYPE_DIR:
-        free(idopts->cert_filename);
         idopts->cert_filename = strdup(residual);
         if (idopts->cert_filename == NULL)
             retval = ENOMEM;
@@ -453,16 +450,7 @@ process_option_identity(krb5_context context,
         retval = EINVAL;
         break;
     }
-    if (retval)
-        return retval;
-
-    retval = crypto_load_certs(context, plg_cryptoctx, req_cryptoctx, idopts,
-                               id_cryptoctx, princ, TRUE);
-    if (retval)
-        return retval;
-
-    crypto_free_cert_info(context, plg_cryptoctx, req_cryptoctx, id_cryptoctx);
-    return 0;
+    return retval;
 }
 
 static krb5_error_code
@@ -537,13 +525,12 @@ pkinit_identity_initialize(krb5_context context,
         if (idopts->identity != NULL) {
             retval = process_option_identity(context, plg_cryptoctx,
                                              req_cryptoctx, idopts,
-                                             id_cryptoctx, princ,
-                                             idopts->identity);
+                                             id_cryptoctx, idopts->identity);
         } else if (idopts->identity_alt != NULL) {
             for (i = 0; retval != 0 && idopts->identity_alt[i] != NULL; i++) {
                 retval = process_option_identity(context, plg_cryptoctx,
                                                  req_cryptoctx, idopts,
-                                                 id_cryptoctx, princ,
+                                                 id_cryptoctx,
                                                  idopts->identity_alt[i]);
             }
         } else {
@@ -553,6 +540,16 @@ pkinit_identity_initialize(krb5_context context,
             pkiDebug("%s: no user identity options specified\n", __FUNCTION__);
             goto errout;
         }
+        if (retval)
+            goto errout;
+
+        retval = crypto_load_certs(context, plg_cryptoctx, req_cryptoctx,
+                                   idopts, id_cryptoctx, princ, TRUE);
+        if (retval)
+            goto errout;
+
+        crypto_free_cert_info(context, plg_cryptoctx, req_cryptoctx,
+                              id_cryptoctx);
     } else {
         /* We're the anonymous principal. */
         retval = 0;
@@ -579,9 +576,8 @@ pkinit_identity_prompt(krb5_context context,
                        int do_matching,
                        krb5_principal princ)
 {
-    krb5_error_code retval = 0;
+    krb5_error_code retval = EINVAL;
     const char *signer_identity;
-    krb5_boolean valid;
     int i;
 
     pkiDebug("%s: %p %p %p\n", __FUNCTION__, context, idopts, id_cryptoctx);
@@ -634,36 +630,22 @@ pkinit_identity_prompt(krb5_context context,
             goto errout;
     } /* Not anonymous principal */
 
-    /* Require at least one successful anchor if any are specified. */
-    valid = FALSE;
     for (i = 0; idopts->anchors != NULL && idopts->anchors[i] != NULL; i++) {
         retval = process_option_ca_crl(context, plg_cryptoctx, req_cryptoctx,
                                        idopts, id_cryptoctx,
                                        idopts->anchors[i], CATYPE_ANCHORS);
-        if (!retval)
-            valid = TRUE;
+        if (retval)
+            goto errout;
     }
-    if (retval && !valid)
-        goto errout;
-    krb5_clear_error_message(context);
-    retval = 0;
-
-    /* Require at least one successful intermediate if any are specified. */
-    valid = FALSE;
     for (i = 0; idopts->intermediates != NULL
              && idopts->intermediates[i] != NULL; i++) {
         retval = process_option_ca_crl(context, plg_cryptoctx, req_cryptoctx,
                                        idopts, id_cryptoctx,
                                        idopts->intermediates[i],
                                        CATYPE_INTERMEDIATES);
-        if (!retval)
-            valid = TRUE;
+        if (retval)
+            goto errout;
     }
-    if (retval && !valid)
-        goto errout;
-    krb5_clear_error_message(context);
-    retval = 0;
-
     for (i = 0; idopts->crls != NULL && idopts->crls[i] != NULL; i++) {
         retval = process_option_ca_crl(context, plg_cryptoctx, req_cryptoctx,
                                        idopts, id_cryptoctx, idopts->crls[i],
