@@ -1,3 +1,17 @@
+krb5 (1.18.3-6+deb11u3pexip1) pexip; urgency=medium
+
+  * New upstream release with security updates
+
+ -- Steve McIntyre <steve.mcintyre@pexip.com>  Mon, 21 Nov 2022 10:58:26 +0000
+
+krb5 (1.18.3-6+deb11u3) bullseye-security; urgency=high
+
+  * Integer overflows in PAC parsing; potentially critical for 32-bit
+    KDCs or when cross-realm acts maliciously; DOS in other conditions;
+    CVE-2022-42898, Closes: #1024267
+
+ -- Sam Hartman <hartmans@debian.org>  Thu, 17 Nov 2022 12:41:46 -0700
+
 krb5 (1.18.3-6+deb11u2pexip1) pexip; urgency=medium
 
   * New upstream release
