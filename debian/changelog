@@ -1,4 +1,4 @@
-krb5 (1.20-1pexip1) pexip; urgency=medium
+krb5 (1.20-1pexip1) pexip-bullseye-openssl3; urgency=medium
 
   * New upstream release
   * Build-Depend on libssl-dev 3
