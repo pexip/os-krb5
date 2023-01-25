@@ -20,6 +20,9 @@
 /* Define if __attribute__((constructor)) works */
 #undef CONSTRUCTOR_ATTR_WORKS
 
+/* Define to use OpenSSL crypto library */
+#undef CRYPTO_OPENSSL
+
 /* Define to default ccache name */
 #undef DEFCCNAME
 
@@ -50,9 +53,6 @@
 
 /* Define as return type of endrpcent */
 #undef ENDRPCENT_TYPE
-
-/* Define if Fortuna PRNG is selected */
-#undef FORTUNA
 
 /* Define to the type of elements in the array set by `getgroups'. Usually
    this is either `int' or `gid_t'. */
@@ -152,6 +152,9 @@
 
 /* Define to 1 if you have the <errno.h> header file. */
 #undef HAVE_ERRNO_H
+
+/* Define to 1 if you have the `EVP_PKEY_get_bn_param' function. */
+#undef HAVE_EVP_PKEY_GET_BN_PARAM
 
 /* Define to 1 if you have the `explicit_bzero' function. */
 #undef HAVE_EXPLICIT_BZERO
@@ -542,12 +545,6 @@
 /* Define to 1 if you have the <sys/uio.h> header file. */
 #undef HAVE_SYS_UIO_H
 
-/* Define if tcl.h found */
-#undef HAVE_TCL_H
-
-/* Define if tcl/tcl.h found */
-#undef HAVE_TCL_TCL_H
-
 /* Define to 1 if you have the `timegm' function. */
 #undef HAVE_TIMEGM
 
@@ -639,9 +636,6 @@
 /* Define if references to pthread routines should be non-weak. */
 #undef NO_WEAK_PTHREADS
 
-/* Define if lex produes code with yylineno */
-#undef NO_YYLINENO
-
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
 
@@ -666,18 +660,12 @@
 /* Define if POSIX signal handling is used */
 #undef POSIX_SIGNALS
 
-/* Define if POSIX signal handlers are used */
-#undef POSIX_SIGTYPE
-
 /* Define if termios.h exists and tcsetattr exists */
 #undef POSIX_TERMIOS
 
 /* Define to necessary symbol if this constant uses a non-standard name on
    your system. */
 #undef PTHREAD_CREATE_JOINABLE
-
-/* Define as the return type of signal handlers (`int' or `void'). */
-#undef RETSIGTYPE
 
 /* Define as return type of setrpcent */
 #undef SETRPCENT_TYPE
@@ -702,9 +690,6 @@
 
 /* Define if sys_errlist is defined in errno.h */
 #undef SYS_ERRLIST_DECLARED
-
-/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
-#undef TIME_WITH_SYS_TIME
 
 /* Define if no TLS implementation is selected */
 #undef TLS_IMPL_NONE
@@ -733,10 +718,6 @@
 /* Define if wait takes int as a argument */
 #undef WAIT_USES_INT
 
-/* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
-   `char[]'. */
-#undef YYTEXT_POINTER
-
 /* Define to enable extensions in glibc */
 #undef _GNU_SOURCE
 
@@ -754,9 +735,6 @@
 #ifndef __cplusplus
 #undef inline
 #endif
-
-/* Define krb5_sigtype to type of signal handler */
-#undef krb5_sigtype
 
 /* Define to `int' if <sys/types.h> does not define. */
 #undef mode_t

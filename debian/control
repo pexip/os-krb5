@@ -4,11 +4,11 @@ Priority: optional
 Build-Depends: debhelper-compat (= 13), byacc | bison,
  comerr-dev, docbook-to-man,
  libkeyutils-dev [linux-any], libldap2-dev <!stage1>, libsasl2-dev <!stage1>,
- libncurses5-dev, libssl1.0-dev | libssl-dev (<< 1.1),  ss-dev,
+ libssl-dev,  ss-dev,
  libverto-dev (>= 0.2.4), pkg-config
 Maintainer: Pexip AS <packaging@pexip.com>
-Build-Depends-Indep: python3, python3-cheetah, python3-lxml, python3-sphinx, doxygen, doxygen-latex
-Standards-Version: 4.5.0
+Build-Depends-Indep: python3, python3-cheetah, python3-lxml, python3-sphinx, doxygen, doxygen-latex, tex-gyre
+Standards-Version: 4.6.0
 XSBC-Pexip-Original-Maintainer: Sam Hartman <hartmans@debian.org>
 XSBC-Pexip-Original-Uploaders: Russ Allbery <rra@debian.org>, Benjamin Kaduk <kaduk@mit.edu>
 Homepage: http://web.mit.edu/kerberos/
@@ -244,6 +244,7 @@ Multi-Arch: foreign
 Conflicts: heimdal-docs
 Section: doc
 Depends: ${misc:Depends}
+Recommends: libjs-sphinxdoc, libjs-jquery, libjs-underscore
 Description: documentation for MIT Kerberos
  Kerberos is a system for authenticating users and services on a network.
  Kerberos is a trusted third-party service.  That means that there is a

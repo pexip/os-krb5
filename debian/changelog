@@ -1,3 +1,43 @@
+krb5 (1.20-1) unstable; urgency=medium
+
+  * New Upstream Version
+  * Do not specify master key type to avoid weak crypto, Closes: #1009927
+
+ -- Sam Hartman <hartmans@debian.org>  Fri, 22 Jul 2022 16:32:38 -0600
+
+krb5 (1.20~beta1-1) experimental; urgency=medium
+
+  * New Upstream version
+
+ -- Sam Hartman <hartmans@debian.org>  Thu, 07 Apr 2022 11:57:27 -0600
+
+krb5 (1.19.2-2) unstable; urgency=medium
+
+  * Standards version 4.6.0; no change
+  * kpropd: run after network.target, Closes: #948820
+  * krb5-kdc: Remove /var from PidFile, Closes: #982009
+
+ -- Sam Hartman <hartmans@debian.org>  Mon, 21 Feb 2022 13:05:20 -0700
+
+krb5 (1.19.2-1) experimental; urgency=medium
+
+  * New Upstream version
+  * Include patch to work with OpenSSL 3.0, Closes: #995152
+  * Depend on tex-gyre, Closes: #997407
+    
+ -- Sam Hartman <hartmans@debian.org>  Wed, 27 Oct 2021 14:04:42 -0600
+
+krb5 (1.18.3-7) unstable; urgency=medium
+
+  * Fix KDC null dereference crash on FAST request with no server field,
+    CVE-2021-37750, Closes: #992607
+  * Fix memory leak in krb5_gss_inquire_cred, Closes: #991140
+  * Add javascript libraries for docs, thanks Andreas Beckmann, Closes: #988743
+  * Drop build-dependency on libncurses5-dev which hasn't been needed
+    since krb5-appl was removed, Closes: #981161
+
+ -- Sam Hartman <hartmans@debian.org>  Fri, 27 Aug 2021 08:13:47 -0600
+
 krb5 (1.18.3-6+deb11u3pexip1) pexip; urgency=medium
 
   * New upstream release with security updates
