@@ -1,5 +1,5 @@
-krb5_get_init_creds_opt_set_canonicalize -  Set or unset the canonicalize flag in initial credential options. 
-==============================================================================================================
+krb5_get_init_creds_opt_set_canonicalize -  Set or unset the canonicalize flag in initialcredential options. 
+=============================================================================================================
 
 ..
 
