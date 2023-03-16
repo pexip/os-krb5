@@ -1,3 +1,9 @@
+krb5 (1.20.1-1pexip1) pexip; urgency=medium
+
+  * New upstream release
+
+ -- Huw Jones <huw@pexip.com>  Thu, 16 Mar 2023 17:01:16 +0000
+
 krb5 (1.20.1-1) unstable; urgency=high
 
   [ Bastian Germann ]
