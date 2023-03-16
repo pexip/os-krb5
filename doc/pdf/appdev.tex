@@ -55,7 +55,7 @@
 
 \title{Kerberos Application Developer Guide}
 \date{ }
-\release{1.20}
+\release{1.20.1}
 \author{MIT}
 \newcommand{\sphinxlogo}{\vbox{}}
 \renewcommand{\releasename}{Release}
@@ -2345,8 +2345,8 @@ This function is the preferred way to create an options structure for getting in
 This function may be used to request anonymous credentials from the KDC by setting \sphinxstyleemphasis{anonymous} to non-zero. Note that anonymous credentials are only a request; clients must verify that credentials are anonymous if that is a requirement.
 
 
-\subsubsection{krb5\_get\_init\_creds\_opt\_set\_canonicalize -  Set or unset the canonicalize flag in initial credential options.}
-\label{\detokenize{appdev/refs/api/krb5_get_init_creds_opt_set_canonicalize:krb5-get-init-creds-opt-set-canonicalize-set-or-unset-the-canonicalize-flag-in-initial-credential-options}}\label{\detokenize{appdev/refs/api/krb5_get_init_creds_opt_set_canonicalize::doc}}\index{krb5\_get\_init\_creds\_opt\_set\_canonicalize (C function)}
+\subsubsection{krb5\_get\_init\_creds\_opt\_set\_canonicalize -  Set or unset the canonicalize flag in initialcredential options.}
+\label{\detokenize{appdev/refs/api/krb5_get_init_creds_opt_set_canonicalize:krb5-get-init-creds-opt-set-canonicalize-set-or-unset-the-canonicalize-flag-in-initialcredential-options}}\label{\detokenize{appdev/refs/api/krb5_get_init_creds_opt_set_canonicalize::doc}}\index{krb5\_get\_init\_creds\_opt\_set\_canonicalize (C function)}
 
 \begin{fulllineitems}
 \phantomsection\label{\detokenize{appdev/refs/api/krb5_get_init_creds_opt_set_canonicalize:c.krb5_get_init_creds_opt_set_canonicalize}}\pysiglinewithargsret{void \sphinxbfcode{krb5\_get\_init\_creds\_opt\_set\_canonicalize}}{{\hyperref[\detokenize{appdev/refs/types/krb5_get_init_creds_opt:c.krb5_get_init_creds_opt}]{\sphinxcrossref{krb5\_get\_init\_creds\_opt}}} *\sphinxstyleemphasis{ opt}, int\sphinxstyleemphasis{ canonicalize}}{}
@@ -11081,7 +11081,7 @@ TRUE if ktype is valid, FALSE if not
 
 \end{description}\end{quote}
 
-This function verifies that \sphinxstyleemphasis{cksum} is a valid checksum for \sphinxstyleemphasis{data} . If the checksum type of \sphinxstyleemphasis{cksum} is a keyed checksum, \sphinxstyleemphasis{key} is used to verify the checksum. If the checksum type in \sphinxstyleemphasis{cksum} is 0 and \sphinxstyleemphasis{key} is not NULL, the mandatory checksum type for \sphinxstyleemphasis{key} will be used. The actual checksum key will bederived from \sphinxstyleemphasis{key} and \sphinxstyleemphasis{usage} if key derivation is specified for the checksum type.
+This function verifies that \sphinxstyleemphasis{cksum} is a valid checksum for \sphinxstyleemphasis{data} . If the checksum type of \sphinxstyleemphasis{cksum} is a keyed checksum, \sphinxstyleemphasis{key} is used to verify the checksum. If the checksum type in \sphinxstyleemphasis{cksum} is 0 and \sphinxstyleemphasis{key} is not NULL, the mandatory checksum type for \sphinxstyleemphasis{key} will be used. The actual checksum key will be derived from \sphinxstyleemphasis{key} and \sphinxstyleemphasis{usage} if key derivation is specified for the checksum type.
 
 \begin{sphinxadmonition}{note}{Note:}
 This function is similar to {\hyperref[\detokenize{appdev/refs/api/krb5_k_verify_checksum:c.krb5_k_verify_checksum}]{\sphinxcrossref{\sphinxcode{krb5\_k\_verify\_checksum()}}}} , but operates on keyblock \sphinxstyleemphasis{key} .

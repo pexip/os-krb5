@@ -32,9 +32,9 @@ libk5crypto.so.3 libk5crypto3 #MINVER#
  krb5_c_prf_length@k5crypto_3_MIT 1.6.dfsg.2
  krb5_c_prfplus@k5crypto_3_MIT 1.14+dfsg
  krb5_c_random_add_entropy@k5crypto_3_MIT 1.6.dfsg.2
- krb5_c_random_make_octets@k5crypto_3_MIT 1.6.dfsg.2
- krb5_c_random_os_entropy@k5crypto_3_MIT 1.6.dfsg.2
- krb5_c_random_seed@k5crypto_3_MIT 1.6.dfsg.2
+ krb5_c_random_make_octets@k5crypto_3_MIT 1.20
+ krb5_c_random_os_entropy@k5crypto_3_MIT 1.20
+ krb5_c_random_seed@k5crypto_3_MIT 1.20
  krb5_c_random_to_key@k5crypto_3_MIT 1.6.dfsg.2
  krb5_c_string_to_key@k5crypto_3_MIT 1.7+dfsg
  krb5_c_string_to_key_with_params@k5crypto_3_MIT 1.7+dfsg
