@@ -1,3 +1,17 @@
+krb5 (1.20.1-2+deb12u1pexip1) pexip; urgency=medium
+
+  * New upstream release
+
+ -- Steve McIntyre <steve.mcintyre@pexip.com>  Mon, 09 Oct 2023 14:34:23 +0100
+
+krb5 (1.20.1-2+deb12u1) bookworm; urgency=high
+
+  * Fixes CVE-2023-36054: a  remote authenticated attacker can cause
+    kadmind to free an uninitialized pointer.  Upstream believes remote
+    code execusion is unlikely, Closes: #1043431 
+
+ -- Sam Hartman <hartmans@debian.org>  Mon, 14 Aug 2023 14:06:53 -0600
+
 krb5 (1.20.1-2pexip1) pexip; urgency=medium
 
   * New upstream release
