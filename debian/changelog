@@ -1,3 +1,9 @@
+krb5 (1.20.1-2+deb12u1pexip2) pexip-bookworm; urgency=medium
+
+  * Initial bookworm build
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Thu, 16 Nov 2023 10:05:14 +0000
+
 krb5 (1.20.1-2+deb12u1pexip1) pexip; urgency=medium
 
   * New upstream release
