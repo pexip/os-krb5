@@ -1,3 +1,9 @@
+krb5 (1.20.1-2+deb12u1+pexip24u4) pexip-bookworm; urgency=medium
+
+  * New versioning scheme
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Thu, 01 Feb 2024 16:03:27 +0000
+
 krb5 (1.20.1-2+deb12u1pexip3) pexip-bookworm; urgency=medium
 
   * Bookworm build for product distribution
