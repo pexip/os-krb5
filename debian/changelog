@@ -1,3 +1,13 @@
+krb5 (1.20.1-2+deb12u2) bookworm-security; urgency=high
+	
+  * CVE-2024-37370: an unauthenticated attacker can modify the
+    extra count in an RFC 4121 GSS token, causing the token to appear
+    truncated.
+  *  CVE-2024-37371: an attacker can cause invalid memory reads by
+    sending an invalid GSS token.
+
+ -- Sam Hartman <hartmans@debian.org>  Mon, 01 Jul 2024 11:31:35 -0600
+
 krb5 (1.20.1-2+deb12u1) bookworm; urgency=high
 
   * Fixes CVE-2023-36054: a  remote authenticated attacker can cause
