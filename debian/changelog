@@ -1,6 +1,6 @@
-krb5 (1.20.1-2+pexip24u2+deb12u2) pexip; urgency=medium
+krb5 (1.20.1-2+pexip24+u2+deb12u2) pexip; urgency=medium
 
-  * Rebuild for migration to mains
+  * Rebuild for migration to main
 
  -- Mark Hymers <mark.hymers@pexip.com>  Mon, 14 Oct 2024 14:23:22 +0100
 
