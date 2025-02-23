@@ -110,13 +110,11 @@ extern k5_cc_mutex krb5int_mcc_mutex;
 extern k5_cc_mutex krb5int_krcc_mutex;
 extern k5_cc_mutex krb5int_cc_file_mutex;
 
-#ifdef USE_CCAPI_V3
 extern krb5_error_code KRB5_CALLCONV krb5_stdccv3_context_lock
 (krb5_context context);
 
 extern krb5_error_code KRB5_CALLCONV krb5_stdccv3_context_unlock
 (krb5_context context);
-#endif
 
 krb5_error_code
 k5_cc_lock(krb5_context context, krb5_ccache ccache);
@@ -167,6 +165,9 @@ k5_marshal_mcred(struct k5buf *buf, krb5_creds *mcred);
 
 void
 k5_marshal_princ(struct k5buf *buf, int version, krb5_principal princ);
+
+krb5_error_code
+k5_kcm_primary_name(krb5_context context, char **name_out);
 
 /*
  * Per-type ccache cursor.

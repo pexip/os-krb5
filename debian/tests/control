@@ -3,5 +3,5 @@ Depends: @
 Restrictions: isolation-container, needs-root, allow-stderr
 
 Tests: slapd-gssapi
-Depends: @, slapd, ldap-utils, libsasl2-modules-gssapi-mit
+Depends: ldap-utils, libsasl2-modules-gssapi-mit, slapd, @
 Restrictions: isolation-container, needs-root, allow-stderr

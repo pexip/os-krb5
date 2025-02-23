@@ -132,9 +132,6 @@ krb5_error_code cms_signeddata_create
 	int cms_msg_type,				/* IN
 		    specifies CMS_SIGN_CLIENT for client-side CMS message
 		    and CMS_SIGN_SERVER for kdc-side */
-	int include_certchain,				/* IN
-		    specifies where certificates field in SignedData
-		    should contain certificate path */
 	unsigned char *auth_pack,			/* IN
 		    contains DER encoded AuthPack (CMS_SIGN_CLIENT)
 		    or DER encoded DHRepInfo (CMS_SIGN_SERVER) */
@@ -192,9 +189,6 @@ krb5_error_code cms_envelopeddata_create
 	pkinit_req_crypto_context req_cryptoctx,	/* IN */
 	pkinit_identity_crypto_context id_cryptoctx,	/* IN */
 	krb5_preauthtype pa_type,			/* IN */
-	int include_certchain,				/* IN
-		    specifies whether the certificates field in
-		    SignedData should contain certificate path */
 	unsigned char *key_pack,			/* IN
 		    contains DER encoded ReplyKeyPack */
 	unsigned int key_pack_len,			/* IN
@@ -619,6 +613,10 @@ extern const krb5_data oakley_4096;
  * the order in which the server will pick.
  */
 extern krb5_data const * const supported_kdf_alg_ids[];
+
+/* CMS signature algorithms supported by this implementation, in order of
+ * decreasing preference. */
+extern krb5_data const * const supported_cms_algs[];
 
 krb5_error_code
 crypto_encode_der_cert(krb5_context context, pkinit_req_crypto_context reqctx,

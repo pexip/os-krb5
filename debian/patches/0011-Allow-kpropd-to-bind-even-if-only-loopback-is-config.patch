@@ -1,0 +1,29 @@
+From: Sam Hartman <hartmans@debian.org>
+Date: Fri, 14 Jun 2024 14:59:28 -0600
+Subject: Allow kpropd to bind even if only loopback is configured
+
+In src/kprop/kpropd.c get_wildcard_address, call getaddrinfo without
+AI_ADDRCONFIG if both the v6 and v4 calls to getaddrinfo fail with
+AI_ADDRCONFIG. This generally means that only the loopback interface
+is configured. This change allows the testsuite to succeed ina
+container isolated to prohibit network connectivity.
+---
+ src/kprop/kpropd.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/kprop/kpropd.c b/src/kprop/kpropd.c
+index aa3c81e..ac23738 100644
+--- a/src/kprop/kpropd.c
++++ b/src/kprop/kpropd.c
+@@ -372,6 +372,11 @@ get_wildcard_addr(struct addrinfo **res)
+     if (error == 0)
+         return 0;
+     hints.ai_family = AF_INET;
++    error =  getaddrinfo(NULL, port, &hints, res);
++    if (error == 0)
++        return 0;
++    /* We may only have loopback addresses configured. Especially for the test framework, this is a valid configuration.*/
++    hints.ai_flags = AI_PASSIVE;
+     return getaddrinfo(NULL, port, &hints, res);
+ }
+ 

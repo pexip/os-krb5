@@ -3,5 +3,8 @@ krb5 source: license-problem-non-free-RFC-BCP78 debian/copyright
 krb5 source: license-problem-non-free-RFC-BCP78 NOTICE
 # Written by upstream with no external authors
 krb5 source: license-problem-non-free-RFC-BCP78 src/lib/gssapi/krb5/3des.txt
-
-
+# False Lintian error can be overridden as the HTML files are indeed the source
+# files of the documentation
+source-is-missing [doc/html/*]
+source-is-missing [src/ccapi/doc/*]
+source-is-missing [src/windows/leash/htmlhelp/html/*]
