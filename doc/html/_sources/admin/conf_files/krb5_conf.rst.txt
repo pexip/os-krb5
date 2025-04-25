@@ -95,6 +95,18 @@ Additionally, krb5.conf may include any of the relations described in
 
 The libdefaults section may contain any of the following relations:
 
+**allow_des3**
+    Permit the KDC to issue tickets with des3-cbc-sha1 session keys.
+    In future releases, this flag will allow des3-cbc-sha1 to be used
+    at all.  The default value for this tag is false.  (Added in
+    release 1.21.)
+
+**allow_rc4**
+    Permit the KDC to issue tickets with arcfour-hmac session keys.
+    In future releases, this flag will allow arcfour-hmac to be used
+    at all.  The default value for this tag is false.  (Added in
+    release 1.21.)
+
 **allow_weak_crypto**
     If this flag is set to false, then weak encryption types (as noted
     in :ref:`Encryption_types` in :ref:`kdc.conf(5)`) will be filtered
@@ -1011,7 +1023,7 @@ information for PKINIT is as follows:
     All keyword/values are optional.  *modname* specifies the location
     of a library implementing PKCS #11.  If a value is encountered
     with no keyword, it is assumed to be the *modname*.  If no
-    module-name is specified, the default is ``opensc-pkcs11.so``.
+    module-name is specified, the default is |pkcs11_modname|.
     ``slotid=`` and/or ``token=`` may be specified to force the use of
     a particular smard card reader or token if there is more than one
     available.  ``certid=`` and/or ``certlabel=`` may be specified to

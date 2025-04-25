@@ -165,6 +165,7 @@ padata_type_string(krb5_preauthtype type)
     case KRB5_PADATA_AS_FRESHNESS: return "PA_AS_FRESHNESS";
     case KRB5_PADATA_SPAKE: return "PA-SPAKE";
     case KRB5_PADATA_REDHAT_IDP_OAUTH2: return "PA-REDHAT-IDP-OAUTH2";
+    case KRB5_PADATA_REDHAT_PASSKEY: return "PA-REDHAT-PASSKEY";
     default: return NULL;
     }
 }
@@ -366,7 +367,7 @@ trace_format(krb5_context context, const char *fmt, va_list ap)
                    creds->client, creds->server);
         }
     }
-    return buf.data;
+    return k5_buf_cstring(&buf);
 }
 
 /* Allows trace_format formatters to be represented in terms of other

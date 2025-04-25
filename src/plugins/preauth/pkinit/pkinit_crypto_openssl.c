@@ -147,43 +147,6 @@ static const char *
 pkcs11err(int err);
 
 
-#ifdef HAVE_OPENSSL_CMS
-/* Use CMS support present in OpenSSL. */
-#include <openssl/cms.h>
-#define pkinit_CMS_get0_content_signed(_cms) CMS_get0_content(_cms)
-#define pkinit_CMS_get0_content_data(_cms) CMS_get0_content(_cms)
-#define pkinit_CMS_free1_crls(_sk_x509crl)              \
-    sk_X509_CRL_pop_free((_sk_x509crl), X509_CRL_free)
-#define pkinit_CMS_free1_certs(_sk_x509)        \
-    sk_X509_pop_free((_sk_x509), X509_free)
-#define pkinit_CMS_SignerInfo_get_cert(_cms,_si,_x509_pp)       \
-    CMS_SignerInfo_get0_algs(_si,NULL,_x509_pp,NULL,NULL)
-#else
-/* Fake up CMS support using PKCS7. */
-#define pkinit_CMS_free1_crls(_stack_of_x509crls)   /* Don't free these */
-#define pkinit_CMS_free1_certs(_stack_of_x509certs) /* Don't free these */
-#define CMS_NO_SIGNER_CERT_VERIFY PKCS7_NOVERIFY
-#define CMS_NOATTR PKCS7_NOATTR
-#define CMS_ContentInfo PKCS7
-#define CMS_SignerInfo PKCS7_SIGNER_INFO
-#define d2i_CMS_ContentInfo d2i_PKCS7
-#define CMS_get0_type(_p7) ((_p7)->type)
-#define pkinit_CMS_get0_content_signed(_p7) (&((_p7)->d.sign->contents->d.other->value.octet_string))
-#define pkinit_CMS_get0_content_data(_p7) (&((_p7)->d.other->value.octet_string))
-#define CMS_set1_signers_certs(_p7,_stack_of_x509,_uint)
-#define CMS_get0_SignerInfos PKCS7_get_signer_info
-#define stack_st_CMS_SignerInfo stack_st_PKCS7_SIGNER_INFO
-#undef  sk_CMS_SignerInfo_value
-#define sk_CMS_SignerInfo_value sk_PKCS7_SIGNER_INFO_value
-#define CMS_get0_eContentType(_p7) (_p7->d.sign->contents->type)
-#define CMS_verify PKCS7_verify
-#define CMS_get1_crls(_p7) (_p7->d.sign->crl)
-#define CMS_get1_certs(_p7) (_p7->d.sign->cert)
-#define CMS_ContentInfo_free(_p7) PKCS7_free(_p7)
-#define pkinit_CMS_SignerInfo_get_cert(_p7,_si,_x509_pp)        \
-    (*_x509_pp) = PKCS7_cert_from_signer_info(_p7,_si)
-#endif
-
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 
 /* 1.1 standardizes constructor and destructor names, renaming
@@ -1541,7 +1504,6 @@ cms_signeddata_create(krb5_context context,
                       pkinit_req_crypto_context req_cryptoctx,
                       pkinit_identity_crypto_context id_cryptoctx,
                       int cms_msg_type,
-                      int include_certchain,
                       unsigned char *data,
                       unsigned int data_len,
                       unsigned char **signed_data,
@@ -1586,49 +1548,46 @@ cms_signeddata_create(krb5_context context,
         goto cleanup;
 
     if (id_cryptoctx->my_certs != NULL) {
-        /* create a cert chain that has at least the signer's certificate */
+        X509_STORE *certstore = NULL;
+        X509_STORE_CTX *certctx;
+        STACK_OF(X509) *certstack = NULL;
+        char buf[DN_BUF_LEN];
+        unsigned int i = 0, size = 0;
+
+        /* create a cert chain */
         if ((cert_stack = sk_X509_new_null()) == NULL)
             goto cleanup;
 
         cert = sk_X509_value(id_cryptoctx->my_certs, id_cryptoctx->cert_index);
-        if (!include_certchain) {
-            pkiDebug("only including signer's certificate\n");
-            sk_X509_push(cert_stack, X509_dup(cert));
-        } else {
-            /* create a cert chain */
-            X509_STORE *certstore = NULL;
-            X509_STORE_CTX *certctx;
-            STACK_OF(X509) *certstack = NULL;
-            char buf[DN_BUF_LEN];
-            unsigned int i = 0, size = 0;
 
-            if ((certstore = X509_STORE_new()) == NULL)
-                goto cleanup;
-            pkiDebug("building certificate chain\n");
-            X509_STORE_set_verify_cb(certstore, openssl_callback);
-            certctx = X509_STORE_CTX_new();
-            if (certctx == NULL)
-                goto cleanup;
-            X509_STORE_CTX_init(certctx, certstore, cert,
-                                id_cryptoctx->intermediateCAs);
-            X509_STORE_CTX_trusted_stack(certctx, id_cryptoctx->trustedCAs);
-            if (!X509_verify_cert(certctx)) {
-                retval = oerr_cert(context, 0, certctx,
-                                   _("Failed to verify own certificate"));
-                goto cleanup;
-            }
-            certstack = X509_STORE_CTX_get1_chain(certctx);
-            size = sk_X509_num(certstack);
-            for(i = 0; i < size - 1; i++) {
-                X509 *x = sk_X509_value(certstack, i);
-                X509_NAME_oneline(X509_get_subject_name(x), buf, sizeof(buf));
-                TRACE_PKINIT_CERT_CHAIN_NAME(context, (int)i, buf);
-                sk_X509_push(cert_stack, X509_dup(x));
-            }
-            X509_STORE_CTX_free(certctx);
-            X509_STORE_free(certstore);
-            sk_X509_pop_free(certstack, X509_free);
+        certstore = X509_STORE_new();
+        if (certstore == NULL)
+            goto cleanup;
+        pkiDebug("building certificate chain\n");
+        X509_STORE_set_verify_cb(certstore, openssl_callback);
+        certctx = X509_STORE_CTX_new();
+        if (certctx == NULL)
+            goto cleanup;
+        X509_STORE_CTX_init(certctx, certstore, cert,
+                            id_cryptoctx->intermediateCAs);
+        X509_STORE_CTX_trusted_stack(certctx, id_cryptoctx->trustedCAs);
+        if (!X509_verify_cert(certctx)) {
+            retval = oerr_cert(context, 0, certctx,
+                               _("Failed to verify own certificate"));
+            goto cleanup;
         }
+        certstack = X509_STORE_CTX_get1_chain(certctx);
+        size = sk_X509_num(certstack);
+        for (i = 0; i < size - 1; i++) {
+            X509 *x = sk_X509_value(certstack, i);
+            X509_NAME_oneline(X509_get_subject_name(x), buf, sizeof(buf));
+            TRACE_PKINIT_CERT_CHAIN_NAME(context, (int)i, buf);
+            sk_X509_push(cert_stack, X509_dup(x));
+        }
+        X509_STORE_CTX_free(certctx);
+        X509_STORE_free(certstore);
+        sk_X509_pop_free(certstack, X509_free);
+
         p7s->cert = cert_stack;
 
         /* fill-in PKCS7_SIGNER_INFO */
@@ -1901,7 +1860,7 @@ cms_signeddata_verify(krb5_context context,
     if (is_signed && !OBJ_cmp(type, oid)) {
         unsigned char *d;
         *is_signed = 0;
-        octets = pkinit_CMS_get0_content_data(cms);
+        octets = CMS_get0_content(cms);
         if (!octets || ((*octets)->type != V_ASN1_OCTET_STRING)) {
             retval = KRB5KDC_ERR_PREAUTH_FAILED;
             krb5_set_error_message(context, retval,
@@ -1956,13 +1915,13 @@ cms_signeddata_verify(krb5_context context,
             goto cleanup;
         *is_signed = 0;
         /* We cannot use CMS_dataInit because there may be no digest */
-        octets = pkinit_CMS_get0_content_signed(cms);
+        octets = CMS_get0_content(cms);
         if (octets)
             out = BIO_new_mem_buf((*octets)->data, (*octets)->length);
         if (out == NULL)
             goto cleanup;
     } else {
-        pkinit_CMS_SignerInfo_get_cert(cms, si, &x);
+        CMS_SignerInfo_get0_algs(si, NULL, &x, NULL, NULL);
         if (x == NULL)
             goto cleanup;
 
@@ -2102,15 +2061,10 @@ cms_signeddata_verify(krb5_context context,
             goto cleanup;
         out = BIO_new(BIO_s_mem());
         if (CMS_verify(cms, NULL, store, NULL, out, flags) == 0) {
-            unsigned long err = ERR_peek_error();
-            switch(ERR_GET_REASON(err)) {
-            case PKCS7_R_DIGEST_FAILURE:
-                retval = KRB5KDC_ERR_DIGEST_IN_SIGNED_DATA_NOT_ACCEPTED;
-                break;
-            case PKCS7_R_SIGNATURE_FAILURE:
-            default:
+            if (ERR_peek_last_error() == CMS_R_VERIFICATION_FAILURE)
                 retval = KRB5KDC_ERR_INVALID_SIG;
-            }
+            else
+                retval = KRB5KDC_ERR_DIGEST_IN_SIGNED_DATA_NOT_ACCEPTED;
             (void)oerr(context, retval, _("Failed to verify CMS message"));
             goto cleanup;
         }
@@ -2187,11 +2141,11 @@ cleanup:
         X509_STORE_free(store);
     if (cms != NULL) {
         if (signerCerts != NULL)
-            pkinit_CMS_free1_certs(signerCerts);
+            sk_X509_pop_free(signerCerts, X509_free);
         if (idctx->intermediateCAs != NULL && signerCerts)
             sk_X509_free(intermediateCAs);
         if (signerRevoked != NULL)
-            pkinit_CMS_free1_crls(signerRevoked);
+            sk_X509_CRL_pop_free(signerRevoked, X509_CRL_free);
         if (idctx->revoked != NULL && signerRevoked)
             sk_X509_CRL_free(revoked);
         CMS_ContentInfo_free(cms);
@@ -2212,7 +2166,6 @@ cms_envelopeddata_create(krb5_context context,
                          pkinit_req_crypto_context reqctx,
                          pkinit_identity_crypto_context idctx,
                          krb5_preauthtype pa_type,
-                         int include_certchain,
                          unsigned char *key_pack,
                          unsigned int key_pack_len,
                          unsigned char **out,
@@ -2228,8 +2181,8 @@ cms_envelopeddata_create(krb5_context context,
     const EVP_CIPHER *cipher = NULL;
 
     retval = cms_signeddata_create(context, plgctx, reqctx, idctx,
-                                   CMS_ENVEL_SERVER, include_certchain,
-                                   key_pack, key_pack_len, &signed_data,
+                                   CMS_ENVEL_SERVER, key_pack, key_pack_len,
+                                   &signed_data,
                                    (unsigned int *)&signed_data_len);
     if (retval) {
         pkiDebug("failed to create pkcs7 signed data\n");
@@ -2319,7 +2272,9 @@ cms_envelopeddata_verify(krb5_context context,
     }
 
     /* verify that the received message is PKCS7 EnvelopedData message */
-    if (OBJ_obj2nid(p7->type) != NID_pkcs7_enveloped) {
+    if (OBJ_obj2nid(p7->type) != NID_pkcs7_enveloped ||
+        p7->d.enveloped == NULL ||
+        p7->d.enveloped->enc_data->enc_data == NULL) {
         pkiDebug("Expected id-enveloped PKCS7 msg (received type = %d)\n",
                  OBJ_obj2nid(p7->type));
         krb5_set_error_message(context, retval, "wrong oid\n");
@@ -4453,7 +4408,6 @@ reassemble_pkcs11_name(pkinit_identity_opts *idopts)
 {
     struct k5buf buf;
     int n = 0;
-    char *ret;
 
     k5_buf_init_dynamic(&buf);
     k5_buf_add(&buf, "PKCS11:");
@@ -4478,12 +4432,7 @@ reassemble_pkcs11_name(pkinit_identity_opts *idopts)
         k5_buf_add_fmt(&buf, "%sslotid=%ld", n++ ? ":" : "",
                        (long)idopts->slotid);
     }
-    if (k5_buf_status(&buf) == 0)
-        ret = strdup(buf.data);
-    else
-        ret = NULL;
-    k5_buf_free(&buf);
-    return ret;
+    return k5_buf_cstring(&buf);
 }
 
 static krb5_error_code
@@ -5475,37 +5424,38 @@ create_krb5_supportedCMSTypes(krb5_context context,
                               pkinit_plg_crypto_context plg_cryptoctx,
                               pkinit_req_crypto_context req_cryptoctx,
                               pkinit_identity_crypto_context id_cryptoctx,
-                              krb5_algorithm_identifier ***oids)
+                              krb5_algorithm_identifier ***algs_out)
 {
+    krb5_error_code ret;
+    krb5_algorithm_identifier **algs = NULL;
+    size_t i, count;
 
-    krb5_error_code retval = ENOMEM;
-    krb5_algorithm_identifier **loids = NULL;
-    krb5_data des3oid = {0, 8, "\x2A\x86\x48\x86\xF7\x0D\x03\x07" };
+    *algs_out = NULL;
 
-    *oids = NULL;
-    loids = malloc(2 * sizeof(krb5_algorithm_identifier *));
-    if (loids == NULL)
+    /* Count supported OIDs and allocate list (including null terminator). */
+    for (count = 0; supported_cms_algs[count] != NULL; count++);
+    algs = k5calloc(count + 1, sizeof(*algs), &ret);
+    if (algs == NULL)
         goto cleanup;
-    loids[1] = NULL;
-    loids[0] = malloc(sizeof(krb5_algorithm_identifier));
-    if (loids[0] == NULL) {
-        free(loids);
-        goto cleanup;
+
+    /* Add an algorithm identifier for each OID, with no parameters. */
+    for (i = 0; i < count; i++) {
+        algs[i] = k5alloc(sizeof(*algs[i]), &ret);
+        if (algs[i] == NULL)
+            goto cleanup;
+        ret = krb5int_copy_data_contents(context, supported_cms_algs[i],
+                                         &algs[i]->algorithm);
+        if (ret)
+            goto cleanup;
+        algs[i]->parameters = empty_data();
     }
-    retval = pkinit_copy_krb5_data(&loids[0]->algorithm, &des3oid);
-    if (retval) {
-        free(loids[0]);
-        free(loids);
-        goto cleanup;
-    }
-    loids[0]->parameters.length = 0;
-    loids[0]->parameters.data = NULL;
 
-    *oids = loids;
-    retval = 0;
+    *algs_out = algs;
+    algs = NULL;
+
 cleanup:
-
-    return retval;
+    free_krb5_algorithm_identifiers(&algs);
+    return ret;
 }
 
 krb5_error_code

@@ -1522,7 +1522,7 @@ warn_pw_expiry(krb5_context context, krb5_get_init_creds_opt *options,
     void *expire_data;
     krb5_timestamp pw_exp, acct_exp, now;
     krb5_boolean is_last_req;
-    krb5_deltat delta;
+    uint32_t interval;
     char ts[256], banner[1024];
 
     if (as_reply == NULL || as_reply->enc_part2 == NULL)
@@ -1553,8 +1553,8 @@ warn_pw_expiry(krb5_context context, krb5_get_init_creds_opt *options,
     ret = krb5_timeofday(context, &now);
     if (ret != 0)
         return;
-    if (!is_last_req &&
-        (ts_after(now, pw_exp) || ts_delta(pw_exp, now) > 7 * 24 * 60 * 60))
+    interval = ts_interval(now, pw_exp);
+    if (!is_last_req && (!interval || interval > 7 * 24 * 60 * 60))
         return;
 
     if (!prompter)
@@ -1564,41 +1564,49 @@ warn_pw_expiry(krb5_context context, krb5_get_init_creds_opt *options,
     if (ret != 0)
         return;
 
-    delta = ts_delta(pw_exp, now);
-    if (delta < 3600) {
+    if (interval < 3600) {
         snprintf(banner, sizeof(banner),
                  _("Warning: Your password will expire in less than one hour "
                    "on %s"), ts);
-    } else if (delta < 86400 * 2) {
+    } else if (interval < 86400 * 2) {
         snprintf(banner, sizeof(banner),
                  _("Warning: Your password will expire in %d hour%s on %s"),
-                 delta / 3600, delta < 7200 ? "" : "s", ts);
+                 interval / 3600, interval < 7200 ? "" : "s", ts);
     } else {
         snprintf(banner, sizeof(banner),
                  _("Warning: Your password will expire in %d days on %s"),
-                 delta / 86400, ts);
+                 interval / 86400, ts);
     }
 
     /* PROMPTER_INVOCATION */
     (*prompter)(context, data, 0, banner, 0, 0);
 }
 
-/* Display a warning via the prompter if des3-cbc-sha1 was used for either the
- * reply key or the session key. */
+/* Display a warning via the prompter if a deprecated enctype was used for
+ * either the reply key or the session key. */
 static void
-warn_des3(krb5_context context, krb5_init_creds_context ctx,
-          krb5_enctype as_key_enctype)
+warn_deprecated(krb5_context context, krb5_init_creds_context ctx,
+                krb5_enctype as_key_enctype)
 {
-    const char *banner;
+    krb5_enctype etype;
+    char encbuf[128], banner[256];
 
-    if (as_key_enctype != ENCTYPE_DES3_CBC_SHA1 &&
-        ctx->cred.keyblock.enctype != ENCTYPE_DES3_CBC_SHA1)
-        return;
     if (ctx->prompter == NULL)
         return;
 
-    banner = _("Warning: encryption type des3-cbc-sha1 used for "
-               "authentication is weak and will be disabled");
+    if (krb5int_c_deprecated_enctype(as_key_enctype))
+        etype = as_key_enctype;
+    else if (krb5int_c_deprecated_enctype(ctx->cred.keyblock.enctype))
+        etype = ctx->cred.keyblock.enctype;
+    else
+        return;
+
+    if (krb5_enctype_to_name(etype, FALSE, encbuf, sizeof(encbuf)) != 0)
+        return;
+    snprintf(banner, sizeof(banner),
+             _("Warning: encryption type %s used for authentication is "
+               "deprecated and will be disabled"), encbuf);
+
     /* PROMPTER_INVOCATION */
     (*ctx->prompter)(context, ctx->prompter_data, NULL, banner, 0, NULL);
 }
@@ -1849,7 +1857,7 @@ init_creds_step_reply(krb5_context context,
     ctx->complete = TRUE;
     warn_pw_expiry(context, ctx->opt, ctx->prompter, ctx->prompter_data,
                    ctx->in_tkt_service, ctx->reply);
-    warn_des3(context, ctx, encrypting_key.enctype);
+    warn_deprecated(context, ctx, encrypting_key.enctype);
 
 cleanup:
     krb5_free_pa_data(context, kdc_padata);
