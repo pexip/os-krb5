@@ -29,10 +29,10 @@ index 66fb4bc..44d120b 100644
  extern int optind;
  extern char * optarg;
 diff --git a/src/include/k5-int.h b/src/include/k5-int.h
-index 44dc1ee..5c582dc 100644
+index 2f7791b..7d99f9e 100644
 --- a/src/include/k5-int.h
 +++ b/src/include/k5-int.h
-@@ -596,6 +596,12 @@ extern char *strdup (const char *);
+@@ -598,6 +598,12 @@ extern char *strdup (const char *);
  #ifdef HAVE_SYS_PARAM_H
  #include <sys/param.h>                  /* MAXPATHLEN */
  #endif

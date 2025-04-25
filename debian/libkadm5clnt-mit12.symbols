@@ -49,13 +49,11 @@ libkadm5clnt_mit.so.12 libkadm5clnt-mit12 #MINVER#
  kadm5_setkey_principal_4@kadm5clnt_mit_12_MIT 1.18.2
  kadm5_unlock@kadm5clnt_mit_12_MIT 1.18.2
  kadm5clnt_mit_12_MIT@kadm5clnt_mit_12_MIT 1.18.2
- krb5_aprof_finish@kadm5clnt_mit_12_MIT 1.18.2
  krb5_aprof_get_boolean@kadm5clnt_mit_12_MIT 1.18.2
  krb5_aprof_get_deltat@kadm5clnt_mit_12_MIT 1.18.2
  krb5_aprof_get_int32@kadm5clnt_mit_12_MIT 1.18.2
  krb5_aprof_get_string@kadm5clnt_mit_12_MIT 1.18.2
  krb5_aprof_getvals@kadm5clnt_mit_12_MIT 1.18.2
- krb5_aprof_init@kadm5clnt_mit_12_MIT 1.18.2
  krb5_flagnum_to_string@kadm5clnt_mit_12_MIT 1.18.2
  krb5_flags_to_strings@kadm5clnt_mit_12_MIT 1.18.2
  krb5_flagspec_to_mask@kadm5clnt_mit_12_MIT 1.18.2

@@ -1,0 +1,13 @@
+#!/bin/sh -e
+
+if [ "$1" != "upgrade" ]
+then
+    for i in kinit klist kswitch ksu kpasswd kdestroy kadmin ktutil
+    do
+        update-alternatives --remove $i /usr/bin/${i}.mit
+    done
+fi
+
+#DEBHELPER#
+
+

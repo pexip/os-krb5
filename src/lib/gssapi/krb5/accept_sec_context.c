@@ -353,8 +353,8 @@ kg_accept_dce(minor_status, context_handle, verifier_cred_handle,
         *mech_type = ctx->mech_used;
 
     if (time_rec) {
-        *time_rec = ts_delta(ctx->krb_times.endtime, now) +
-            ctx->k5_context->clockskew;
+        *time_rec = ts_interval(ts_incr(now, -ctx->k5_context->clockskew),
+                                ctx->krb_times.endtime);
     }
 
     /* Never return GSS_C_DELEG_FLAG since we don't support DCE credential
@@ -657,7 +657,6 @@ kg_accept_krb5(minor_status, context_handle,
 {
     krb5_context context;
     unsigned char *ptr;
-    char *sptr;
     krb5_gss_cred_id_t cred = 0;
     krb5_data ap_rep, ap_req;
     krb5_error_code code;
@@ -684,6 +683,7 @@ kg_accept_krb5(minor_status, context_handle,
     krb5_enctype negotiated_etype;
     krb5_authdata_context ad_context = NULL;
     krb5_ap_req *request = NULL;
+    struct k5buf buf;
 
     code = krb5int_accessor (&kaccess, KRB5INT_ACCESS_VERSION);
     if (code) {
@@ -787,16 +787,13 @@ kg_accept_krb5(minor_status, context_handle,
     } else if (code == G_BAD_TOK_HEADER) {
         /* DCE style not encapsulated */
         ap_req.length = input_token->length;
-        ap_req.data = input_token->value;
         mech_used = gss_mech_krb5;
         no_encap = 1;
     } else {
         major_status = GSS_S_DEFECTIVE_TOKEN;
         goto fail;
     }
-
-    sptr = (char *) ptr;
-    TREAD_STR(sptr, ap_req.data, ap_req.length);
+    ap_req.data = (char *)ptr;
 
     /* construct the sender_addr */
 
@@ -1009,7 +1006,6 @@ kg_accept_krb5(minor_status, context_handle,
     /* generate an AP_REP if necessary */
 
     if (ctx->gss_flags & GSS_C_MUTUAL_FLAG) {
-        unsigned char * ptr3;
         krb5_int32 seq_temp;
         int cfx_generate_subkey;
 
@@ -1114,18 +1110,16 @@ kg_accept_krb5(minor_status, context_handle,
         ctx->established = 1;
 
         token.length = g_token_size(mech_used, ap_rep.length);
-
-        if ((token.value = (unsigned char *) gssalloc_malloc(token.length))
-            == NULL) {
+        token.value = gssalloc_malloc(token.length);
+        if (token.value == NULL) {
             major_status = GSS_S_FAILURE;
             code = ENOMEM;
             goto fail;
         }
-        ptr3 = token.value;
-        g_make_token_header(mech_used, ap_rep.length,
-                            &ptr3, KG_TOK_CTX_AP_REP);
-
-        TWRITE_STR(ptr3, ap_rep.data, ap_rep.length);
+        k5_buf_init_fixed(&buf, token.value, token.length);
+        g_make_token_header(&buf, mech_used, ap_rep.length, KG_TOK_CTX_AP_REP);
+        k5_buf_add_len(&buf, ap_rep.data, ap_rep.length);
+        assert(buf.len == token.length);
 
         ctx->established = 1;
 
@@ -1152,8 +1146,10 @@ kg_accept_krb5(minor_status, context_handle,
 
     /* Add the maximum allowable clock skew as a grace period for context
      * expiration, just as we do for the ticket. */
-    if (time_rec)
-        *time_rec = ts_delta(ctx->krb_times.endtime, now) + context->clockskew;
+    if (time_rec) {
+        *time_rec = ts_interval(ts_incr(now, -context->clockskew),
+                                ctx->krb_times.endtime);
+    }
 
     if (ret_flags)
         *ret_flags = ctx->gss_flags;
@@ -1218,7 +1214,6 @@ fail:
          (request->ap_options & AP_OPTS_MUTUAL_REQUIRED) ||
          major_status == GSS_S_CONTINUE_NEEDED)) {
         unsigned int tmsglen;
-        int toktype;
 
         /*
          * The client is expecting a response, so we can send an
@@ -1240,17 +1235,16 @@ fail:
             goto done;
 
         tmsglen = scratch.length;
-        toktype = KG_TOK_CTX_ERROR;
 
         token.length = g_token_size(mech_used, tmsglen);
         token.value = gssalloc_malloc(token.length);
         if (!token.value)
             goto done;
+        k5_buf_init_fixed(&buf, token.value, token.length);
+        g_make_token_header(&buf, mech_used, tmsglen, KG_TOK_CTX_ERROR);
+        k5_buf_add_len(&buf, scratch.data, scratch.length);
+        assert(buf.len == token.length);
 
-        ptr = token.value;
-        g_make_token_header(mech_used, tmsglen, &ptr, toktype);
-
-        TWRITE_STR(ptr, scratch.data, scratch.length);
         krb5_free_data_contents(context, &scratch);
 
         *output_token = token;

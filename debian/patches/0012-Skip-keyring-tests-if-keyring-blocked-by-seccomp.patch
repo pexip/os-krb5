@@ -1,0 +1,77 @@
+From: Sam Hartman <hartmans@debian.org>
+Date: Fri, 14 Jun 2024 16:36:25 -0600
+Subject: Skip keyring tests if keyring blocked by seccomp
+
+Skip keyring tests if we cannot successfully add a key because add_key
+returns ENOSYS, presumably because it is blocked by seccomp policy in
+a container environment.
+
+* Move keyring support detection code duplicated between t_cccol.py
+  and t_ccache.py to k5test.py
+
+* Expand that code to call keyctl and confirm it works to add a key.
+---
+ src/lib/krb5/ccache/t_cccol.py |  4 +---
+ src/tests/t_ccache.py          |  4 +---
+ src/util/k5test.py             | 18 ++++++++++++++++++
+ 3 files changed, 20 insertions(+), 6 deletions(-)
+
+diff --git a/src/lib/krb5/ccache/t_cccol.py b/src/lib/krb5/ccache/t_cccol.py
+index 7dfe05b..7c5e448 100755
+--- a/src/lib/krb5/ccache/t_cccol.py
++++ b/src/lib/krb5/ccache/t_cccol.py
+@@ -3,9 +3,7 @@ from k5test import *
+ realm = K5Realm(create_kdb=False)
+ 
+ keyctl = which('keyctl')
+-out = realm.run([klist, '-c', 'KEYRING:process:abcd'], expected_code=1)
+-test_keyring = (keyctl is not None and
+-                'Unknown credential cache type' not in out)
++test_keyring = realm.is_keyring_available()
+ if not test_keyring:
+     skipped('keyring collection tests', 'keyring support not built')
+ 
+diff --git a/src/tests/t_ccache.py b/src/tests/t_ccache.py
+index 11c9497..e382bbd 100755
+--- a/src/tests/t_ccache.py
++++ b/src/tests/t_ccache.py
+@@ -35,9 +35,7 @@ realm.run(['./conccache', realm.ccache + '.contest', 'contest',
+            realm.host_princ])
+ 
+ keyctl = which('keyctl')
+-out = realm.run([klist, '-c', 'KEYRING:process:abcd'], expected_code=1)
+-test_keyring = (keyctl is not None and
+-                'Unknown credential cache type' not in out)
++test_keyring = realm.is_keyring_available()
+ if not test_keyring:
+     skipped('keyring ccache tests', 'keyring support not built')
+ 
+diff --git a/src/util/k5test.py b/src/util/k5test.py
+index 8e5f5ba..2ab696b 100644
+--- a/src/util/k5test.py
++++ b/src/util/k5test.py
+@@ -1179,6 +1179,24 @@ class K5Realm(object):
+     def run_kadmin(self, args, **keywords):
+         return self.run([kadmin, '-c', self.kadmin_ccache] + args, **keywords)
+ 
++    def is_keyring_available(self):
++        '''
++        Confirm that keyctl is available, keyring caches are built in, and adding keys is not masked by seccomp filters.
++        '''
++        keyctl = which('keyctl')
++        out = self.run([klist, '-c', 'KEYRING:process:abcd'], expected_code=1)
++        if (keyctl is None or
++            'Unknown credential cache type' in out):
++            return False
++        try: subprocess.check_output(['keyctl', 'add', 'user', 'some_key', 'data', '@p'], stderr=subprocess.STDOUT)
++        except subprocess.CalledProcessError as e:
++            out = str(e.output, 'utf-8')
++            if 'Function not implemented' in out and e.returncode == 1:
++                return False # masked by seccomp
++            fail('Unexpected output from keyctl: '+e.output)
++            raise
++        return True
++    
+     def special_env(self, name, has_kdc_conf, krb5_conf=None, kdc_conf=None):
+         krb5_conf_path = os.path.join(self.testdir, 'krb5.conf.%s' % name)
+         krb5_conf = _cfg_merge(self._krb5_conf, krb5_conf)

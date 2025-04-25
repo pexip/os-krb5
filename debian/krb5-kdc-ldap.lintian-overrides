@@ -1,0 +1,2 @@
+# Lintian error safe to override as it is most likely irrelevant
+krb5-kdc-ldap: library-not-linked-against-libc [usr/lib/x86_64-linux-gnu/krb5/plugins/kdb/kldap.so]

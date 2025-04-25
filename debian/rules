@@ -22,7 +22,7 @@ EXCLUDE = -Xtmac.doc -Xexamples/krb5 -Xgnats/mit -Xkrb5-send-pr \
 	-Xsserver -Xsim_server -Xuuserver \
 	-Xsclient -Xsim_client -Xuuclient -Xpreauth/test.so
 
-LIB_PACKAGES = libkrb5-3 libgssapi-krb5-2 libkadm5clnt-mit12 libkadm5srv-mit12 libkdb5-10 libgssrpc4  \
+LIB_PACKAGES = libkrb5-3 libgssapi-krb5-2 libkadm5clnt-mit12 libkadm5srv-mit12 libkdb5-10t64 libgssrpc4t64  \
 	libkrb5support0  libk5crypto3 libkrad0
 
 ifneq (,$(filter stage1,$(DEB_BUILD_PROFILES)))
@@ -38,11 +38,19 @@ DH_BUILD_OPTS= --sourcedir=src --builddir=build
 
 build: build-arch build-indep
 
+execute_before_dh_auto_build:
+	# It's fine for a test program not to get some of the hardening flags because
+	# it is never installed
+	@echo 'blhc: ignore-line-regexp: .* -o t_trval .*'
+	# It's not a problem that fortify flags are absent when preprosessor creates
+	# version identifier in docs
+	@echo 'blhc: ignore-line-regexp: .*doc/version.py'
 
 override_dh_auto_configure:
 	dh_auto_configure $(DH_BUILD_OPTS) -- --with-system-et --with-system-ss --disable-rpath  \
 		--enable-shared $(CONFIGURE_LDAP) --without-tcl \
 	--with-system-verto \
+	--with-lmdb \
 		--sysconfdir=/etc  \
 		--localstatedir=/etc
 
@@ -114,12 +122,16 @@ override_dh_install-arch:
 
 	docbook-to-man debian/krb5_newrealm.sgml \
 		> debian/krb5-admin-server/usr/share/man/man8/krb5_newrealm.8
-	install -o root -g root -m 755 debian/krb5_newrealm \
+	install -m 755 debian/krb5_newrealm \
 		debian/krb5-admin-server/usr/sbin
-	install -o root -g root -m 644 debian/kdc.conf \
+	install -m 644 debian/kdc.conf \
 		debian/krb5-kdc/usr/share/krb5-kdc/kdc.conf.template
 	ln -s /usr/share/krb5-kdc/kdc.conf.template \
 		debian/krb5-kdc/usr/share/doc/krb5-kdc/examples/kdc.conf
+	for I in kdestroy kinit klist kpasswd ksu kadmin ktutil kswitch; do { \
+		mv debian/krb5-user/usr/bin/$$I debian/krb5-user/usr/bin/$$I.mit; \
+		mv debian/krb5-user/usr/share/man/man1/$$I.1 debian/krb5-user/usr/share/man/man1/$$I.mit.1; \
+	} done
 
 override_dh_installinit:
 	# We don't need to override systemd because the systemd behavior is reasonable, and we're just trying to work around issues with error handling in init scripts
@@ -138,11 +150,12 @@ override_dh_makeshlibs:
 
 override_dh_fixperms-arch:
 	dh_fixperms
-	chmod u+s debian/krb5-user/usr/bin/ksu
+	chmod u+s debian/krb5-user/usr/bin/ksu.mit
 	chmod 700 debian/krb5-kdc/var/lib/krb5kdc
 	chmod 700 debian/krb5-kdc/etc/krb5kdc
 
 override_dh_auto_test:
+	dh_auto_test $(DH_BUILD_OPTS) --no-parallel
 
 %:
 	dh $@
