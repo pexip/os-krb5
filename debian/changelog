@@ -1,3 +1,9 @@
+krb5 (1.21.3-5+pexip25u1) pexip-trixie; urgency=medium
+
+  * Initial trixie build
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Tue, 29 Apr 2025 22:35:15 +0100
+
 krb5 (1.21.3-5) unstable; urgency=medium
 
   * Non-maintainer upload with maintainer agreement.
