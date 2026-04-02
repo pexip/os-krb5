@@ -1,3 +1,4 @@
+Patch openssl usage to only use non-deprecated APIs.
 --- krb5.orig/src/plugins/preauth/pkinit/pkinit_crypto_openssl.c
 +++ krb5/src/plugins/preauth/pkinit/pkinit_crypto_openssl.c
 @@ -1570,7 +1570,11 @@ cms_signeddata_create(krb5_context conte
