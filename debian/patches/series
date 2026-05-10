@@ -11,3 +11,4 @@ debian-local/0008-Use-isystem-for-include-paths.patch
 0012-Skip-keyring-tests-if-keyring-blocked-by-seccomp.patch
 0012-Replace-ssl.wrap_socket-for-tests.patch
 CVE-2025-24528.patch
+Fix-two-NegoEx-parsing-vulnerabilities.patch

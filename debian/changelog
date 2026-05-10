@@ -1,3 +1,11 @@
+krb5 (1.21.3-5+deb13u1) trixie-security; urgency=high
+
+  * Non-maintainer upload by the Security Team.
+  * Fix two NegoEx parsing vulnerabilities (CVE-2026-40355, CVE-2026-40356)
+    (Closes: #1135317)
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Sun, 10 May 2026 09:16:51 +0200
+
 krb5 (1.21.3-5) unstable; urgency=medium
 
   * Non-maintainer upload with maintainer agreement.
