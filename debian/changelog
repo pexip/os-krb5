@@ -1,3 +1,42 @@
+krb5 (1.21.3-5+deb13u2) trixie-security; urgency=high
+
+  * Backport security fixes from upstream 1.22.3, Closes: #1153598
+    - CVE-2026-107364: KDC out-of-bounds read with a specific ASN.1
+      encoding
+    - CVE-2026-107884: check the lockdown_keys attribute in kadmind
+      password change requests
+    - CVE-2026-112314: clnttcp_call() does not free the RPC reply verifier
+      between retries
+    - CVE-2026-119079: ASN.1 decoder grows the decoded element array one
+      entry at a time
+    - CVE-2026-118380: RPCSEC_GSS uses the unverified service type to
+      unwrap arguments and wrap return values
+    - CVE-2026-71199: check for unkeyed checksums when validating CAMMAC
+      verifiers
+    - CVE-2026-71200: PKINIT null pointer dereference
+    - CVE-2026-112315: RPCSEC_GSS routines do not free partially decoded
+      buffers on failure
+    - CVE-2026-112316: xdr_krb5_tl_data() does not free partially decoded
+      data on failure
+    - CVE-2026-112317: krb5_ktkdb_get_entry() does not free decrypted key
+      material on check failure
+    - CVE-2026-112318: kadmind policy stubs do not reject a NULL policy
+      name
+    - CVE-2026-112319: GSS-RPC does not enforce size limits on XDR-decoded
+      data
+    - CVE-2026-112320: GSS-RPC does not release the previous auth context
+      on flavor switch
+    - CVE-2026-112321: AUTH_GSSAPI handler does not free decoded arguments
+      on certain error paths
+    - CVE-2026-112322: clean_client() quadratic CPU cost in kadmind
+    - CVE-2026-112323: repeated failed AUTH_GSSAPI_INIT requests
+      accumulate client state
+    - CVE-2026-111423: logic error when checking PAC server checksums
+  * CVE-2026-11850: Prevent read overrun in libkdb_ldap (Closes: #1139821)
+  * Assisted-by local Qwen 3.8-27B
+
+ -- Sam Hartman <hartmans@debian.org>  Sun, 15 Nov 2026 08:22:20 -0700
+
 krb5 (1.21.3-5+deb13u1) trixie-security; urgency=high
 
   * Non-maintainer upload by the Security Team.

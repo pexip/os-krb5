@@ -1,6 +1,7 @@
 From: Greg Hudson <ghudson@mit.edu>
 Date: Wed, 8 Apr 2026 17:57:59 -0400
 Subject: Fix two NegoEx parsing vulnerabilities
+
 Origin: https://github.com/krb5/krb5/commit/2e75f0d9362fb979f5fc92829431a590a130929f
 Bug-Debian: https://bugs.debian.org/1135317
 Bug-Debian-Security: https://security-tracker.debian.org/tracker/CVE-2026-40356
@@ -37,7 +38,7 @@ target_version: 1.22-next
  1 file changed, 6 insertions(+), 1 deletion(-)
 
 diff --git a/src/lib/gssapi/spnego/negoex_util.c b/src/lib/gssapi/spnego/negoex_util.c
-index edc5462e8441..a65238e57305 100644
+index edc5462..a65238e 100644
 --- a/src/lib/gssapi/spnego/negoex_util.c
 +++ b/src/lib/gssapi/spnego/negoex_util.c
 @@ -253,6 +253,10 @@ parse_nego_message(OM_uint32 *minor, struct k5input *in,
@@ -61,6 +62,3 @@ index edc5462e8441..a65238e57305 100644
          *minor = ERR_NEGOEX_INVALID_MESSAGE_SIZE;
          return GSS_S_DEFECTIVE_TOKEN;
      }
--- 
-2.53.0
-
