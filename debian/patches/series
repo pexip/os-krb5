@@ -12,7 +12,23 @@ debian-local/0008-Use-isystem-for-include-paths.patch
 0012-Replace-ssl.wrap_socket-for-tests.patch
 CVE-2025-24528.patch
 Fix-two-NegoEx-parsing-vulnerabilities.patch
+upstream/0015-Check-for-keyed-checksums-in-CAMMAC-verifiers.patch
+upstream/0016-Disable-GSSRPC-AUTH_GSSAPI-flavor-by-default.patch
+upstream/0018-Fix-RPC-leak-when-client-switches-from-RPCSEC_GSS.patch
+upstream/0022-Fix-leak-in-RPC-client-on-mismatched-ID.patch
+upstream/0023-Prevent-null-dereferences-in-kadmind-server-stubs.patch
+upstream/0024-Avoid-repeated-reallocation-when-decoding-ASN.1.patch
+upstream/0025-Fix-leak-on-error-in-krb5_ktkdb_get_entry.patch
+upstream/0026-Prevent-KDC-read-overrun-in-ASN.1-decoder.patch
+upstream/0027-Enforce-lockdown-bit-in-password-change-server.patch
+upstream/0028-Check-PAC-server-checksum-verification-result.patch
+upstream/0029-Properly-verify-RPCSEC_GSS-call-arguments.patch
+upstream/0014-Prevent-null-dereference-in-PKINIT-CMS-processing.patch
+upstream/0017-Free-call_arg-on-all-AUTH_GSSAPI-exit-paths.patch
+upstream/0019-Enforce-XDR-decode-size-limits.patch
+upstream/0020-Free-partial-tl-data-on-XDR-decode-failure.patch
+upstream/0021-Fix-leaks-when-decoding-GSS-buffers-in-libgssrpc.patch
+upstream/0030-Prevent-read-overrun-in-libkdb_ldap.patch
 
 # Pexip patches
 openssl3-deprecations.patch
-
